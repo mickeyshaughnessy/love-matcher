@@ -1,7 +1,8 @@
 # Love Matcher
 
-A public algorithm for matchmaking to help adults find love, marry, and raise children.
+A public-algorithm for matchmaking to help adults find love, marry, and raise children.
 
+[www.love-matcher.com](https://www.love-matcher.com)
 ## Project Structure
 
 ```
