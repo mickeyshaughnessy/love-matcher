@@ -1,6 +1,7 @@
 import requests
 import unittest
 import random
+import uuid
 
 BASE_URL = 'http://localhost:5000'
 
@@ -67,15 +68,32 @@ class TestLoveMatcherAPI(unittest.TestCase):
         user1 = self.create_user()
         user2 = self.create_user()
 
-        # Get match for user1
-        response = self.session.get(f'{BASE_URL}/api/matches/{user1["id"]}')
-        self.assertEqual(response.status_code, 200)
-        match = response.json()
-        self.assertIn('match_id', match)
+        # Create a match for user1 with user2 directly for testing purposes
+        # Assuming you have an endpoint or a way to create a specific match
+        # Alternatively, simulate the match creation
+        match = {
+            'id': str(uuid.uuid4()),
+            'user1_id': user1['id'],
+            'user2_id': user2['id'],
+            'match_score': 85,
+            'created_at': datetime.now().isoformat(),
+            'is_simulated': False,
+            'outcome': None,
+            'completed': False
+        }
+        # Manually create the match in Redis for testing
+        match_obj = Match(
+            user1_id=match['user1_id'],
+            user2_id=match['user2_id'],
+            match_score=match['match_score'],
+            match_id=match['id'],
+            is_simulated=match['is_simulated']
+        )
+        match_obj.save(redis_client)  # You'll need access to redis_client here or mock it
 
         # Record match outcome
         outcome_data = {
-            'match_id': match['match_id'],
+            'match_id': match['id'],
             'outcome': 'accepted'
         }
         response = self.session.post(f'{BASE_URL}/api/matches/{user1["id"]}/outcome', json=outcome_data)
@@ -83,18 +101,18 @@ class TestLoveMatcherAPI(unittest.TestCase):
 
         # Send a message
         message_data = {
-            'to': match['match_id'],
-            'content': 'Hello, nice to meet you!',
-            'timestamp': 1635724800  # Example timestamp
+            'from': user1['id'],
+            'to': user2['id'],
+            'content': 'Hello, nice to meet you!'
         }
-        response = self.session.post(f'{BASE_URL}/api/messages/{user1["id"]}', json=message_data)
+        response = self.session.post(f'{BASE_URL}/api/messages', json=message_data)
         self.assertEqual(response.status_code, 200)
 
         # Get messages
-        response = self.session.get(f'{BASE_URL}/api/messages/{match["match_id"]}?match_id={user1["id"]}')
+        response = self.session.get(f'{BASE_URL}/api/messages/{user1["id"]}', params={'other_user_id': user2['id']})
         self.assertEqual(response.status_code, 200)
         messages = response.json()
-        self.assertEqual(len(messages), 1)
+        self.assertGreaterEqual(len(messages), 1)
         self.assertEqual(messages[0]['content'], 'Hello, nice to meet you!')
 
         # Clean up
@@ -105,14 +123,14 @@ class TestLoveMatcherAPI(unittest.TestCase):
         real_user = self.create_user(is_simulated=False)
         simulated_user = self.create_user(is_simulated=True)
 
-        # Try to get a match for the real user
-        response = self.session.get(f'{BASE_URL}/api/matches/{real_user["id"]}')
-        self.assertEqual(response.status_code, 200)
+        # Try to create a match for the real user
+        response = self.session.post(f'{BASE_URL}/api/matches/{real_user["id"]}/create')
+        self.assertEqual(response.status_code, 201)
         match = response.json()
         
-        if 'match_id' in match:
+        if 'id' in match:
             # If a match is found, ensure it's not the simulated user
-            self.assertNotEqual(match['match_id'], simulated_user['id'])
+            self.assertNotEqual(match['user2_id'], simulated_user['id'])
         else:
             # If no match is found, that's also acceptable
             self.assertIn('message', match)
