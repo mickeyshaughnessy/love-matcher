@@ -1,15 +1,22 @@
-# Love Matcher
-
-A public algorithm for matchmaking to help adults find love, marry, and raise children.
-
-## Project Structure
-
-```
-love-matcher/
-├── api/
-│   ├── __init__.py
-│   ├── api_server.py
-│   ├── models.py
-│   └── utils.py
-├── tests/
-│   └── test_i
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Love Matcher</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://clerk.browser.love-matcher.com/npm/@clerk/clerk-js@4/dist/clerk.browser.js"></script>
+</head>
+<body>
+    <div id="app">
+        <h1>Love Matcher</h1>
+        <div id="user-status"></div>
+        <div id="login-container"></div>
+        <div id="content" style="display: none;">
+            <button id="ping-btn">Ping Server</button>
+            <div id="ping-result"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
