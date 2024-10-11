@@ -7,22 +7,17 @@ A public-algorithm for matchmaking to help adults find love, marry, and raise ch
 
 ```
 love-matcher/
-├── api/
 │   ├── __init__.py
 │   ├── api_server.py
 │   ├── models.py
 │   └── utils.py
-├── tests/
-│   └── test_integration.py
-├── scripts/
-│   ├── generate_simulated_data.py
+│   └── int_tests.py
+│   ├── gen.py
 │   └── train_retention_model.py
-├── frontend/
 │   ├── index.html
 │   ├── styles.css
 │   └── script.js
-├── requirements.txt
-└── README.md
+└---── README.md
 ```
 
 ## Key Components

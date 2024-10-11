@@ -15,7 +15,12 @@ def ping():
 @app.route('/api/users', methods=['POST'])
 def create_user():
     data = request.json
-    user = User(data['name'], data['age'], data['preferences'], is_simulated=data.get('is_simulated', False))
+    user = User(
+        name=data['name'],
+        age=data['age'],
+        preferences=data['preferences'],
+        is_simulated=data.get('is_simulated', False)
+    )
     user.save(redis_client)
     return jsonify(user.to_dict()), 201
 
@@ -96,9 +101,14 @@ def send_message():
     if from_user.is_simulated != to_user.is_simulated:
         return jsonify({'error': 'Cannot send messages between simulated and real users'}), 400
     
-    message = Message(data['from'], data['to'], data['content'], is_simulated=from_user.is_simulated)
+    message = Message(
+        from_user_id=data['from'],
+        to_user_id=data['to'],
+        content=data['content'],
+        is_simulated=from_user.is_simulated
+    )
     message.save(redis_client)
-    return jsonify({'message': 'Message sent successfully'})
+    return jsonify({'message': 'Message sent successfully'}), 201
 
 @app.route('/api/messages/<user_id>', methods=['GET'])
 def get_messages(user_id):

@@ -1,9 +1,9 @@
-const API_URL = 'https://api.love-matcher.com';
+const API_URL = 'http://localhost:5000'; // Update if your backend runs on a different host or port
 const clerk = window.Clerk;
 
 async function initializeClerk() {
     await clerk.load({
-        frontendApi: 'YOUR_FRONTEND_API_KEY'
+        frontendApi: 'pk_test_d2VsbC1iaXNvbi0zNi5jbGVyay5hY2NvdW50cy5kZXYk' // Replace with your actual Clerk frontend API key
     });
 
     const userStatus = document.getElementById('user-status');
@@ -37,9 +37,10 @@ async function initializeClerk() {
 async function pingServer() {
     const pingResult = document.getElementById('ping-result');
     try {
+        const token = await clerk.session.getToken();
         const response = await fetch(`${API_URL}/ping`, {
             headers: {
-                'Authorization': `Bearer ${await clerk.session.getToken()}`
+                'Authorization': `Bearer ${token}`
             }
         });
         const data = await response.json();
