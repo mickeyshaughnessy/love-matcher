@@ -5,11 +5,9 @@ async function initializeClerk() {
     await clerk.load({
         frontendApi: 'pk_test_d2VsbC1iaXNvbi0zNi5jbGVyay5hY2NvdW50cy5kZXYk' // Replace with your actual Clerk frontend API key
     });
-
     const userStatus = document.getElementById('user-status');
     const loginContainer = document.getElementById('login-container');
     const content = document.getElementById('content');
-
     if (clerk.user) {
         userStatus.textContent = `Logged in as: ${clerk.user.firstName}`;
         content.style.display = 'block';
@@ -20,7 +18,6 @@ async function initializeClerk() {
         loginContainer.style.display = 'block';
         const signInBtn = clerk.mountSignIn(loginContainer);
     }
-
     clerk.addListener(({ user }) => {
         if (user) {
             userStatus.textContent = `Logged in as: ${user.firstName}`;
@@ -50,8 +47,37 @@ async function pingServer() {
     }
 }
 
+function initializeThemeSwitcher() {
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) {
+        themeSelect.addEventListener('change', function() {
+            const themeLink = document.getElementById('theme-style');
+            if (themeLink) {
+                themeLink.href = this.value + '.css';
+            }
+        });
+    }
+}
+
+function initializeContactForm() {
+    const contactForm = document.getElementById('contact-form');
+    if (contactForm) {
+        contactForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            // Here you would typically send the form data to your server
+            alert('Message sent successfully!');
+            this.reset();
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeClerk();
+    initializeThemeSwitcher();
+    initializeContactForm();
+
     const pingBtn = document.getElementById('ping-btn');
-    pingBtn.addEventListener('click', pingServer);
+    if (pingBtn) {
+        pingBtn.addEventListener('click', pingServer);
+    }
 });

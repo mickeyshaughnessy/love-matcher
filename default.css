@@ -1,0 +1,83 @@
+body {
+    background: #000033;
+    color: #ffcc00;
+    font-family: 'Press Start 2P', cursive;
+    margin: 0;
+    padding: 20px;
+}
+
+#app {
+    max-width: 800px;
+    margin: auto;
+    background: #001a4d;
+    border: 4px solid #ff9900;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+}
+
+h1, h2, h3 {
+    color: #ff9900;
+    text-transform: uppercase;
+    text-shadow: 2px 2px #000;
+}
+
+button {
+    background: #ffcc00;
+    color: #001a4d;
+    border: 2px solid #ff9900;
+    padding: 10px 20px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.3s;
+    font-size: 0.8em;
+    text-transform: uppercase;
+}
+
+button:hover {
+    background: #ff9900;
+    transform: scale(1.05);
+}
+
+input[type="text"], input[type="email"], textarea {
+    background: #000033;
+    color: #ffcc00;
+    border: 2px solid #ff9900;
+    padding: 10px;
+    margin: 5px 0;
+    width: calc(100% - 24px);
+    font-family: inherit;
+}
+
+textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+#chat-box {
+    border: 2px dashed #ffcc00;
+    padding: 15px;
+    background: #000033;
+    margin-top: 20px;
+    height: 300px;
+    overflow-y: auto;
+}
+
+#chat-messages div {
+    margin: 5px 0;
+    padding: 5px;
+    background: rgba(255, 204, 0, 0.1);
+    border-radius: 5px;
+}
+
+#ping-result {
+    color: #ff6600;
+    margin-top: 10px;
+    padding: 5px;
+    background: rgba(255, 204, 0, 0.1);
+    display: inline-block;
+}
+
+/* Pixel art star background */
+body {
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoP

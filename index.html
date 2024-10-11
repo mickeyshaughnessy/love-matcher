@@ -4,19 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Love Matcher</title>
-    <link rel="stylesheet" href="styles.css">
+    <link id="theme-style" rel="stylesheet" href="default.css">
     <script src="https://clerk.browser.love-matcher.com/npm/@clerk/clerk-js@4/dist/clerk.browser.js"></script>
 </head>
 <body>
     <div id="app">
-        <h1>Love Matcher</h1>
-        <div id="user-status"></div>
-        <div id="login-container"></div>
-        <div id="content" style="display: none;">
-            <button id="ping-btn">Ping Server</button>
-            <div id="ping-result"></div>
-        </div>
+        <header>
+            <h1>LOVE MATCHER</h1>
+            <div id="style-picker">
+                <select id="theme-select">
+                    <option value="default">Default Theme</option>
+                    <option value="fantasy">Fantasy Theme</option>
+                    <option value="nature">Nature Theme</option>
+                    <option value="sonic">Sonic Theme</option>
+                </select>
+            </div>
+            <div id="login-container">
+                <button id="login-btn">LOGIN</button>
+            </div>
+        </header>
+
+        <main>
+            <p>Love Matcher helps adults find love by providing one match at a time. Our public matchmaking algorithm ensures transparency. Communication is limited to text messaging, fostering genuine connections and meaningful conversations.</p>
+            
+            <div id="user-status"></div>
+            
+            <div id="content" style="display: none;">
+                <h2>Welcome to Love Matcher!</h2>
+                
+                <div id="user-profile">
+                    <h3>Your Profile</h3>
+                    <div>
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" placeholder="Enter your username">
+                    </div>
+                    <div>
+                        <label for="preferences">Preferences:</label>
+                        <textarea id="preferences" placeholder="Enter your preferences"></textarea>
+                    </div>
+                    <button id="save-profile-btn">Save Profile</button>
+                </div>
+
+                <div id="main-features">
+                    <div id="conversations">
+                        <h3>Conversations</h3>
+                        <div id="conversation-list">
+                            <!-- List of conversations will be populated here -->
+                        </div>
+                        <div id="conversation-details">
+                            <div id="conversation-messages"></div>
+                            <input type="text" id="conversation-input" placeholder="Write a message...">
+                            <button id="send-conversation-msg-btn">Send</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="ping-btn">Ping Server</button>
+                <div id="ping-result"></div>
+            </div>
+        </main>
+
+        <footer>
+            <div id="contact">
+                <h3>CONTACT US</h3>
+                <form id="contact-form">
+                    <div>
+                        <label for="name">Name:</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div>
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div>
+                        <label for="message">Message:</label>
+                        <textarea id="message" name="message" required></textarea>
+                    </div>
+                    <button type="submit">SEND MESSAGE</button>
+                </form>
+            </div>
+        </footer>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
