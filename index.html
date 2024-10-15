@@ -13,57 +13,67 @@
             <h1>LOVE MATCHER</h1>
             <div id="style-picker">
                 <select id="theme-select">
-                    <option value="default">Default Theme</option>
-                    <option value="fantasy">Fantasy Theme</option>
-                    <option value="nature">Nature Theme</option>
-                    <option value="sonic">Sonic Theme</option>
+                    <option value="default">Default</option>
+                    <option value="fantasy">Fantasy</option>
+                    <option value="nature">Nature</option>
+                    <option value="sonic">Fun</option>
                 </select>
             </div>
             <div id="login-container">
                 <button id="login-btn">LOGIN</button>
             </div>
         </header>
-
         <main>
-            <p>Love Matcher helps adults find love by providing one match at a time. Our public matchmaking algorithm ensures transparency. Communication is limited to text messaging, fostering genuine connections and meaningful conversations.</p>
+            <p>Love Matcher helps adults find love by providing at most one match at a time. Our matchmaking algorithm is public. Communication is limited to text messaging, fostering genuine connections and meaningful conversations.</p>
             
             <div id="user-status"></div>
             
             <div id="content" style="display: none;">
                 <h2>Welcome to Love Matcher!</h2>
                 
-                <div id="user-profile">
-                    <h3>Your Profile</h3>
-                    <div>
-                        <label for="username">Username:</label>
-                        <input type="text" id="username" placeholder="Enter your username">
-                    </div>
-                    <div>
-                        <label for="preferences">Preferences:</label>
-                        <textarea id="preferences" placeholder="Enter your preferences"></textarea>
-                    </div>
-                    <button id="save-profile-btn">Save Profile</button>
-                </div>
-
-                <div id="main-features">
-                    <div id="conversations">
-                        <h3>Conversations</h3>
-                        <div id="conversation-list">
-                            <!-- List of conversations will be populated here -->
+                <div id="app-content">
+                    <div id="main-content">
+                        <div id="user-profile">
+                            <h3>Your Profile</h3>
+                            <div>
+                                <label for="username">Username:</label>
+                                <input type="text" id="username" placeholder="Enter your username">
+                            </div>
+                            <div>
+                                <label for="preferences">Preferences:</label>
+                                <textarea id="preferences" placeholder="Enter your preferences"></textarea>
+                            </div>
+                            <button id="save-profile-btn">Save Profile</button>
                         </div>
-                        <div id="conversation-details">
-                            <div id="conversation-messages"></div>
-                            <input type="text" id="conversation-input" placeholder="Write a message...">
-                            <button id="send-conversation-msg-btn">Send</button>
+                        <div id="main-features">
+                            <div id="conversations">
+                                <h3>Conversations</h3>
+                                <div id="conversation-list">
+                                    <!-- List of conversations will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        <button id="ping-btn">Ping Server</button>
+                        <div id="ping-result"></div>
+                    </div>
+                    
+                    <div id="messages-window">
+                        <div id="message-list">
+                            <!-- List of messages will be populated here -->
+                        </div>
+                        <div id="message-content">
+                            <div id="message-reading-area">
+                                <!-- Selected message content will be displayed here -->
+                            </div>
+                            <div id="message-input-area">
+                                <textarea id="new-message" placeholder="Type your message here..."></textarea>
+                                <button id="send-message-btn">Send</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <button id="ping-btn">Ping Server</button>
-                <div id="ping-result"></div>
             </div>
         </main>
-
         <footer>
             <div id="contact">
                 <h3>CONTACT US</h3>
@@ -85,7 +95,6 @@
             </div>
         </footer>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>

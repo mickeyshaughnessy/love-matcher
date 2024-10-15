@@ -52,12 +52,8 @@ love-matcher/
 - `GET /api/users/<user_id>`: Get user profile
 - `DELETE /api/users/<user_id>`: Delete user account
 - `PUT /api/users/<user_id>/preferences`: Update user preferences
-- `GET /api/matches/<user_id>`: Get matches for a user
-- `POST /api/matches/<user_id>/create`: Create a new match
-- `POST /api/matches/<match_id>/complete`: Complete an existing match
-- `GET /api/matches/<user_id>/<match_id>/profile`: Get match user profile
-- `POST /api/matches/<user_id>/outcome`: Set match outcome
 - `POST /api/messages`: Send a message
+- `POST /api/match`: accept or decline a match 
 - `GET /api/messages/<user_id>`: Get messages for a user
 - `GET /api/users/<user_id>/stats`: Get user statistics
 
@@ -79,10 +75,6 @@ python -m pytest tests/test_integration.py
   ```
   python scripts/train_retention_model.py
   ```
-
-## Frontend
-
-To run the frontend, simply open the `frontend/index.html` file in a web browser. Make sure to update the `API_URL` in `script.js` to point to your running backend server.
 
 ## Contributing
 
