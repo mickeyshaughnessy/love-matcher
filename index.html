@@ -1,8 +1,3 @@
-Here's a new home page for the Love Matcher system that incorporates all the functionality described in the README:
-
-
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,6 +12,7 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
+            transition: all 0.3s ease;
         }
         h1, h2 {
             color: #e74c3c;
@@ -38,9 +34,129 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
             content: "❤ ";
             color: #e74c3c;
         }
+        #style-picker {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        /* Classic style */
+        body.classic {
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        body.classic h1, body.classic h2 {
+            color: #e74c3c;
+        }
+        /* Modern style */
+        body.modern {
+            background-color: #ffffff;
+            color: #2c3e50;
+        }
+        body.modern h1, body.modern h2 {
+            color: #3498db;
+        }
+        /* Romantic style */
+        body.romantic {
+            background-color: #fff0f5;
+            color: #8e44ad;
+        }
+        body.romantic h1, body.romantic h2 {
+            color: #c0392b;
+        }
+        /* SEGA style */
+        body.sega {
+            background-color: #0000AA;
+            color: #FFFFFF;
+            font-family: 'Courier New', monospace;
+        }
+        body.sega h1, body.sega h2 {
+            color: #FFBB00;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #FF0000;
+        }
+        body.sega .cta-button {
+            background-color: #FF0000;
+            color: #FFFFFF;
+            border: 2px solid #FFBB00;
+        }
+        /* Bard's Tale style */
+        body.bards {
+            background-color: #2C1B0F;
+            color: #D4AF37;
+            font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+        }
+        body.bards h1, body.bards h2 {
+            color: #8B4513;
+            font-style: italic;
+            text-shadow: 1px 1px 2px #000000;
+        }
+        body.bards .cta-button {
+            background-color: #8B4513;
+            color: #D4AF37;
+            border: 2px solid #D4AF37;
+        }
+        /* Wrestler style */
+        body.wrestler {
+            background-color: #FFD700;
+            color: #8B0000;
+            font-family: 'Impact', sans-serif;
+        }
+        body.wrestler h1, body.wrestler h2 {
+            color: #006400;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #FF4500;
+        }
+        body.wrestler .cta-button {
+            background-color: #8B0000;
+            color: #FFD700;
+            border: 3px solid #006400;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        body.wrestler .feature-list li:before {
+            content: "🦅 ";
+        }
+        /* TMNT style */
+        body.tmnt {
+            background-color: #1A5A1A;
+            color: #FFA500;
+            font-family: 'Comic Sans MS', cursive;
+        }
+        body.tmnt h1, body.tmnt h2 {
+            color: #FF4500;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #000000;
+        }
+        body.tmnt .cta-button {
+            background-color: #FF4500;
+            color: #1A5A1A;
+            border: 3px solid #FFA500;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        body.tmnt .feature-list li:before {
+            content: "🐢 ";
+        }
     </style>
 </head>
-<body>
+<body class="classic">
+    <div id="style-picker">
+        <label for="style-select">Choose a style:</label>
+        <select id="style-select">
+            <option value="classic">Classic</option>
+            <option value="modern">Modern</option>
+            <option value="romantic">Romantic</option>
+            <option value="sega">SEGA</option>
+            <option value="bards">Bard's Tale</option>
+            <option value="wrestler">Wrestler</option>
+            <option value="tmnt">TMNT</option>
+        </select>
+    </div>
+
     <header>
         <h1>Welcome to Love Matcher</h1>
         <p>A public-algorithm matchmaking system to help adults find love, marry, and raise children.</p>
@@ -49,7 +165,7 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
     <main>
         <section id="about">
             <h2>About Love Matcher</h2>
-            <p>Love Matcher uses advanced algorithms and data analysis to help you find your perfect match. Our system is designed to create meaningful connections based on compatibility, shared interests, and life goals.</p>
+            <p>Love Matcher helps you find your perfect match. Our system creates meaningful conversations compatibility, shared interests, and life goals.</p>
         </section>
 
         <section id="features">
@@ -59,7 +175,6 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
                 <li>Set and update your preferences</li>
                 <li>Receive compatible matches</li>
                 <li>Communicate with potential partners</li>
-                <li>Track your matching statistics</li>
                 <li>Transparent matchmaking algorithm</li>
             </ul>
         </section>
@@ -73,25 +188,12 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
         <section id="how-it-works">
             <h2>How It Works</h2>
             <ol>
+                <li>Pay once for a lifetime subscription</li>
                 <li>Create your profile and set your preferences</li>
-                <li>Our algorithm finds compatible matches</li>
-                <li>Review your matches and express interest</li>
+                <li>Our algorithm finds compatible matches and gives them to you one at a time</li>
                 <li>If it's mutual, start communicating</li>
                 <li>Meet in person and see where love takes you!</li>
             </ol>
-        </section>
-
-        <section id="api">
-            <h2>API Access</h2>
-            <p>Love Matcher provides a comprehensive API for developers. Some key endpoints include:</p>
-            <ul>
-                <li>User management (create, read, update, delete)</li>
-                <li>Preference updates</li>
-                <li>Matching system</li>
-                <li>Messaging</li>
-                <li>User statistics</li>
-            </ul>
-            <p>For full API documentation, please visit our <a href="#">Developer Portal</a>.</p>
         </section>
 
         <section id="privacy">
@@ -105,6 +207,12 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
     </footer>
 
     <script>
+        // Style picker functionality
+        const styleSelect = document.getElementById('style-select');
+        styleSelect.addEventListener('change', (event) => {
+            document.body.className = event.target.value;
+        });
+
         // Basic functionality to check server status
         async function checkServerStatus() {
             try {
@@ -123,17 +231,3 @@ Here's a new home page for the Love Matcher system that incorporates all the fun
     </script>
 </body>
 </html>
-
-```
-
-This home page incorporates all the main functionality described in the README:
-
-1. It introduces the Love Matcher system and its purpose.
-2. It highlights key features such as user profiles, preferences, matching, and messaging.
-3. It mentions the API access and lists some of the key endpoints.
-4. It includes a basic script to check the server status using the /ping endpoint.
-5. It provides a call-to-action for users to create their profiles.
-6. It outlines the process of how the matching system works.
-7. It addresses privacy concerns, which is important for a dating platform.
-
-The design is simple and clean, focusing on the content and functionality. You can further customize the styles and add more interactive elements as needed. This home page serves as a solid foundation for the Love Matcher system, providing users with all the necessary information to get started and understand the platform's capabilities.
