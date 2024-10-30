@@ -1,0 +1,200 @@
+/* Bard's Tale-inspired styles.css */
+
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Roboto+Slab:wght@400;700&display=swap');
+
+:root {
+    --parchment: #F4E1C1;
+    --ink: #2C1B0E;
+    --forest-green: #1E5631;
+    --royal-purple: #4B0082;
+    --golden-highlight: #FFD700;
+    --rustic-red: #8B0000;
+}
+
+body {
+    font-family: 'Roboto Slab', serif;
+    background-color: var(--parchment);
+    color: var(--ink);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path fill="%232C1B0E" fill-opacity="0.05" d="M25 30 L75 30 L50 70 Z"/></svg>');
+}
+
+#app {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: rgba(244, 225, 193, 0.9);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 2px solid var(--rustic-red);
+}
+
+h1, h2, h3 {
+    font-family: 'MedievalSharp', cursive;
+    color: var(--forest-green);
+    text-shadow: 1px 1px var(--golden-highlight);
+}
+
+h1 {
+    font-size: 3em;
+    margin: 0;
+}
+
+button {
+    background-color: var(--royal-purple);
+    color: var(--parchment);
+    border: none;
+    padding: 10px 20px;
+    font-family: 'MedievalSharp', cursive;
+    cursor: pointer;
+    transition: all 0.3s;
+    border-radius: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+button:hover {
+    background-color: var(--rustic-red);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+input[type="text"], input[type="email"], textarea, select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 2px solid var(--ink);
+    border-radius: 5px;
+    font-family: 'Roboto Slab', serif;
+    background-color: rgba(244, 225, 193, 0.5);
+}
+
+#main-features {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+#conversations, #style-settings {
+    width: 48%;
+    background-color: rgba(30, 86, 49, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--forest-green);
+}
+
+#conversation-list, #conversation-messages {
+    height: 300px;
+    overflow-y: auto;
+    background-color: rgba(244, 225, 193, 0.8);
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--ink);
+}
+
+#ping-result {
+    margin-top: 20px;
+    font-weight: bold;
+    color: var(--rustic-red);
+    font-style: italic;
+}
+
+#contact-form {
+    margin-top: 30px;
+    background-color: rgba(75, 0, 130, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid var(--royal-purple);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    #main-features {
+        flex-direction: column;
+    }
+
+    #conversations, #style-settings {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--parchment);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--ink);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--rustic-red);
+}
+
+/* Additional Bard's Tale-inspired elements */
+#user-profile {
+    background-color: rgba(255, 215, 0, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--golden-highlight);
+}
+
+#style-picker {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--ink);
+    border-radius: 5px;
+    background-color: var(--parchment);
+    color: var(--ink);
+    font-family: 'MedievalSharp', cursive;
+}
+
+/* Decorative elements */
+.decorative-border {
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+}
+
+.decorative-border::before {
+    content: "❧";
+    font-size: 24px;
+    color: var(--rustic-red);
+    position: absolute;
+    top: -15px;
+    left: 10px;
+    background-color: var(--parchment);
+    padding: 0 10px;
+}
+
+.decorative-border::after {
+    content: "☙";
+    font-size: 24px;
+    color: var(--rustic-red);
+    position: absolute;
+    bottom: -15px;
+    right: 10px;
+    background-color: var(--parchment);
+    padding: 0 10px;
+}

@@ -1,0 +1,132 @@
+/* Sonic the Hedgehog-inspired styles.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --sonic-blue: #0000FF;
+    --sonic-red: #FF0000;
+    --sonic-yellow: #FFFF00;
+    --sonic-green: #00FF00;
+    --sonic-brown: #8B4513;
+    --sonic-sky: #87CEEB;
+}
+
+body {
+    font-family: 'Press Start 2P', cursive;
+    background-color: var(--sonic-sky);
+    color: white;
+    line-height: 1.6;
+    padding: 20px;
+    background-image: linear-gradient(
+        to bottom,
+        var(--sonic-sky) 0%,
+        var(--sonic-green) 100%
+    );
+    min-height: 100vh;
+}
+
+#app {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+h1, h2, h3 {
+    color: var(--sonic-yellow);
+    text-shadow: 2px 2px var(--sonic-blue);
+}
+
+h1 {
+    font-size: 2.5em;
+    margin: 0;
+}
+
+button {
+    background-color: var(--sonic-red);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-family: 'Press Start 2P', cursive;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: var(--sonic-blue);
+}
+
+input[type="text"], input[type="email"], textarea, select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: var(--sonic-brown);
+    border: 2px solid var(--sonic-yellow);
+    color: white;
+    font-family: 'Press Start 2P', cursive;
+}
+
+#main-features {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+#conversations, #style-settings {
+    width: 48%;
+}
+
+#conversation-list, #conversation-messages {
+    height: 200px;
+    overflow-y: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+#ping-result {
+    margin-top: 20px;
+    font-weight: bold;
+    color: var(--sonic-yellow);
+}
+
+#contact-form {
+    margin-top: 20px;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+    #main-features {
+        flex-direction: column;
+    }
+
+    #conversations, #style-settings {
+        width: 100%;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--sonic-brown);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--sonic-yellow);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--sonic-blue);
+}
