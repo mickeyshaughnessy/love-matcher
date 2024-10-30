@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, request
-from flask_redis import FlaskRedis
 from flask_cors import CORS
-import os, logging
+import os, logging, redis
 from models import User, Match, Message
 from utils import create_match
 
@@ -19,8 +18,15 @@ from utils import create_match
 
 app = Flask(__name__)
 CORS(app)
-app.config['REDIS_URL'] = os.environ.get('REDIS_URL', 'redis://localhost:6378')
-redis_client = FlaskRedis(app)
+
+# Initialize Redis directly
+redis_client = redis.Redis(
+    host=os.environ.get('REDIS_HOST', 'localhost'),
+    port=int(os.environ.get('REDIS_PORT', 6378)),
+    db=int(os.environ.get('REDIS_DB', 0)),
+    decode_responses=True  # Auto-decode bytes to strings
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -226,4 +232,12 @@ def handle_messages(match_id):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
+    # Verify Redis connection on startup
+    try:
+        redis_client.ping()
+        logger.info("Redis connection successful")
+    except redis.ConnectionError:
+        logger.error("Could not connect to Redis!")
+        exit(1)
+        
     app.run(host='0.0.0.0', port=42069, debug=True)
