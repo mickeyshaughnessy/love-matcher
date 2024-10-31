@@ -3,231 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Love Matcher - Find Your Perfect Match</title>
+    <title>Love Matcher API Documentation</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
-            transition: all 0.3s ease;
         }
-        h1, h2 {
-            color: #e74c3c;
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
         }
-        .cta-button {
+        code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 85%;
+        }
+        h1, h2, h3 {
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: .3em;
+        }
+        .method {
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
             display: inline-block;
-            background-color: #e74c3c;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
+            font-size: 14px;
+            margin-right: 8px;
         }
-        .feature-list {
-            list-style-type: none;
-            padding-left: 0;
-        }
-        .feature-list li:before {
-            content: "❤ ";
-            color: #e74c3c;
-        }
-        #style-picker {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background-color: #f8f8f8;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        /* Classic style */
-        body.classic {
-            background-color: #f9f9f9;
-            color: #333;
-        }
-        body.classic h1, body.classic h2 {
-            color: #e74c3c;
-        }
-        /* Modern style */
-        body.modern {
-            background-color: #ffffff;
-            color: #2c3e50;
-        }
-        body.modern h1, body.modern h2 {
-            color: #3498db;
-        }
-        /* Romantic style */
-        body.romantic {
-            background-color: #fff0f5;
-            color: #8e44ad;
-        }
-        body.romantic h1, body.romantic h2 {
-            color: #c0392b;
-        }
-        /* SEGA style */
-        body.sega {
-            background-color: #0000AA;
-            color: #FFFFFF;
-            font-family: 'Courier New', monospace;
-        }
-        body.sega h1, body.sega h2 {
-            color: #FFBB00;
-            text-transform: uppercase;
-            text-shadow: 2px 2px 0px #FF0000;
-        }
-        body.sega .cta-button {
-            background-color: #FF0000;
-            color: #FFFFFF;
-            border: 2px solid #FFBB00;
-        }
-        /* Bard's Tale style */
-        body.bards {
-            background-color: #2C1B0F;
-            color: #D4AF37;
-            font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
-        }
-        body.bards h1, body.bards h2 {
-            color: #8B4513;
-            font-style: italic;
-            text-shadow: 1px 1px 2px #000000;
-        }
-        body.bards .cta-button {
-            background-color: #8B4513;
-            color: #D4AF37;
-            border: 2px solid #D4AF37;
-        }
-        /* Wrestler style */
-        body.wrestler {
-            background-color: #FFD700;
-            color: #8B0000;
-            font-family: 'Impact', sans-serif;
-        }
-        body.wrestler h1, body.wrestler h2 {
-            color: #006400;
-            text-transform: uppercase;
-            text-shadow: 2px 2px 0px #FF4500;
-        }
-        body.wrestler .cta-button {
-            background-color: #8B0000;
-            color: #FFD700;
-            border: 3px solid #006400;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        body.wrestler .feature-list li:before {
-            content: "🦅 ";
-        }
-        /* TMNT style */
-        body.tmnt {
-            background-color: #1A5A1A;
-            color: #FFA500;
-            font-family: 'Comic Sans MS', cursive;
-        }
-        body.tmnt h1, body.tmnt h2 {
-            color: #FF4500;
-            text-transform: uppercase;
-            text-shadow: 2px 2px 0px #000000;
-        }
-        body.tmnt .cta-button {
-            background-color: #FF4500;
-            color: #1A5A1A;
-            border: 3px solid #FFA500;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        body.tmnt .feature-list li:before {
-            content: "🐢 ";
+        .get { background-color: #61affe; }
+        .post { background-color: #49cc90; }
+        .put { background-color: #fca130; }
+        .delete { background-color: #f93e3e; }
+        .endpoint {
+            font-family: monospace;
+            background-color: #f6f8fa;
+            padding: 4px 8px;
+            border-radius: 4px;
         }
     </style>
 </head>
-<body class="classic">
-    <div id="style-picker">
-        <label for="style-select">Choose a style:</label>
-        <select id="style-select">
-            <option value="classic">Classic</option>
-            <option value="modern">Modern</option>
-            <option value="romantic">Romantic</option>
-            <option value="sega">SEGA</option>
-            <option value="bards">Bard's Tale</option>
-            <option value="wrestler">Wrestler</option>
-            <option value="tmnt">TMNT</option>
-        </select>
-    </div>
+<body>
+    <h1>Love Matcher API Documentation</h1>
 
-    <header>
-        <h1>Welcome to Love Matcher</h1>
-        <p>A public-algorithm matchmaking system to help adults find love, marry, and raise children.</p>
-    </header>
+    <h2>Overview</h2>
+    <p>Love Matcher is a public matchmaking API that helps adults find meaningful relationships. The API provides endpoints for profile management, matching, messaging, and user statistics.</p>
+    <p>Base URL: <code>https://api.love-matcher.com</code></p>
 
-    <main>
-        <section id="about">
-            <h2>About Love Matcher</h2>
-            <p>Love Matcher helps you find your perfect match. Our system creates meaningful conversations compatibility, shared interests, and life goals.</p>
-        </section>
+    <h2>Authentication</h2>
+    <p>All API requests require authentication using a Bearer token in the Authorization header:</p>
+    <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
 
-        <section id="features">
-            <h2>Key Features</h2>
-            <ul class="feature-list">
-                <li>Create and manage your user profile</li>
-                <li>Set and update your preferences</li>
-                <li>Receive compatible matches</li>
-                <li>Communicate with potential partners</li>
-                <li>Transparent matchmaking algorithm</li>
-            </ul>
-        </section>
+    <h2>Endpoints</h2>
 
-        <section id="get-started">
-            <h2>Get Started</h2>
-            <p>Ready to find your perfect match? Sign up now and start your journey to love!</p>
-            <a href="#" class="cta-button">Create Your Profile</a>
-        </section>
+    <h3>Health Check</h3>
+    <p><span class="method get">GET</span><span class="endpoint">/ping</span></p>
+    <p>Verify API health and get basic metrics.</p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "status": "ok",
+  "metrics": {
+    "total_users": 1234,
+    "total_matches": 567,
+    "active_now": 89
+  }
+}</code></pre>
 
-        <section id="how-it-works">
-            <h2>How It Works</h2>
-            <ol>
-                <li>Pay once for a lifetime subscription</li>
-                <li>Create your profile and set your preferences</li>
-                <li>Our algorithm finds compatible matches and gives them to you one at a time</li>
-                <li>If it's mutual, start communicating</li>
-                <li>Meet in person and see where love takes you!</li>
-            </ol>
-        </section>
+    <h3>Profile Management</h3>
 
-        <section id="privacy">
-            <h2>Privacy & Security</h2>
-            <p>At Love Matcher, we take your privacy seriously. All user data is encrypted and securely stored. We never share your personal information without your explicit consent.</p>
-        </section>
-    </main>
+    <h4>Create Profile</h4>
+    <p><span class="method post">POST</span><span class="endpoint">/api/profiles</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
+  "name": "John Doe",
+  "age": 30,
+  "preferences": {
+    "max_age_difference": 5,
+    "interests": ["hiking", "reading", "travel"],
+    "location": "New York",
+    "relationship_goal": "long-term",
+    "education_level": "bachelors"
+  }
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "active"
+}</code></pre>
 
-    <footer>
-        <p>&copy; 2024 Love Matcher. All rights reserved. | <a href="#">Terms of Service</a> | <a href="#">Privacy Policy</a></p>
-    </footer>
+    <h4>Get Profile</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/profiles/&lt;user_id&gt;</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "John Doe",
+  "age": 30,
+  "preferences": {
+    "max_age_difference": 5,
+    "interests": ["hiking", "reading", "travel"],
+    "location": "New York",
+    "relationship_goal": "long-term",
+    "education_level": "bachelors"
+  }
+}</code></pre>
 
-    <script>
-        // Style picker functionality
-        const styleSelect = document.getElementById('style-select');
-        styleSelect.addEventListener('change', (event) => {
-            document.body.className = event.target.value;
-        });
+    <h4>Update Profile</h4>
+    <p><span class="method put">PUT</span><span class="endpoint">/api/profiles/&lt;user_id&gt;</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
+  "preferences": {
+    "max_age_difference": 7,
+    "interests": ["hiking", "travel", "photography"]
+  }
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "message": "Profile updated successfully"
+}</code></pre>
 
-        // Basic functionality to check server status
-        async function checkServerStatus() {
-            try {
-                const response = await fetch('https://api.love-matcher.com/ping');
-                const data = await response.json();
-                if (data.message === 'pong') {
-                    console.log('Server is up and running!');
-                }
-            } catch (error) {
-                console.error('Error connecting to server:', error);
-            }
-        }
+    <h3>Matching</h3>
 
-        // Call the function when the page loads
-        window.addEventListener('load', checkServerStatus);
-    </script>
+    <h4>Get Matches</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/matches/&lt;user_id&gt;</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "matches": [
+    {
+      "user_id": "550e8400-e29b-41d4-a716-446655440001",
+      "score": 85,
+      "profile": {
+        "name": "Jane Smith",
+        "age": 28,
+        "bio": "Love hiking and photography",
+        "interests": ["hiking", "photography", "travel"]
+      }
+    }
+  ]
+}</code></pre>
+
+    <h4>Respond to Match</h4>
+    <p><span class="method post">POST</span><span class="endpoint">/api/matches/&lt;user_id&gt;/outcome</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
+  "match_id": "550e8400-e29b-41d4-a716-446655440002",
+  "outcome": "accepted"  // or "declined"
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "message": "Match outcome recorded successfully"
+}</code></pre>
+
+    <h3>Messaging</h3>
+
+    <h4>Send Message</h4>
+    <p><span class="method post">POST</span><span class="endpoint">/api/messages</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
+  "from": "550e8400-e29b-41d4-a716-446655440000",
+  "to": "550e8400-e29b-41d4-a716-446655440001",
+  "content": "Hi, I noticed we both enjoy hiking!"
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "message": "Message sent successfully"
+}</code></pre>
+
+    <h4>Get Messages</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/messages/&lt;user_id&gt;?other_user_id=&lt;other_id&gt;</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "from_user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "to_user_id": "550e8400-e29b-41d4-a716-446655440001",
+    "content": "Hi, I noticed we both enjoy hiking!",
+    "timestamp": "2024-03-15T14:30:00Z"
+  }
+]</code></pre>
+
+    <h3>Statistics</h3>
+
+    <h4>Get User Stats</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/users/&lt;user_id&gt;/stats</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
+  "profile_completeness": 85,
+  "active_since": "2024-02-01T00:00:00Z",
+  "total_matches": 12,
+  "response_rate": 75
+}</code></pre>
+
+    <h2>Error Handling</h2>
+    <p>The API uses conventional HTTP response codes:</p>
+    <ul>
+        <li>200: Success</li>
+        <li>201: Created</li>
+        <li>400: Bad Request</li>
+        <li>401: Unauthorized</li>
+        <li>404: Not Found</li>
+        <li>500: Server Error</li>
+    </ul>
+    <p>Error responses include a message:</p>
+    <pre><code>{
+  "error": "User not found"
+}</code></pre>
+
+    <h2>Rate Limiting</h2>
+    <p>API calls are limited to:</p>
+    <ul>
+        <li>100 requests per minute for general endpoints</li>
+        <li>300 requests per minute for message endpoints</li>
+    </ul>
+    <p>Rate limit headers are included in responses:</p>
+    <pre><code>X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1615910400</code></pre>
+
+    <h2>Testing</h2>
+    <p>Test environment is available at <code>https://api-test.love-matcher.com</code></p>
+    <p>Include test header for development:</p>
+    <pre><code>X-Test-Channel: true</code></pre>
+
+    <h2>Versioning</h2>
+    <p>Current API version: v1</p>
+    <p>Include version in Accept header:</p>
+    <pre><code>Accept: application/vnd.love-matcher.v1+json</code></pre>
 </body>
 </html>

@@ -1,42 +1,31 @@
+"""
+🤔 Love Matcher API Server with user stats and simplified endpoints
+"""
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import os, logging, redis
+import os, logging, redis, time
 from models import User, Match, Message
 from utils import create_match
-
-"""
-🤔 Love Matcher API Server
-- Test traffic isolation
-- Clean data separation
-- Common endpoint handling
-<Flow>
-1. Check test header
-2. Use appropriate Redis keys
-3. Keep data separate
-4. Support cleanup
-"""
 
 app = Flask(__name__)
 CORS(app)
 
-# Initialize Redis directly
 redis_client = redis.Redis(
     host=os.environ.get('REDIS_HOST', 'localhost'),
     port=int(os.environ.get('REDIS_PORT', 6378)),
     db=int(os.environ.get('REDIS_DB', 0)),
-    decode_responses=True  # Auto-decode bytes to strings
+    decode_responses=True
 )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def is_test_request():
-    """Check if this is a test request"""
     return request.headers.get('X-Test-Channel') == 'true'
 
 @app.route('/ping', methods=['GET'])
 def ping():
-    """Health check with optional metrics"""
     try:
         metrics = {}
         if is_test_request():
@@ -44,33 +33,31 @@ def ping():
                 'test_users': len(redis_client.hgetall('love:test:users')),
                 'test_matches': len(redis_client.hgetall('love:test:matches'))
             }
-        return jsonify({
-            "status": "ok",
-            "metrics": metrics
-        })
+        return jsonify({"status": "ok", "metrics": metrics})
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return jsonify({"status": "error"}), 500
 
-@app.route('/api/test/cleanup', methods=['POST'])
-def cleanup_test_data():
-    """Clean up all test data - only works with test header"""
-    if not is_test_request():
-        return jsonify({'error': 'Not a test request'}), 403
-        
+@app.route('/api/users/<user_id>/stats', methods=['GET'])
+def get_user_stats(user_id):
     try:
-        # Clear test data from Redis
-        test_keys = [
-            'love:test:users',
-            'love:test:matches',
-            'love:test:messages',
-            'love:test:metrics'
-        ]
-        for key in test_keys:
-            redis_client.delete(key)
-        return jsonify({'message': 'Test data cleaned'})
+        user = User.get(redis_client, user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        if is_test_request() != user.is_test:
+            return jsonify({'error': 'User not found'}), 404
+            
+        stats = {
+            'profile_completeness': user.calculate_completeness(),
+            'active_since': user.created_at,
+            'total_matches': len(Match.get_user_matches(redis_client, user_id, user.is_test)),
+            'response_rate': calculate_response_rate(user_id),
+            'is_test': user.is_test
+        }
+        return jsonify(stats)
     except Exception as e:
-        logger.error(f"Cleanup failed: {e}")
+        logger.error(f"Stats fetch failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/profiles', methods=['POST'])
@@ -80,7 +67,6 @@ def create_profile():
         if not data:
             return jsonify({'error': 'No profile data'}), 400
             
-        # Mark test profiles
         if is_test_request():
             data['is_test'] = True
             
@@ -98,105 +84,43 @@ def create_profile():
         logger.error(f"Profile creation failed: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/profiles/<user_id>', methods=['GET'])
-def get_profile(user_id):
+@app.route('/api/profiles/<user_id>', methods=['GET', 'PUT'])
+def handle_profile(user_id):
     try:
         user = User.get(redis_client, user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
             
-        # Test data isolation
         if is_test_request() != user.is_test:
             return jsonify({'error': 'Profile not found'}), 404
             
-        return jsonify(user.to_dict())
-    except Exception as e:
-        logger.error(f"Profile fetch failed: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/profiles/<user_id>', methods=['PUT']) 
-def update_profile(user_id):
-    try:
+        if request.method == 'GET':
+            return jsonify(user.to_dict())
+            
         data = request.json
         if not data:
             return jsonify({'error': 'No update data'}), 400
             
-        user = User.get(redis_client, user_id)
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Test data isolation
-        if is_test_request() != user.is_test:
-            return jsonify({'error': 'Profile not found'}), 404
-            
         user.update(redis_client, data)
         return jsonify({'user': user.to_dict()})
     except Exception as e:
-        logger.error(f"Profile update failed: {e}")
+        logger.error(f"Profile operation failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/matches/<user_id>', methods=['GET'])
-def find_matches(user_id):
+def get_matches(user_id):
     try:
         user = User.get(redis_client, user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
             
-        # Test data isolation
         if is_test_request() != user.is_test:
             return jsonify({'error': 'User not found'}), 404
             
-        matches = Match.find_matches(redis_client, user_id)
-        return jsonify({
-            'status': 'success',
-            'matches': [m.to_dict() for m in matches]
-        })
+        matches = Match.get_user_matches(redis_client, user_id, user.is_test)
+        return jsonify([m.to_dict() for m in matches])
     except Exception as e:
-        logger.error(f"Match finding failed: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/matches/<user_id>/propose', methods=['POST'])
-def propose_match(user_id):
-    try:
-        data = request.json
-        if not data or 'target_id' not in data:
-            return jsonify({'error': 'No target specified'}), 400
-            
-        user = User.get(redis_client, user_id)
-        target = User.get(redis_client, data['target_id'])
-        
-        if not user or not target:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Test data isolation
-        if is_test_request() != user.is_test or user.is_test != target.is_test:
-            return jsonify({'error': 'Cannot match across test boundary'}), 400
-            
-        match = Match.create(redis_client, user_id, data['target_id'])
-        return jsonify({'match_id': match.id})
-    except Exception as e:
-        logger.error(f"Match proposal failed: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/matches/<match_id>/respond', methods=['POST'])
-def respond_to_match(match_id):
-    try:
-        data = request.json
-        if not data or 'response' not in data:
-            return jsonify({'error': 'No response provided'}), 400
-            
-        match = Match.get(redis_client, match_id)
-        if not match:
-            return jsonify({'error': 'Match not found'}), 404
-            
-        # Test data isolation
-        if is_test_request() != match.is_test:
-            return jsonify({'error': 'Match not found'}), 404
-            
-        match.respond(redis_client, data['response'])
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        logger.error(f"Match response failed: {e}")
+        logger.error(f"Match fetch failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/messages/<match_id>', methods=['GET', 'POST'])
@@ -206,7 +130,6 @@ def handle_messages(match_id):
         if not match:
             return jsonify({'error': 'Match not found'}), 404
             
-        # Test data isolation
         if is_test_request() != match.is_test:
             return jsonify({'error': 'Match not found'}), 404
             
@@ -214,25 +137,32 @@ def handle_messages(match_id):
             messages = Message.get_conversation(redis_client, match_id)
             return jsonify([m.to_dict() for m in messages])
             
-        else:  # POST
-            data = request.json
-            if not data or 'content' not in data:
-                return jsonify({'error': 'No message content'}), 400
-                
-            message = Message.create(
-                redis_client,
-                match_id=match_id,
-                content=data['content'],
-                is_test=match.is_test
-            )
-            return jsonify({'message_id': message.id})
+        data = request.json
+        if not data or 'content' not in data:
+            return jsonify({'error': 'No message content'}), 400
             
+        message = Message.create(
+            redis_client,
+            match_id=match_id,
+            content=data['content'],
+            is_test=match.is_test
+        )
+        return jsonify({'message_id': message.id})
     except Exception as e:
         logger.error(f"Message handling failed: {e}")
         return jsonify({'error': str(e)}), 500
 
+def calculate_response_rate(user_id):
+    messages = Message.get_user_messages(redis_client, user_id)
+    if not messages:
+        return 100
+    
+    total_received = sum(1 for m in messages if m.to_user_id == user_id)
+    total_responded = sum(1 for m in messages if m.from_user_id == user_id)
+    
+    return int((total_responded / max(total_received, 1)) * 100)
+
 if __name__ == '__main__':
-    # Verify Redis connection on startup
     try:
         redis_client.ping()
         logger.info("Redis connection successful")
@@ -240,4 +170,4 @@ if __name__ == '__main__':
         logger.error("Could not connect to Redis!")
         exit(1)
         
-    app.run(host='0.0.0.0', port=42069, debug=True)
+    app.run(host='0.0.0.0', port=42068, debug=True)
