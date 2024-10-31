@@ -181,7 +181,7 @@ class BackupService:
             
             # Check API
             import requests
-            r = requests.get('http://localhost:42069/ping', timeout=0.5)
+            r = requests.get('http://localhost:42068/ping', timeout=0.5)
             api_healthy = r.status_code == 200
             
             # Log health status

@@ -92,7 +92,7 @@ def start_api():
     # Check if API is responding
     try:
         import requests
-        r = requests.get('http://localhost:42069/ping')
+        r = requests.get('http://localhost:42068/ping')
         if r.status_code == 200:
             print("✅ API server running")
             return api_proc

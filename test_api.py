@@ -8,7 +8,7 @@
 import requests, json
 
 class TestAPI:
-    def __init__(self, base_url='http://localhost:42069'):
+    def __init__(self, base_url='http://localhost:42068'):
         self.base_url = base_url
         self.headers = {'X-Test-Channel': 'true'}
 

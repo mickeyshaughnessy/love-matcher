@@ -112,7 +112,7 @@ class MetricsCollector(threading.Thread):
                 # API health check every 5s
                 if now - self.last_health_check >= 5:
                     try:
-                        r = requests.get('http://localhost:42069/ping',
+                        r = requests.get('http://localhost:42068/ping',
                                        timeout=0.5)
                         data['api_health'] = r.status_code == 200
                         if r.status_code == 200:
