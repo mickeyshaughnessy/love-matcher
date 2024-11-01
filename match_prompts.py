@@ -1,0 +1,1 @@
+Profile of a Demon-hunter standing looking through binoculars with a large weapon slung over his shoulder watching a group of small red demons coming to a pond to drink. Sci-fi exoplanet environment. Nature photography, perfect lighting and composition --ar 2:1 --niji 6
