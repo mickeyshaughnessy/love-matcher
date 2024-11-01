@@ -40,14 +40,6 @@ API_CONFIGS = {
     }
 }
 
-def keyword_match(description, capabilities, threshold=0.3):
-    if not description or not capabilities: return False
-    words = re.findall(r'\w+', description.lower())
-    capabilities = [c.lower() for c in capabilities]
-    matches = sum(1 for word in words if any(cap in word or word in cap for cap in capabilities))
-    if len(words) < 5: threshold = 0.2
-    return (matches / len(words)) >= threshold if words else False
-
 def generate_completion(prompt, api="anthropic", model=None, max_tokens=100):
     if api not in API_CONFIGS:
         raise ValueError(f"Invalid API: {api}")
@@ -92,36 +84,3 @@ def generate_completion(prompt, api="anthropic", model=None, max_tokens=100):
     
     return None
 
-def matched_service(request_description="", provider_capabilities=""):
-    prompt = f"""
-Service request: {request_description}
-Provider capabilities: {provider_capabilities}
-Based only on the capabilities listed, determine if the provider can fulfill the service request.
-Answer with only 'True' if there's a match, or 'False' if there isn't.
-"""
-    
-    for api in ["ollama", "groq", "anthropic"]:
-        if response := generate_completion(prompt, api=api):
-            try:
-                print("prompt: %s" % prompt)
-                print("response: %s" % response)
-                return response.strip().lower() == 'true'
-            except Exception as e:
-                logger.error(f"Failed to parse {api} response: {e}")
-                continue
-                
-    logger.info("All LLM attempts failed, falling back to keyword matching")
-    return keyword_match(request_description, provider_capabilities.split(' and '))
-
-if __name__ == "__main__":
-    test_cases = [
-        ("Need expert Python developer for debugging", "python and debugging and testing"),
-        ("Looking for dog walker", "pet care and dog walking"),
-        ("Need programming help with Python", "javascript and html and css")
-    ]
-    
-    for desc, caps in test_cases:
-        result = matched_service(desc, caps)
-        print(f"\nRequest: {desc}")
-        print(f"Capabilities: {caps}")
-        print(f"Match: {result}")
