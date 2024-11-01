@@ -40,7 +40,7 @@ API_CONFIGS = {
     }
 }
 
-def generate_completion(prompt, api="anthropic", model=None, max_tokens=100):
+def completion(prompt, api="anthropic", model=None, max_tokens=100):
     if api not in API_CONFIGS:
         raise ValueError(f"Invalid API: {api}")
         
