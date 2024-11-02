@@ -44,13 +44,22 @@
                                 <span class="text-sm font-mono text-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">monitor</span>
                             </a>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-lg rounded-lg p-6 mb-8">
+                        <div class="bg-white/10 backdrop-blur-lg rounded-lg p-6 mb-8 text-center">
                             <h2 class="text-2xl font-bold mb-4">Lifetime Membership</h2>
                             <p class="text-lg mb-4">One-time payment of $150</p>
-                            <button id="signup-button" 
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-                                Get Started Now
-                            </button>
+                            <div class="flex justify-center space-x-4">
+                                <button id="signup-button" 
+                                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                                    Get Started Now
+                                </button>
+                                <button id="login-button"
+                                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                    </svg>
+                                    Login
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="lg:w-1/2 mt-10 lg:mt-0">
@@ -131,6 +140,7 @@
                         <h3 class="text-xl font-bold mb-4">Privacy & Security</h3>
                         <ul class="list-disc pl-6 mb-6">
                             <li>No data sharing with third parties</li>
+                            <li>Option to delete account and data anytime</li>
                         </ul>
 
                         <h3 class="text-xl font-bold mb-4">Code of Conduct</h3>
@@ -160,6 +170,14 @@
         </div>
     </div>
 
+    <!-- Login Modal -->
+    <div id="login-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full">
+            <h2 class="text-2xl font-bold mb-6">Welcome Back</h2>
+            <div id="clerk-login-container"></div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializePayment, handlePayment } from './js/payment.js';
         
@@ -170,11 +188,18 @@
             document.getElementById('signup-modal').classList.remove('hidden');
         });
 
-        // Close modal when clicking outside
-        document.getElementById('signup-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                e.target.classList.add('hidden');
-            }
+        // Show login modal
+        document.getElementById('login-button').addEventListener('click', () => {
+            document.getElementById('login-modal').classList.remove('hidden');
+        });
+
+        // Close modals when clicking outside
+        document.querySelectorAll('#signup-modal, #login-modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    e.target.classList.add('hidden');
+                }
+            });
         });
 
         // Initialize Clerk
@@ -192,6 +217,10 @@
                         stripeElements = await initializePayment();
                     }
                 }
+            );
+
+            const signInComponent = window.Clerk.mountSignIn(
+                document.getElementById('clerk-login-container')
             );
         });
 

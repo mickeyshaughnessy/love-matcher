@@ -1,91 +1,50 @@
-import { loadStripe } from '@stripe/stripe-js';
+// Initialize Stripe - replace with your actual public key
+const stripe = Stripe('pk_live_yBS40NcWxb5MwmtJq3yhUxUU');
 
-const stripePromise = loadStripe('your-publishable-key');
-
-export const initializePayment = async () => {
-    const stripe = await stripePromise;
-    const elements = stripe.elements();
-
-    // Create card element
-    const card = elements.create('card', {
-        style: {
-            base: {
-                color: '#fff',
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                fontSize: '16px',
-                '::placeholder': {
-                    color: '#aab7c4'
-                },
-            },
-            invalid: {
-                color: '#fa755a',
-                iconColor: '#fa755a'
-            }
-        }
+export async function initializePayment() {
+    const { error } = await stripe.redirectToCheckout({
+        items: [{
+            product: 'prod_R92mKzdvXQKc9N',
+            quantity: 1
+        }],
+        mode: 'payment',
+        successUrl: window.location.origin + '/dashboard',
+        cancelUrl: window.location.origin
     });
 
-    // Mount card element
-    card.mount('#card-element');
-
-    return { stripe, card };
-};
-
-export const handlePayment = async (clerkUser) => {
-    try {
-        const stripe = await stripePromise;
-        
-        // Create payment intent
-        const response = await fetch('/api/create-payment-intent', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${await clerkUser.getToken()}`
-            },
-            body: JSON.stringify({
-                amount: 15000, // $150.00
-                currency: 'usd'
-            })
-        });
-
-        const { clientSecret } = await response.json();
-
-        // Show Stripe payment form
-        const result = await stripe.confirmCardPayment(clientSecret, {
-            payment_method: {
-                card: elements.getElement('card'),
-                billing_details: {
-                    email: clerkUser.emailAddress
-                }
-            }
-        });
-
-        if (result.error) {
-            throw new Error(result.error.message);
-        }
-        
-        // Payment successful
-        await activateUserAccount(clerkUser.id);
-        window.location.href = '/dashboard';
-        
-    } catch (error) {
-        console.error('Payment failed:', error);
-        showError(error.message || 'Payment failed. Please try again.');
+    if (error) {
+        const errorElement = document.getElementById('payment-error');
+        errorElement.textContent = error.message;
+        errorElement.classList.remove('hidden');
     }
-};
+}
 
-const showError = (message) => {
-    const errorDiv = document.getElementById('payment-error');
-    errorDiv.textContent = message;
-    errorDiv.classList.remove('hidden');
-};
+export async function handlePayment(user) {
+    const submitButton = document.getElementById('submit-payment');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Redirecting to payment...';
+    
+    try {
+        const session = await stripe.redirectToCheckout({
+            items: [{
+                product: 'prod_R92mKzdvXQKc9N',
+                quantity: 1
+            }],
+            mode: 'payment',
+            successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: window.location.origin,
+            customerEmail: user.emailAddress
+        });
 
-const activateUserAccount = async (userId) => {
-    await fetch('/api/activate-account', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${await clerkUser.getToken()}`
-        },
-        body: JSON.stringify({ userId })
-    });
-};
+        if (session.error) {
+            throw new Error(session.error.message);
+        }
+
+    } catch (err) {
+        const errorElement = document.getElementById('payment-error');
+        errorElement.textContent = err.message;
+        errorElement.classList.remove('hidden');
+        submitButton.disabled = false;
+        submitButton.textContent = 'Pay $150 and Join';
+    }
+}
