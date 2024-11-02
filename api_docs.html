@@ -1,47 +1,84 @@
-# Love Matcher API Documentation
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Love Matcher API Documentation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 85%;
+        }
+        h1, h2, h3 {
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: .3em;
+        }
+        .method {
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+        .get { background-color: #61affe; }
+        .post { background-color: #49cc90; }
+        .put { background-color: #fca130; }
+        .delete { background-color: #f93e3e; }
+        .endpoint {
+            font-family: monospace;
+            background-color: #f6f8fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Love Matcher API Documentation</h1>
 
-## Overview
-Love Matcher is a public matchmaking API that helps adults find meaningful relationships. The API provides endpoints for profile management, matching, messaging, and user statistics.
+    <h2>Overview</h2>
+    <p>Love Matcher is a public matchmaking API that helps adults find meaningful relationships. The API provides endpoints for profile management, matching, messaging, and user statistics.</p>
+    <p>Base URL: <code>https://api.love-matcher.com</code></p>
 
-Base URL: `https://api.love-matcher.com`
+    <h2>Authentication</h2>
+    <p>All API requests require authentication using a Bearer token in the Authorization header:</p>
+    <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
 
-## Authentication
-All API requests require authentication using a Bearer token in the Authorization header:
+    <h2>Endpoints</h2>
 
-```
-Authorization: Bearer <token>
-```
-
-## Endpoints
-
-### Health Check
-```http
-GET /ping
-```
-Verify API health and get basic metrics.
-
-**Response**
-```json
-{
+    <h3>Health Check</h3>
+    <p><span class="method get">GET</span><span class="endpoint">/ping</span></p>
+    <p>Verify API health and get basic metrics.</p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "status": "ok",
   "metrics": {
     "total_users": 1234,
     "total_matches": 567,
     "active_now": 89
   }
-}
-```
+}</code></pre>
 
-### Profile Management
+    <h3>Profile Management</h3>
 
-#### Create Profile
-```http
-POST /api/profiles
-```
-
-**Request Body**
-```json
-{
+    <h4>Create Profile</h4>
+    <p><span class="method post">POST</span><span class="endpoint">/api/profiles</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
   "name": "John Doe",
   "age": 30,
   "preferences": {
@@ -51,25 +88,17 @@ POST /api/profiles
     "relationship_goal": "long-term",
     "education_level": "bachelors"
   }
-}
-```
-
-**Response**
-```json
-{
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "active"
-}
-```
+}</code></pre>
 
-#### Get Profile
-```http
-GET /api/profiles/<user_id>
-```
-
-**Response**
-```json
-{
+    <h4>Get Profile</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/profiles/&lt;user_id&gt;</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "John Doe",
   "age": 30,
@@ -80,41 +109,28 @@ GET /api/profiles/<user_id>
     "relationship_goal": "long-term",
     "education_level": "bachelors"
   }
-}
-```
+}</code></pre>
 
-#### Update Profile
-```http
-PUT /api/profiles/<user_id>
-```
-
-**Request Body**
-```json
-{
+    <h4>Update Profile</h4>
+    <p><span class="method put">PUT</span><span class="endpoint">/api/profiles/&lt;user_id&gt;</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
   "preferences": {
     "max_age_difference": 7,
     "interests": ["hiking", "travel", "photography"]
   }
-}
-```
-
-**Response**
-```json
-{
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "message": "Profile updated successfully"
-}
-```
+}</code></pre>
 
-### Matching
+    <h3>Matching</h3>
 
-#### Get Matches
-```http
-GET /api/matches/<user_id>
-```
-
-**Response**
-```json
-{
+    <h4>Get Matches</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/matches/&lt;user_id&gt;</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "matches": [
     {
       "user_id": "550e8400-e29b-41d4-a716-446655440001",
@@ -127,60 +143,39 @@ GET /api/matches/<user_id>
       }
     }
   ]
-}
-```
+}</code></pre>
 
-#### Respond to Match
-```http
-POST /api/matches/<user_id>/outcome
-```
-
-**Request Body**
-```json
-{
+    <h4>Respond to Match</h4>
+    <p><span class="method post">POST</span><span class="endpoint">/api/matches/&lt;user_id&gt;/outcome</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
   "match_id": "550e8400-e29b-41d4-a716-446655440002",
   "outcome": "accepted"  // or "declined"
-}
-```
-
-**Response**
-```json
-{
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "message": "Match outcome recorded successfully"
-}
-```
+}</code></pre>
 
-### Messaging
+    <h3>Messaging</h3>
 
-#### Send Message
-```http
-POST /api/messages
-```
-
-**Request Body**
-```json
-{
+    <h4>Send Message</h4>
+    <p><span class="method post">POST</span><span class="endpoint">/api/messages</span></p>
+    <p><strong>Request Body</strong></p>
+    <pre><code>{
   "from": "550e8400-e29b-41d4-a716-446655440000",
   "to": "550e8400-e29b-41d4-a716-446655440001",
   "content": "Hi, I noticed we both enjoy hiking!"
-}
-```
-
-**Response**
-```json
-{
+}</code></pre>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "message": "Message sent successfully"
-}
-```
+}</code></pre>
 
-#### Get Messages
-```http
-GET /api/messages/<user_id>?other_user_id=<other_id>
-```
-
-**Response**
-```json
-[
+    <h4>Get Messages</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/messages/&lt;user_id&gt;?other_user_id=&lt;other_id&gt;</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>[
   {
     "id": "550e8400-e29b-41d4-a716-446655440003",
     "from_user_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -188,76 +183,54 @@ GET /api/messages/<user_id>?other_user_id=<other_id>
     "content": "Hi, I noticed we both enjoy hiking!",
     "timestamp": "2024-03-15T14:30:00Z"
   }
-]
-```
+]</code></pre>
 
-### Statistics
+    <h3>Statistics</h3>
 
-#### Get User Stats
-```http
-GET /api/users/<user_id>/stats
-```
-
-**Response**
-```json
-{
+    <h4>Get User Stats</h4>
+    <p><span class="method get">GET</span><span class="endpoint">/api/users/&lt;user_id&gt;/stats</span></p>
+    <p><strong>Response</strong></p>
+    <pre><code>{
   "profile_completeness": 85,
   "active_since": "2024-02-01T00:00:00Z",
   "total_matches": 12,
   "response_rate": 75
-}
-```
+}</code></pre>
 
-## Error Handling
-
-The API uses conventional HTTP response codes:
-- 200: Success
-- 201: Created
-- 400: Bad Request
-- 401: Unauthorized
-- 404: Not Found
-- 500: Server Error
-
-Error responses include a message:
-```json
-{
+    <h2>Error Handling</h2>
+    <p>The API uses conventional HTTP response codes:</p>
+    <ul>
+        <li>200: Success</li>
+        <li>201: Created</li>
+        <li>400: Bad Request</li>
+        <li>401: Unauthorized</li>
+        <li>404: Not Found</li>
+        <li>500: Server Error</li>
+    </ul>
+    <p>Error responses include a message:</p>
+    <pre><code>{
   "error": "User not found"
-}
-```
+}</code></pre>
 
-## Rate Limiting
-
-API calls are limited to:
-- 100 requests per minute for general endpoints
-- 300 requests per minute for message endpoints
-
-Rate limit headers are included in responses:
-```
-X-RateLimit-Limit: 100
+    <h2>Rate Limiting</h2>
+    <p>API calls are limited to:</p>
+    <ul>
+        <li>100 requests per minute for general endpoints</li>
+        <li>300 requests per minute for message endpoints</li>
+    </ul>
+    <p>Rate limit headers are included in responses:</p>
+    <pre><code>X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1615910400
-```
+X-RateLimit-Reset: 1615910400</code></pre>
 
-## Testing
+    <h2>Testing</h2>
+    <p>Test environment is available at <code>https://api-test.love-matcher.com</code></p>
+    <p>Include test header for development:</p>
+    <pre><code>X-Test-Channel: true</code></pre>
 
-Test environment is available at `https://api-test.love-matcher.com`
-
-Include test header for development:
-```
-X-Test-Channel: true
-```
-
-## Versioning
-
-Current API version: v1
-Include version in Accept header:
-```
-Accept: application/vnd.love-matcher.v1+json
-```
-
-## Support
-
-For API support:
-- Email: api@love-matcher.com
-- Documentation: https://docs.love-matcher.com
-- Status page: https://status.love-matcher.com
+    <h2>Versioning</h2>
+    <p>Current API version: v1</p>
+    <p>Include version in Accept header:</p>
+    <pre><code>Accept: application/vnd.love-matcher.v1+json</code></pre>
+</body>
+</html>
