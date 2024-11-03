@@ -1,50 +1,38 @@
-// Initialize Stripe - replace with your actual public key
-const stripe = Stripe('pk_live_yBS40NcWxb5MwmtJq3yhUxUU');
+"""
+🤔 Payment Module - Simple Stripe checkout with product ID
+"""
+
+const stripe = Stripe('pk_test_TYooMQauvdEDq54NiTphI7jx');
 
 export async function initializePayment() {
-    const { error } = await stripe.redirectToCheckout({
-        items: [{
-            product: 'prod_R92mKzdvXQKc9N',
-            quantity: 1
-        }],
-        mode: 'payment',
-        successUrl: window.location.origin + '/dashboard',
-        cancelUrl: window.location.origin
-    });
-
-    if (error) {
-        const errorElement = document.getElementById('payment-error');
-        errorElement.textContent = error.message;
-        errorElement.classList.remove('hidden');
-    }
+    console.log('Starting payment...');
+    return stripe;
 }
 
 export async function handlePayment(user) {
-    const submitButton = document.getElementById('submit-payment');
-    submitButton.disabled = true;
-    submitButton.textContent = 'Redirecting to payment...';
+    console.log('Processing payment:', user?.emailAddress);
+    
+    const button = document.querySelector('#submit-payment');
+    button.disabled = true;
+    button.textContent = 'Processing...';
     
     try {
-        const session = await stripe.redirectToCheckout({
-            items: [{
-                product: 'prod_R92mKzdvXQKc9N',
-                quantity: 1
-            }],
+        const { error } = await stripe.redirectToCheckout({
+            items: [{ product: 'prod_R92mKzdvXQKc9N', quantity: 1 }],
             mode: 'payment',
-            successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: window.location.origin,
-            customerEmail: user.emailAddress
+            successUrl: `${window.location.origin}/success`,
+            cancelUrl: `${window.location.origin}/cancel`,
+            customerEmail: user?.emailAddress
         });
 
-        if (session.error) {
-            throw new Error(session.error.message);
-        }
-
+        if (error) throw error;
+        
     } catch (err) {
-        const errorElement = document.getElementById('payment-error');
-        errorElement.textContent = err.message;
-        errorElement.classList.remove('hidden');
-        submitButton.disabled = false;
-        submitButton.textContent = 'Pay $150 and Join';
+        console.error('Payment failed:', err);
+        const errorDiv = document.querySelector('#payment-error');
+        errorDiv.textContent = err.message;
+        errorDiv.classList.remove('hidden');
+        button.disabled = false;
+        button.textContent = 'Try Payment Again';
     }
 }

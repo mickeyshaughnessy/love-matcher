@@ -177,12 +177,10 @@
             <div id="clerk-login-container"></div>
         </div>
     </div>
-
     <script type="module">
         import { initializePayment, handlePayment } from './js/payment.js';
+        import { initializeClerk, mountSignUp, mountSignIn } from './js/auth.js';
         
-        let stripeElements;
-
         // Show signup modal
         document.getElementById('signup-button').addEventListener('click', () => {
             document.getElementById('signup-modal').classList.remove('hidden');
@@ -202,26 +200,11 @@
             });
         });
 
-        // Initialize Clerk
+        // Initialize Clerk and mount components
         window.addEventListener('load', async () => {
-            await window.Clerk.load({
-                frontendApi: 'your-frontend-api'
-            });
-            
-            const signUpComponent = window.Clerk.mountSignUp(
-                document.getElementById('clerk-signup-container'),
-                {
-                    afterSignUp: async (user) => {
-                        document.getElementById('clerk-signup-container').classList.add('hidden');
-                        document.getElementById('payment-container').classList.remove('hidden');
-                        stripeElements = await initializePayment();
-                    }
-                }
-            );
-
-            const signInComponent = window.Clerk.mountSignIn(
-                document.getElementById('clerk-login-container')
-            );
+            await initializeClerk();
+            mountSignUp();
+            mountSignIn();
         });
 
         // Handle payment submission
