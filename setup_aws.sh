@@ -1,6 +1,21 @@
 #!/bin/bash
+
+"""
+🤔 Key Modifications Needed:
+- Add key pair creation 
+- Store private key locally as keyfile.pem
+- Use key pair when launching EC2
+- Ensure proper permissions on keyfile.pem
+- Add instructions for SSH access
+<Improvements>
+- More robust error handling
+- Better status messages
+- Cleaner key management
+"""
+
 set -e
 
+# Check dependencies
 for tool in aws jq; do
     command -v $tool >/dev/null || brew install $tool
 done
@@ -8,6 +23,17 @@ done
 aws sts get-caller-identity >/dev/null || { echo "Run: aws configure"; exit 1; }
 
 echo "🚀 Love Matcher Setup"
+
+# Create key pair if it doesn't exist
+KEY_NAME="love-matcher-key"
+KEY_FILE="love-matcher-key.pem"
+
+if [ ! -f "$KEY_FILE" ]; then
+    echo "Creating new key pair..."
+    aws ec2 delete-key-pair --key-name "$KEY_NAME" 2>/dev/null || true
+    aws ec2 create-key-pair --key-name "$KEY_NAME" --query 'KeyMaterial' --output text > "$KEY_FILE"
+    chmod 400 "$KEY_FILE"
+fi
 
 # Get or create VPC
 VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=love-matcher-vpc" --query 'Vpcs[0].VpcId' --output text)
@@ -35,21 +61,20 @@ SG_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$SG_N
 if [ "$SG_ID" = "None" ]; then
     SG_ID=$(aws ec2 create-security-group --group-name $SG_NAME --description "Love Matcher Web" --vpc-id $VPC_ID --query 'GroupId' --output text)
     
-    # Allow SSH from current IP
-    MY_IP=$(curl -s https://checkip.amazonaws.com)
-    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr $MY_IP/32
-    
-    # Allow HTTP/HTTPS from anywhere
+    # Allow SSH/HTTP/HTTPS from anywhere
     aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
     aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
+    aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr 0.0.0.0/0 
 fi
 
 # Launch EC2 if not exists
 INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=love-matcher-app" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
 if [ "$INSTANCE_ID" = "None" ]; then
+    echo "Launching new EC2 instance..."
     INSTANCE_ID=$(aws ec2 run-instances \
         --image-id ami-0c7217cdde317cfec \
         --instance-type t2.medium \
+        --key-name "$KEY_NAME" \
         --subnet-id $SUBNET_ID \
         --security-group-ids $SG_ID \
         --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=love-matcher-app}]' \
@@ -65,4 +90,7 @@ if [ "$EIP" = "None" ]; then
     EIP=$(aws ec2 describe-addresses --allocation-ids $ALLOC_ID --query 'Addresses[0].PublicIp' --output text)
 fi
 
-echo "✨ Done! Server IP: $EIP"
+echo "✨ Setup complete!"
+echo "🔑 SSH key saved as: $KEY_FILE"
+echo "🌐 Server IP: $EIP"
+echo "💻 Connect using: ssh -i $KEY_FILE ubuntu@$EIP"
