@@ -4,233 +4,223 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Love Matcher API Documentation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
+        @keyframes gradientBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            border-radius: 6px;
-            overflow-x: auto;
+        .header-gradient {
+            background: linear-gradient(-45deg, #1a365d, #2c5282, #2b6cb0);
+            background-size: 200% 200%;
+            animation: gradientBg 15s ease infinite;
+        }
+        .endpoint-card {
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .endpoint-card:hover {
+            transform: translateY(-2px);
+            border-color: #4299e1;
+            box-shadow: 0 4px 6px -1px rgba(66, 153, 225, 0.1), 0 2px 4px -1px rgba(66, 153, 225, 0.06);
         }
         code {
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
-            font-size: 85%;
+            font-family: 'Fira Code', 'Roboto Mono', monospace;
         }
-        h1, h2, h3 {
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: .3em;
+        .method-tag {
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            letter-spacing: 0.025em;
         }
-        .method {
-            color: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-            font-size: 14px;
-            margin-right: 8px;
-        }
-        .get { background-color: #61affe; }
-        .post { background-color: #49cc90; }
-        .put { background-color: #fca130; }
-        .delete { background-color: #f93e3e; }
-        .endpoint {
-            font-family: monospace;
-            background-color: #f6f8fa;
-            padding: 4px 8px;
-            border-radius: 4px;
+        .method-get { background: #E3F2FD; color: #1565C0; }
+        .method-post { background: #E8F5E9; color: #2E7D32; }
+        .method-put { background: #FFF3E0; color: #E65100; }
+        .method-delete { background: #FFEBEE; color: #C62828; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
-<body>
-    <h1>Love Matcher API Documentation</h1>
+<body class="bg-gray-50 text-gray-900">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="header-gradient text-white shadow-lg">
+            <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-4xl font-bold tracking-tight">Love Matcher API</h1>
+                <p class="mt-2 text-lg">REST API Documentation • Version 1.0</p>
+            </div>
+        </header>
 
-    <h2>Overview</h2>
-    <p>Love Matcher is a public matchmaking API that helps adults find meaningful relationships. The API provides endpoints for profile management, matching, messaging, and user statistics.</p>
-    <p>Base URL: <code>https://api.love-matcher.com</code></p>
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+            <!-- Quick Start Section -->
+            <div class="bg-white rounded-lg shadow-lg mb-12 p-8">
+                <h2 class="text-2xl font-semibold mb-6">Authentication</h2>
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <code class="text-sm text-gray-800 block mb-4">
+                        Authorization: Bearer &lt;jwt_token&gt;<br>
+                        Accept: application/vnd.love-matcher.v1+json
+                    </code>
+                    <p class="text-sm text-gray-600">All API calls require these headers for authentication and versioning.</p>
+                </div>
+            </div>
 
-    <h2>Authentication</h2>
-    <p>All API requests require authentication using a Bearer token in the Authorization header:</p>
-    <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+            <!-- Rate Limiting -->
+            <div class="bg-white rounded-lg shadow-lg mb-12 p-8">
+                <h2 class="text-2xl font-semibold mb-6">Rate Limiting</h2>
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <code class="text-sm text-gray-800 block">
+                        X-RateLimit-Limit: &lt;requests_per_window&gt;<br>
+                        X-RateLimit-Remaining: &lt;requests_remaining&gt;<br>
+                        X-RateLimit-Reset: &lt;window_reset_time&gt;
+                    </code>
+                </div>
+            </div>
 
-    <h2>Endpoints</h2>
+            <!-- Endpoints -->
+            <div class="space-y-12">
+                <h2 class="text-3xl font-bold mb-8">Endpoints</h2>
 
-    <h3>Health Check</h3>
-    <p><span class="method get">GET</span><span class="endpoint">/ping</span></p>
-    <p>Verify API health and get basic metrics.</p>
-    <p><strong>Response</strong></p>
-    <pre><code>{
+                <!-- Health Check -->
+                <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                    <h3 class="text-xl font-semibold mb-4">Health Check</h3>
+                    <div class="flex items-center mb-4">
+                        <span class="method-tag method-get">GET</span>
+                        <code class="ml-4 text-gray-700">/ping</code>
+                    </div>
+                    <p class="text-gray-600 mb-4">Basic health check endpoint</p>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <code class="text-sm text-gray-800">
+                            {"status": "ok"}
+                        </code>
+                    </div>
+                </div>
+
+                <!-- Monitor -->
+                <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                    <h3 class="text-xl font-semibold mb-4">System Monitor</h3>
+                    <div class="flex items-center mb-4">
+                        <span class="method-tag method-get">GET</span>
+                        <code class="ml-4 text-gray-700">/monitor</code>
+                    </div>
+                    <p class="text-gray-600 mb-4">Detailed system metrics and health status</p>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <code class="text-sm text-gray-800">
+{
   "status": "ok",
   "metrics": {
-    "total_users": 1234,
-    "total_matches": 567,
-    "active_now": 89
-  }
-}</code></pre>
-
-    <h3>Profile Management</h3>
-
-    <h4>Create Profile</h4>
-    <p><span class="method post">POST</span><span class="endpoint">/api/profiles</span></p>
-    <p><strong>Request Body</strong></p>
-    <pre><code>{
-  "name": "John Doe",
-  "age": 30,
-  "preferences": {
-    "max_age_difference": 5,
-    "interests": ["hiking", "reading", "travel"],
-    "location": "New York",
-    "relationship_goal": "long-term",
-    "education_level": "bachelors"
-  }
-}</code></pre>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "active"
-}</code></pre>
-
-    <h4>Get Profile</h4>
-    <p><span class="method get">GET</span><span class="endpoint">/api/profiles/&lt;user_id&gt;</span></p>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "John Doe",
-  "age": 30,
-  "preferences": {
-    "max_age_difference": 5,
-    "interests": ["hiking", "reading", "travel"],
-    "location": "New York",
-    "relationship_goal": "long-term",
-    "education_level": "bachelors"
-  }
-}</code></pre>
-
-    <h4>Update Profile</h4>
-    <p><span class="method put">PUT</span><span class="endpoint">/api/profiles/&lt;user_id&gt;</span></p>
-    <p><strong>Request Body</strong></p>
-    <pre><code>{
-  "preferences": {
-    "max_age_difference": 7,
-    "interests": ["hiking", "travel", "photography"]
-  }
-}</code></pre>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "message": "Profile updated successfully"
-}</code></pre>
-
-    <h3>Matching</h3>
-
-    <h4>Get Matches</h4>
-    <p><span class="method get">GET</span><span class="endpoint">/api/matches/&lt;user_id&gt;</span></p>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "matches": [
-    {
-      "user_id": "550e8400-e29b-41d4-a716-446655440001",
-      "score": 85,
-      "profile": {
-        "name": "Jane Smith",
-        "age": 28,
-        "bio": "Love hiking and photography",
-        "interests": ["hiking", "photography", "travel"]
-      }
+    "users": {
+      "total": 1000,
+      "active_24h": 150
+    },
+    "matches": {
+      "total": 500,
+      "success_rate": 75.5
     }
-  ]
-}</code></pre>
-
-    <h4>Respond to Match</h4>
-    <p><span class="method post">POST</span><span class="endpoint">/api/matches/&lt;user_id&gt;/outcome</span></p>
-    <p><strong>Request Body</strong></p>
-    <pre><code>{
-  "match_id": "550e8400-e29b-41d4-a716-446655440002",
-  "outcome": "accepted"  // or "declined"
-}</code></pre>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "message": "Match outcome recorded successfully"
-}</code></pre>
-
-    <h3>Messaging</h3>
-
-    <h4>Send Message</h4>
-    <p><span class="method post">POST</span><span class="endpoint">/api/messages</span></p>
-    <p><strong>Request Body</strong></p>
-    <pre><code>{
-  "from": "550e8400-e29b-41d4-a716-446655440000",
-  "to": "550e8400-e29b-41d4-a716-446655440001",
-  "content": "Hi, I noticed we both enjoy hiking!"
-}</code></pre>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "message": "Message sent successfully"
-}</code></pre>
-
-    <h4>Get Messages</h4>
-    <p><span class="method get">GET</span><span class="endpoint">/api/messages/&lt;user_id&gt;?other_user_id=&lt;other_id&gt;</span></p>
-    <p><strong>Response</strong></p>
-    <pre><code>[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440003",
-    "from_user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "to_user_id": "550e8400-e29b-41d4-a716-446655440001",
-    "content": "Hi, I noticed we both enjoy hiking!",
-    "timestamp": "2024-03-15T14:30:00Z"
   }
-]</code></pre>
+}</code>
+                    </div>
+                </div>
 
-    <h3>Statistics</h3>
+                <!-- Profile Endpoints -->
+                <div class="space-y-8">
+                    <h3 class="text-2xl font-semibold">Profile Management</h3>
+                    
+                    <!-- Create Profile -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-post">POST</span>
+                            <code class="ml-4 text-gray-700">/api/profiles</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Create a new user profile</p>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <code class="text-sm text-gray-800">
+{
+  "name": "string",
+  "age": number,
+  "preferences": {
+    "interests": ["string"],
+    "location": "string",
+    "max_age_difference": number
+  }
+}</code>
+                        </div>
+                    </div>
 
-    <h4>Get User Stats</h4>
-    <p><span class="method get">GET</span><span class="endpoint">/api/users/&lt;user_id&gt;/stats</span></p>
-    <p><strong>Response</strong></p>
-    <pre><code>{
-  "profile_completeness": 85,
-  "active_since": "2024-02-01T00:00:00Z",
-  "total_matches": 12,
-  "response_rate": 75
-}</code></pre>
+                    <!-- Get Profile -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-get">GET</span>
+                            <code class="ml-4 text-gray-700">/api/profiles/{user_id}</code>
+                        </div>
+                        <p class="text-gray-600">Retrieve a user profile by ID</p>
+                    </div>
+                </div>
 
-    <h2>Error Handling</h2>
-    <p>The API uses conventional HTTP response codes:</p>
-    <ul>
-        <li>200: Success</li>
-        <li>201: Created</li>
-        <li>400: Bad Request</li>
-        <li>401: Unauthorized</li>
-        <li>404: Not Found</li>
-        <li>500: Server Error</li>
-    </ul>
-    <p>Error responses include a message:</p>
-    <pre><code>{
-  "error": "User not found"
-}</code></pre>
+                <!-- Message Endpoints -->
+                <div class="space-y-8">
+                    <h3 class="text-2xl font-semibold">Messaging</h3>
+                    
+                    <!-- Send Message -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-post">POST</span>
+                            <code class="ml-4 text-gray-700">/api/messages</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Send a message to another user</p>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <code class="text-sm text-gray-800">
+{
+  "to": "user_id",
+  "content": "string"
+}</code>
+                        </div>
+                    </div>
 
-    <h2>Rate Limiting</h2>
-    <p>API calls are limited to:</p>
-    <ul>
-        <li>100 requests per minute for general endpoints</li>
-        <li>300 requests per minute for message endpoints</li>
-    </ul>
-    <p>Rate limit headers are included in responses:</p>
-    <pre><code>X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1615910400</code></pre>
+                    <!-- Get Messages -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-get">GET</span>
+                            <code class="ml-4 text-gray-700">/api/messages/{user_id}</code>
+                        </div>
+                        <p class="text-gray-600">Retrieve conversation history</p>
+                    </div>
+                </div>
+            </div>
 
-    <h2>Testing</h2>
-    <p>Test environment is available at <code>https://api-test.love-matcher.com</code></p>
-    <p>Include test header for development:</p>
-    <pre><code>X-Test-Channel: true</code></pre>
+            <!-- Error Responses -->
+            <div class="mt-12 bg-white rounded-lg shadow-lg p-8">
+                <h2 class="text-2xl font-semibold mb-6">Error Responses</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-2">401 Unauthorized</h4>
+                        <code class="text-sm text-gray-800">
+{
+  "error": "Invalid authentication token"
+}</code>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-2">429 Too Many Requests</h4>
+                        <code class="text-sm text-gray-800">
+{
+  "error": "Rate limit exceeded"
+}</code>
+                    </div>
+                </div>
+            </div>
+        </main>
 
-    <h2>Versioning</h2>
-    <p>Current API version: v1</p>
-    <p>Include version in Accept header:</p>
-    <pre><code>Accept: application/vnd.love-matcher.v1+json</code></pre>
+        <!-- Footer -->
+        <footer class="mt-16 border-t border-gray-200">
+            <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-gray-600">
+                <p>Love Matcher API Documentation • Last updated: November 2024</p>
+            </div>
+        </footer>
+    </div>
 </body>
 </html>
