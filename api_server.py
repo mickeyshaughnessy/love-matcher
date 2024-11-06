@@ -1,10 +1,3 @@
-"""
-🤔 Love Matcher API Server
-Simplified core functionality:
-- Profiles (create/read/update)
-- Messages (send/receive)
-- Monitor (public health check)
-"""
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from functools import wraps
@@ -14,36 +7,20 @@ app = Flask(__name__)
 CORS(app)
 app.config.update(
     JWT_SECRET=os.environ.get('JWT_SECRET', 'dev-secret-key'),
-    API_VERSION='v1'
+    REDIS_URL=os.environ.get('REDIS_URL', 'redis://localhost:6378/0')
 )
 
-redis_client = redis.Redis(
-    host=os.environ.get('REDIS_HOST', 'localhost'),
-    port=int(os.environ.get('REDIS_PORT', 6378)),
-    db=int(os.environ.get('REDIS_DB', 0)),
-    decode_responses=True
-)
-
+redis_client = redis.from_url(app.config['REDIS_URL'], decode_responses=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def error_response(msg, code=500):
+def error_response(msg, code=500): 
     return jsonify({'error': str(msg)}), code
-
-def check_version():
-    accept = request.headers.get('Accept', '')
-    if f'application/vnd.love-matcher.{app.config["API_VERSION"]}+json' not in accept:
-        return error_response('Invalid API version', 406)
-    return None
 
 def rate_limit(func=None, limit=100, window=60):
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
-            version_error = check_version()
-            if version_error:
-                return version_error
-            
             key = f'ratelimit:{request.remote_addr}:{f.__name__}'
             current = redis_client.get(key)
             
@@ -51,23 +28,14 @@ def rate_limit(func=None, limit=100, window=60):
             response = make_response()
             response.headers.update({
                 'X-RateLimit-Limit': str(limit),
-                'X-RateLimit-Reset': str(reset_time)
+                'X-RateLimit-Reset': str(reset_time),
+                'X-RateLimit-Remaining': str(max(0, limit - (int(current or 0) + 1)))
             })
             
             if current is not None and int(current) >= limit:
-                response.headers['X-RateLimit-Remaining'] = '0'
                 return error_response('Rate limit exceeded', 429)
             
-            pipe = redis_client.pipeline()
-            if current is None:
-                pipe.setex(key, window, 1)
-                remaining = limit - 1
-            else:
-                pipe.incr(key)
-                remaining = limit - int(current) - 1
-            pipe.execute()
-            
-            response.headers['X-RateLimit-Remaining'] = str(remaining)
+            redis_client.setex(key, window, int(current or 0) + 1)
             return f(*args, **kwargs)
         return decorated
     return decorator(func) if func else decorator
@@ -75,11 +43,11 @@ def rate_limit(func=None, limit=100, window=60):
 def authenticated(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
+        auth = request.headers.get('Authorization')
+        if not auth or not auth.startswith('Bearer '):
             return error_response('No valid auth token', 401)
         try:
-            token = auth_header.split(' ')[1]
+            token = auth.split(' ')[1]
             payload = jwt.decode(token, app.config['JWT_SECRET'], algorithms=['HS256'])
             request.user_id = payload['user_id']
             return f(*args, **kwargs)
@@ -90,50 +58,24 @@ def authenticated(f):
             return error_response('Authentication failed', 401)
     return decorated
 
-@app.route('/ping', methods=['GET'])
-@rate_limit(limit=100)
+# Public endpoints
+@app.route('/ping')
 def ping():
     return jsonify({"status": "ok"})
 
-@app.route('/monitor', methods=['GET'])
-@rate_limit(limit=30)
-def monitor():
+@app.route('/register', methods=['POST'])
+@rate_limit(limit=20)
+def register():
     try:
-        metrics = {
-            "status": "ok",
-            "timestamp": int(time.time()),
-            "metrics": {
-                "total_users": len(redis_client.hgetall('love:users')),
-                "active_users": 0,
-                "total_matches": len(redis_client.hgetall('love:matches')),
-                "active_matches": 0,
-                "match_success_rate": 0.0,
-                "messages_last_hour": 0,
-                "total_messages": len(redis_client.hgetall('love:messages'))
-            },
-            "health": {
-                "api": True,
-                "redis": redis_client.ping(),
-                "rate_limited": False
-            }
-        }
-        handler_metrics = handlers.handle_monitor(redis_client)
-        metrics["metrics"].update(handler_metrics.get("metrics", {}))
-        return jsonify(metrics)
+        data = request.json
+        if not data or not all(k in data for k in ['email', 'password', 'name', 'age']):
+            return error_response('Missing required fields', 400)
+        return handlers.handle_register(redis_client)
     except Exception as e:
-        logger.error(f"Monitor failed: {e}")
-        return error_response("Could not fetch monitor data", 500)
+        logger.error(f"Registration failed: {e}")
+        return error_response("Registration failed", 500)
 
-@app.route('/api/profiles', methods=['POST'])
-@authenticated
-@rate_limit(limit=100)
-def create_profile():
-    try:
-        return handlers.handle_create_profile(redis_client)
-    except Exception as e:
-        logger.error(f"Profile creation failed: {e}")
-        return error_response("Could not create profile", 500)
-
+# Profile endpoints
 @app.route('/api/profiles/<user_id>', methods=['GET'])
 @authenticated
 @rate_limit(limit=100)
@@ -144,39 +86,43 @@ def get_profile(user_id):
         logger.error(f"Profile fetch failed: {e}")
         return error_response("Could not fetch profile", 500)
 
-@app.route('/api/profiles/<user_id>', methods=['PUT'])
+@app.route('/api/profiles', methods=['POST', 'DELETE'])
 @authenticated
 @rate_limit(limit=100)
-def update_profile(user_id):
+def manage_profile():
     try:
-        if user_id != request.user_id:
-            return error_response("Not authorized", 403)
-        return handlers.handle_update_profile(redis_client, user_id)
+        if request.method == 'POST':
+            if not request.json:
+                return error_response('Missing profile data', 400)
+            if not all(k in request.json for k in ['name', 'age', 'preferences']):
+                return error_response('Invalid profile data', 400)
+            return handlers.handle_update_profile(redis_client, request.user_id)
+        else:  # DELETE
+            return handlers.handle_delete_profile(redis_client, request.user_id)
     except Exception as e:
-        logger.error(f"Profile update failed: {e}")
-        return error_response("Could not update profile", 500)
+        logger.error(f"Profile operation failed: {e}")
+        return error_response("Profile operation failed", 500)
 
-@app.route('/api/messages', methods=['POST'])
+# Chat endpoints
+@app.route('/api/chat', methods=['GET', 'POST'])
 @authenticated
 @rate_limit(limit=300)
-def send_message():
+def handle_chat():
     try:
-        return handlers.handle_send_message(redis_client)
+        if request.method == 'GET':
+            other_id = request.args.get('with')
+            if not other_id:
+                return error_response("Missing 'with' parameter", 400)
+            return handlers.handle_get_messages(redis_client, request.user_id, other_id)
+        else:  # POST
+            if not request.json or 'to' not in request.json or 'content' not in request.json:
+                return error_response('Invalid message data', 400)
+            return handlers.handle_send_message(
+                redis_client, request.user_id, request.json['to'], request.json['content']
+            )
     except Exception as e:
-        logger.error(f"Message send failed: {e}")
-        return error_response("Could not send message", 500)
-
-@app.route('/api/messages/<user_id>', methods=['GET'])
-@authenticated
-@rate_limit(limit=300)
-def get_messages(user_id):
-    try:
-        if user_id != request.user_id:
-            return error_response("Not authorized", 403)
-        return handlers.handle_get_messages(redis_client, user_id)
-    except Exception as e:
-        logger.error(f"Message fetch failed: {e}")
-        return error_response("Could not fetch messages", 500)
+        logger.error(f"Chat operation failed: {e}")
+        return error_response("Chat operation failed", 500)
 
 if __name__ == '__main__':
     try:
@@ -185,5 +131,5 @@ if __name__ == '__main__':
     except redis.ConnectionError:
         logger.error("Could not connect to Redis!")
         exit(1)
-
+        
     app.run(host='0.0.0.0', port=42069, debug=True)

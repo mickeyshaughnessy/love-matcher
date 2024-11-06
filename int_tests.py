@@ -1,89 +1,123 @@
 """
-🤔 Simple Love Matcher Tests
-Just verify core functionality:
-1. Create account
-2. Find match
-3. Accept match
-4. Send messages
+🤔 Love Matcher Integration Tests
+Simple golden path testing for each endpoint
 """
-import requests, random, time, sys
+import unittest, requests, time
 from datetime import datetime
 
-BASE_URL = 'http://localhost:42069'
+class TestAPI(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.base_url = 'http://localhost:42069'
+        try:
+            r = requests.get(f'{cls.base_url}/ping')
+            assert r.status_code == 200, "API server not responding"
+        except:
+            raise unittest.SkipTest("API server not available")
 
-def random_user():
-    return {
-        'email': f'test{random.randint(1000,9999)}@test.com',
-        'password': 'test123',
-        'name': f'Test User {random.randint(1000,9999)}',
-        'age': random.randint(21, 45),
-        'preferences': {
-            'age_range': [20, 45],
-            'location': [40.7128, -74.0060],
-            'max_distance': 50,
-            'interests': random.sample(['hiking', 'reading', 'music'], k=2)
+    def setUp(self):
+        self.users = []
+        for i in range(2):
+            email = f'test{i}_{int(time.time())}@test.com'
+            user = self.create_test_user(email)
+            self.users.append(user)
+
+    def create_test_user(self, email):
+        data = {
+            'email': email,
+            'password': 'test1234',
+            'name': f'Test User {email}',
+            'age': 25
         }
-    }
+        r = requests.post(f'{self.base_url}/register', json=data)
+        self.assertEqual(r.status_code, 200)
+        return {
+            'id': r.json()['user_id'],
+            'token': r.json()['token'],
+            'email': email
+        }
 
-def create_user():
-    resp = requests.post(f'{BASE_URL}/register', json=random_user())
-    assert resp.status_code == 200, f'Registration failed: {resp.text}'
-    return resp.json()['token'], resp.json()['user']['id']
+    def test_1_health_check(self):
+        """Test basic health check endpoint"""
+        r = requests.get(f'{self.base_url}/ping')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['status'], 'ok')
 
-def test_basic_flow():
-    """🧪 Testing basic user flow"""
-    print('\n1️⃣ Creating two users...')
-    token1, user1 = create_user()
-    token2, user2 = create_user()
-    headers1 = {'Authorization': f'Bearer {token1}'}
-    headers2 = {'Authorization': f'Bearer {token2}'}
+    def test_2_monitor(self):
+        """Test monitor endpoint"""
+        r = requests.get(f'{self.base_url}/monitor')
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn('metrics', data)
+        self.assertIn('health', data)
 
-    print('2️⃣ Getting match...')
-    resp = requests.get(f'{BASE_URL}/match', headers=headers1)
-    assert resp.status_code == 200, 'Match fetch failed'
-    match = resp.json()['match']
-    print(f'Got match: {match["id"]}')
+    def test_3_profile_management(self):
+        """Test full profile management flow"""
+        user = self.users[0]
+        headers = {'Authorization': f'Bearer {user["token"]}'}
 
-    print('3️⃣ Both users accepting match...')
-    resp = requests.post(f'{BASE_URL}/match/action', headers=headers1,
-                        json={'action': 'accept', 'match_id': match['id']})
-    assert resp.status_code == 200, 'Match accept 1 failed'
+        # Get profile
+        r = requests.get(f'{self.base_url}/api/profiles/{user["id"]}', headers=headers)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['email'], user['email'])
 
-    resp = requests.post(f'{BASE_URL}/match/action', headers=headers2,
-                        json={'action': 'accept', 'match_id': match['id']})
-    assert resp.status_code == 200, 'Match accept 2 failed'
-    assert resp.json()['match']['status'] == 'active'
+        # Update profile
+        update_data = {
+            'name': 'Updated Name',
+            'preferences': {
+                'interests': ['testing', 'coding'],
+                'location': 'Test City',
+                'max_age_difference': 5
+            }
+        }
+        r = requests.post(f'{self.base_url}/api/profiles', headers=headers, json=update_data)
+        self.assertEqual(r.status_code, 200)
 
-    print('4️⃣ Sending test message...')
-    msg = {'match_id': match['id'], 'content': 'Hello! 👋'}
-    resp = requests.post(f'{BASE_URL}/messages', headers=headers1, json=msg)
-    assert resp.status_code == 200, 'Message send failed'
+        # Verify update
+        r = requests.get(f'{self.base_url}/api/profiles/{user["id"]}', headers=headers)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['name'], 'Updated Name')
 
-    print('5️⃣ Getting conversation...')
-    resp = requests.get(f'{BASE_URL}/messages?match_id={match["id"]}', headers=headers2)
-    assert resp.status_code == 200, 'Message fetch failed'
-    messages = resp.json()['messages']
-    assert len(messages) == 1, 'Wrong message count'
-    assert messages[0]['content'] == 'Hello! 👋'
+    def test_4_chat_flow(self):
+        """Test basic chat functionality"""
+        sender = self.users[0]
+        recipient = self.users[1]
+        headers = {'Authorization': f'Bearer {sender["token"]}'}
 
-    print('✅ All basic tests passed!')
+        # Send message
+        message_data = {
+            'to': recipient['id'],
+            'content': 'Test message'
+        }
+        r = requests.post(f'{self.base_url}/api/chat', headers=headers, json=message_data)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('message_id', r.json())
 
-def run_tests():
-    print(f'\n💕 Love Matcher Basic Tests - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    
-    try:
-        requests.get(f'{BASE_URL}/ping', timeout=1)
-    except requests.exceptions.ConnectionError:
-        print('❌ API server not running!')
-        sys.exit(1)
+        # Get conversation
+        r = requests.get(
+            f'{self.base_url}/api/chat',
+            headers=headers,
+            params={'with': recipient['id']}
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn('messages', data)
+        self.assertIn('participants', data)
+        self.assertEqual(len(data['messages']), 1)
+        self.assertEqual(data['messages'][0]['content'], 'Test message')
 
-    try:
-        test_basic_flow()
-        return True
-    except Exception as e:
-        print(f'❌ Test failed: {str(e)}')
-        return False
+    def test_5_profile_deletion(self):
+        """Test profile deletion"""
+        user = self.users[0]
+        headers = {'Authorization': f'Bearer {user["token"]}'}
+
+        # Delete profile
+        r = requests.delete(f'{self.base_url}/api/profiles', headers=headers)
+        self.assertEqual(r.status_code, 200)
+
+        # Verify deletion
+        r = requests.get(f'{self.base_url}/api/profiles/{user["id"]}', headers=headers)
+        self.assertEqual(r.status_code, 404)
 
 if __name__ == '__main__':
-    success = run_tests()
-    sys.exit(0 if success else 1)
+    unittest.main(verbosity=2)
