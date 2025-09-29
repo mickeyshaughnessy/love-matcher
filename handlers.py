@@ -9,7 +9,7 @@ Updated for:
 import logging, time, json, bcrypt
 from datetime import datetime, timedelta
 from flask import jsonify, request
-from models import User, Match, Message
+from models import User, Message
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +24,14 @@ def handle_monitor(redis_client):
         
         pipe = redis_client.pipeline()
         pipe.hgetall(f'{prefix}users')
-        pipe.hgetall(f'{prefix}matches')
         pipe.hgetall(f'{prefix}messages')
-        users_raw, matches_raw, messages_raw = pipe.execute()
+        users_raw, messages_raw = pipe.execute()
         
         users = [User.from_dict(u) for u in users_raw.values()]
-        matches = [Match.from_dict(m) for m in matches_raw.values()]
         messages = [Message.from_dict(m) for m in messages_raw.values()]
 
         active_24h = sum(1 for u in users if u.last_active and now - u.last_active < timedelta(hours=24))
         messages_1h = sum(1 for m in messages if now - m.created_at < timedelta(hours=1))
-        success_rate = sum(1 for m in matches if m.status == 'accepted') / max(len(matches), 1) * 100
 
         response_time = (time.perf_counter() - start) * 1000
 
@@ -46,11 +43,6 @@ def handle_monitor(redis_client):
                     'total': len(users),
                     'active_24h': active_24h,
                     'signup_rate': len([u for u in users if now - u.created_at < timedelta(hours=24)])
-                },
-                'matches': {
-                    'total': len(matches),
-                    'success_rate': round(success_rate, 1),
-                    'pending': sum(1 for m in matches if m.status == 'pending')
                 },
                 'messages': {
                     'total': len(messages),
@@ -141,11 +133,6 @@ def handle_delete_profile(redis_client, user_id):
     # Delete profile
     pipe.hdel(f'{prefix}users', user.id)
     pipe.hdel('love:users:emails', user.email)
-    
-    # Delete matches
-    matches = Match.get_user_matches(redis_client, user.id)
-    for match in matches:
-        pipe.hdel(f'{prefix}matches', match.id)
     
     # Delete messages 
     messages = Message.get_user_messages(redis_client, user.id)
