@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoveDashMatcher API Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .overview {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 4px solid #764ba2;
+            padding: 30px;
+            margin-bottom: 40px;
+            border-radius: 8px;
+        }
+        
+        h2 {
+            color: #764ba2;
+            font-size: 1.8rem;
+            margin: 40px 0 20px 0;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: #667eea;
+            font-size: 1.3rem;
+            margin: 30px 0 15px 0;
+        }
+        
+        .endpoint {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .endpoint-header {
+            padding: 15px 20px;
+            background: #fff;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .method {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        
+        .method.get {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .method.post {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .method.put {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .path {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .endpoint-body {
+            padding: 20px;
+        }
+        
+        .description {
+            margin-bottom: 20px;
+            color: #6c757d;
+        }
+        
+        .auth-required {
+            display: inline-block;
+            background: #ffeaa7;
+            color: #2d3436;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        
+        pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 15px 0;
+        }
+        
+        .request-example, .response-example {
+            margin: 20px 0;
+        }
+        
+        .example-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .status-code {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 10px;
+        }
+        
+        .status-code.error {
+            background: #dc3545;
+        }
+        
+        .base-url {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .auth-section {
+            background: #fff8e1;
+            border: 1px solid #ffcc02;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+        
+        .note {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .dimensions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .dimension-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        
+        .footer {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+        
+        .toc li {
+            margin: 8px 0;
+        }
+        
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .json-highlight {
+            background: #1e1e1e;
+        }
+
+        .json-highlight .key {
+            color: #9cdcfe;
+        }
+
+        .json-highlight .string {
+            color: #ce9178;
+        }
+
+        .json-highlight .number {
+            color: #b5cea8;
+        }
+
+        .json-highlight .boolean {
+            color: #569cd6;
+        }
+
+        @media (max-width: 768px) {
+            .endpoint-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .dimensions-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔷 LoveDashMatcher API</h1>
+            <p class="subtitle">AI-Powered Matchmaking Service API Documentation</p>
+        </header>
+        
+        <div class="content">
+            <div class="overview">
+                <h2 style="margin-top: 0;">Overview</h2>
+                <p><strong>LoveDashMatcher</strong> is an AI-assisted matchmaking service that supports traditional heterosexual marriage and families. Our API allows users to register, create detailed compatibility profiles, and find their perfect match using advanced 29-dimension compatibility analysis.</p>
+                <p>While users of any age can register and explore the service, matching is only available for users 18 years or older. The service features a lifetime membership model with a one-time fee structure.</p>
+            </div>
+
+            <div class="toc">
+                <h3>Table of Contents</h3>
+                <ul>
+                    <li><a href="#base-url">Base URL</a></li>
+                    <li><a href="#authentication">Authentication</a></li>
+                    <li><a href="#endpoints">API Endpoints</a></li>
+                    <li><a href="#matching-dimensions">29 Matching Dimensions</a></li>
+                    <li><a href="#profile-structure">Profile JSON Structure</a></li>
+                    <li><a href="#error-handling">Error Handling</a></li>
+                </ul>
+            </div>
+
+            <h2 id="base-url">Base URL</h2>
+            <div class="base-url">
+                <strong>Production:</strong> https://api.lovedashmatcher.com<br>
+                <strong>Development:</strong> http://localhost:5009
+            </div>
+
+            <h2 id="authentication">Authentication</h2>
+            <div class="auth-section">
+                <h3>JWT Token Authentication</h3>
+                <p>Most endpoints require authentication using JWT tokens. Include the token in the Authorization header:</p>
+                <pre><code>Authorization: Bearer &lt;your_jwt_token&gt;</code></pre>
+                <p>Tokens expire after 24 hours and must be refreshed by logging in again.</p>
+            </div>
+
+            <h2 id="endpoints">API Endpoints</h2>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/ping</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Health check endpoint to verify API availability.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "status": "ok",
+  "timestamp": "2025-09-29T10:30:00.000Z"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/register</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Register a new user account. Users must be 18 or older for matching eligibility.</p>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "age": 25
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user_id": "user_example_com"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Error Response <span class="status-code error">400</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Must be 18 or older"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/login</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Authenticate an existing user and receive a JWT token.</p>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "email": "user@example.com"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user_id": "user_example_com"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/profile</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Retrieve the authenticated user's profile information.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "user_id": "user_example_com",
+  "email": "user@example.com",
+  "age": 25,
+  "created_at": "2025-09-29T10:00:00.000Z",
+  "payment_status": "completed",
+  "profile_complete": true,
+  "dimensions": {
+    "familyOrientation": {...},
+    "spirituality": {...},
+    "lifestyle": {...}
+  }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method put">PUT</span>
+                    <span class="path">/api/profile</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Update the authenticated user's profile with new information.</p>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "dimensions": {
+    "age": 26,
+    "location": "New York, NY",
+    "familyOrientation": {
+      "wantsChildren": true,
+      "numberOfChildren": "2-3",
+      "parentingStyle": "balanced"
+    }
+  },
+  "profile_complete": true
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "user_id": "user_example_com",
+  "email": "user@example.com",
+  "updated_at": "2025-09-29T11:00:00.000Z",
+  ...
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/chat</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Send a message to the AI matchmaker for profile development and guidance.</p>
+                    
+                    <div class="note">
+                        <strong>Note:</strong> This endpoint currently returns placeholder responses. Full OpenAI integration is planned for production release.
+                    </div>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "message": "I'm looking for someone who shares my love of outdoor activities and has strong family values."
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "response": "Thanks for sharing! Tell me more about that."
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/matches</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Retrieve potential matches for the authenticated user.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "matches": [
+    {
+      "user_id": "potential_match_1",
+      "compatibility_score": 0.87,
+      "shared_dimensions": ["familyOrientation", "spirituality", "lifestyle"],
+      "profile_summary": "..."
+    }
+  ]
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/payment/initiate</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Initiate payment process for lifetime membership.</p>
+                    
+                    <div class="note">
+                        <strong>Note:</strong> This endpoint currently returns placeholder payment URLs. XMoney integration is planned for production release.
+                    </div>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "payment_url": "https://xmoney.example.com/pay/placeholder",
+  "amount": 49.99,
+  "currency": "USD"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <h2 id="matching-dimensions">29 Matching Dimensions</h2>
+            <p>Our sophisticated matching algorithm analyzes compatibility across these 29 key dimensions:</p>
+            
+            <div class="dimensions-grid">
+                <div class="dimension-item">1. Age & life stage alignment</div>
+                <div class="dimension-item">2. Geographic compatibility & flexibility</div>
+                <div class="dimension-item">3. Educational background & intellectual curiosity</div>
+                <div class="dimension-item">4. Career ambition & professional goals</div>
+                <div class="dimension-item">5. Financial philosophy & money management</div>
+                <div class="dimension-item">6. Family of origin dynamics & relationships</div>
+                <div class="dimension-item">7. Desire for children & parenting philosophy</div>
+                <div class="dimension-item">8. Religious/spiritual beliefs & practice</div>
+                <div class="dimension-item">9. Political worldview & civic engagement</div>
+                <div class="dimension-item">10. Communication style & emotional intelligence</div>
+                <div class="dimension-item">11. Conflict resolution approach</div>
+                <div class="dimension-item">12. Physical health & fitness commitment</div>
+                <div class="dimension-item">13. Mental health awareness & self-care</div>
+                <div class="dimension-item">14. Social energy (introvert/extrovert spectrum)</div>
+                <div class="dimension-item">15. Domestic lifestyle preferences</div>
+                <div class="dimension-item">16. Cleanliness & organization standards</div>
+                <div class="dimension-item">17. Food preferences & dining habits</div>
+                <div class="dimension-item">18. Travel desires & adventure seeking</div>
+                <div class="dimension-item">19. Hobbies & recreational interests</div>
+                <div class="dimension-item">20. Cultural background & traditions</div>
+                <div class="dimension-item">21. Humor style & playfulness</div>
+                <div class="dimension-item">22. Affection expression & love languages</div>
+                <div class="dimension-item">23. Independence vs. togetherness needs</div>
+                <div class="dimension-item">24. Decision-making style</div>
+                <div class="dimension-item">25. Time management & punctuality</div>
+                <div class="dimension-item">26. Technology usage & digital habits</div>
+                <div class="dimension-item">27. Pet preferences & animal companionship</div>
+                <div class="dimension-item">28. Substance use attitudes (alcohol, etc.)</div>
+                <div class="dimension-item">29. Long-term life vision & legacy goals</div>
+            </div>
+
+            <h2 id="profile-structure">Profile JSON Structure</h2>
+            <p>The matching algorithm can process flexible JSON structures. Here's an example of a comprehensive profile:</p>
+            
+            <pre class="json-highlight"><code>{
+  "userId": "user_example_com",
+  "timestamp": "2025-09-29T10:00:00.000Z",
+  "demographics": {
+    "age": 28,
+    "gender": "female",
+    "location": {
+      "city": "Denver",
+      "state": "Colorado",
+      "flexibility": "willing to relocate"
+    }
+  },
+  "dimensions": {
+    "familyOrientation": {
+      "wantsChildren": true,
+      "numberOfChildren": "2-3",
+      "parentingStyle": "authoritative",
+      "importanceOfFamilyTime": "high"
+    },
+    "spirituality": {
+      "religiousAffiliation": "Christian",
+      "practiceLevel": "regular church attendance",
+      "importance": "very important",
+      "denomination": "non-denominational"
+    },
+    "lifestyle": {
+      "fitnessLevel": "active",
+      "dietaryPreferences": "no restrictions",
+      "smokingStatus": "never",
+      "drinkingStatus": "socially"
+    },
+    "personality": {
+      "extroversionLevel": 0.7,
+      "communicationStyle": "direct but empathetic",
+      "conflictResolution": "collaborative problem-solving",
+      "humorStyle": "witty with dad jokes"
+    }
+  },
+  "preferences": {
+    "ageRange": [25, 35],
+    "educationLevel": "bachelor's degree or higher",
+    "dealBreakers": ["smoking", "doesn't want children"],
+    "mustHaves": ["shared faith", "family-oriented"]
+  },
+  "narratives": {
+    "lifeStory": "Grew up in a close-knit family in the Midwest...",
+    "relationshipHistory": "Had one serious relationship that taught me...",
+    "futureVision": "I see myself in a partnership where we..."
+  },
+  "values": {
+    "core": ["family", "faith", "integrity", "kindness"],
+    "politicalLeanings": "moderate conservative",
+    "careerImportance": "balanced with family"
+  },
+  "quirks": {
+    "uniqueTraits": ["collects vintage books", "makes incredible lasagna"],
+    "petPreferences": "love dogs, neutral on cats",
+    "travelStyle": "adventure seeker with comfort needs"
+  }
+}</code></pre>
+
+            <h2 id="error-handling">Error Handling</h2>
+            <p>The API uses standard HTTP status codes and returns JSON error responses:</p>
+
+            <div class="endpoint">
+                <div class="endpoint-body">
+                    <h3>Common Error Responses</h3>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Bad Request <span class="status-code error">400</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Missing required fields"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Unauthorized <span class="status-code error">401</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Token missing"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Not Found <span class="status-code error">404</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "User not found"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Server Error <span class="status-code error">500</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Internal server error"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note">
+                <h3>Important Notes</h3>
+                <ul>
+                    <li>Only users 18+ are eligible for matching</li>
+                    <li>Service supports traditional heterosexual marriage-oriented matching</li>
+                    <li>One profile per person policy</li>
+                    <li>JWT tokens expire after 24 hours</li>
+                    <li>Profiles are stored securely on AWS S3</li>
+                    <li>Chat history is maintained for continuity</li>
+                </ul>
+            </div>
+        </div>
+        
+        <footer class="footer">
+            <p>LoveDashMatcher API Documentation</p>
+            <p>Building Lasting Connections Through AI-Powered Compatibility</p>
+            <p>Follow us: <a href="https://x.com/lovedashmatcher" target="_blank">@lovedashmatcher</a></p>
+        </footer>
+    </div>
+</body>
+</html>
