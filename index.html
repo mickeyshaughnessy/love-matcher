@@ -244,6 +244,13 @@
                 <strong>Welcome to LoveDashMatcher!</strong> We're revolutionizing online matchmaking with advanced AI technology that analyzes 29 dimensions of compatibility to help you find your perfect partner. Our service supports traditional heterosexual relationships focused on marriage and family. Through conversational AI, we learn about your values, goals, and preferences to connect you with someone truly compatible for a lasting relationship.
             </div>
             
+            <div style="text-align: center; margin-bottom: 30px;">
+                <button onclick="pingServer()" style="width: auto; padding: 10px 20px; background: #28a745; font-size: 0.9rem;">
+                    🏓 Ping API Server
+                </button>
+                <div id="pingResult" style="margin-top: 10px; font-size: 0.9rem;"></div>
+            </div>
+            
             <div id="authSection" class="auth-section">
                 <div class="auth-box">
                     <h2>Sign Up</h2>
@@ -431,6 +438,42 @@
                 sendMessage();
             }
         });
+
+        // Ping server function
+        async function pingServer() {
+            const resultDiv = document.getElementById('pingResult');
+            resultDiv.innerHTML = '<span style="color: #666;">Pinging server...</span>';
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(`${API_URL}/ping`);
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div style="color: #28a745; font-weight: 600;">✓ Server Online</div>
+                        <div style="color: #666; font-size: 0.85rem; margin-top: 5px;">
+                            Latency: ${latency}ms<br>
+                            Status: ${data.status}<br>
+                            Timestamp: ${new Date(data.timestamp).toLocaleString()}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div style="color: #dc3545;">✗ Error: ${data.error || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="color: #dc3545; font-weight: 600;">✗ Connection Failed</div>
+                    <div style="color: #666; font-size: 0.85rem; margin-top: 5px;">
+                        Could not reach server at ${API_URL}
+                    </div>
+                `;
+            }
+        }
     </script>
 </body>
 </html>
