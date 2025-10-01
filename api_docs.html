@@ -267,22 +267,6 @@
             background: #1e1e1e;
         }
 
-        .json-highlight .key {
-            color: #9cdcfe;
-        }
-
-        .json-highlight .string {
-            color: #ce9178;
-        }
-
-        .json-highlight .number {
-            color: #b5cea8;
-        }
-
-        .json-highlight .boolean {
-            color: #569cd6;
-        }
-
         @media (max-width: 768px) {
             .endpoint-header {
                 flex-direction: column;
@@ -328,7 +312,7 @@
 
             <h2 id="base-url">Base URL</h2>
             <div class="base-url">
-                <strong>Production:</strong> https://api.lovedashmatcher.com<br>
+                <strong>Production:</strong> https://rse-api.com:5009<br>
                 <strong>Development:</strong> http://localhost:5009
             </div>
 
@@ -345,7 +329,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method get">GET</span>
-                    <span class="path">/api/ping</span>
+                    <span class="path">/ping</span>
                 </div>
                 <div class="endpoint-body">
                     <p class="description">Health check endpoint to verify API availability.</p>
@@ -363,7 +347,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method post">POST</span>
-                    <span class="path">/api/register</span>
+                    <span class="path">/register</span>
                 </div>
                 <div class="endpoint-body">
                     <p class="description">Register a new user account. Users must be 18 or older for matching eligibility.</p>
@@ -381,14 +365,18 @@
                         <span class="example-label">Response <span class="status-code">200</span></span>
                         <pre class="json-highlight"><code>{
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user_id": "user_example_com"
+  "user_id": "user_example_com",
+  "member_number": 1,
+  "matching_eligible": true,
+  "is_free_member": true,
+  "message": "Welcome! You're member #1 and get free lifetime access!"
 }</code></pre>
                     </div>
 
                     <div class="response-example">
                         <span class="example-label">Error Response <span class="status-code error">400</span></span>
                         <pre class="json-highlight"><code>{
-  "error": "Must be 18 or older"
+  "error": "Missing required fields"
 }</code></pre>
                     </div>
                 </div>
@@ -397,7 +385,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method post">POST</span>
-                    <span class="path">/api/login</span>
+                    <span class="path">/login</span>
                 </div>
                 <div class="endpoint-body">
                     <p class="description">Authenticate an existing user and receive a JWT token.</p>
@@ -422,7 +410,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method get">GET</span>
-                    <span class="path">/api/profile</span>
+                    <span class="path">/profile</span>
                     <span class="auth-required">🔒 Auth Required</span>
                 </div>
                 <div class="endpoint-body">
@@ -434,14 +422,13 @@
   "user_id": "user_example_com",
   "email": "user@example.com",
   "age": 25,
+  "member_number": 1,
   "created_at": "2025-09-29T10:00:00.000Z",
-  "payment_status": "completed",
+  "payment_status": "free",
+  "matching_eligible": true,
   "profile_complete": true,
-  "dimensions": {
-    "familyOrientation": {...},
-    "spirituality": {...},
-    "lifestyle": {...}
-  }
+  "is_free_member": true,
+  "dimensions": {...}
 }</code></pre>
                     </div>
                 </div>
@@ -450,7 +437,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method put">PUT</span>
-                    <span class="path">/api/profile</span>
+                    <span class="path">/profile</span>
                     <span class="auth-required">🔒 Auth Required</span>
                 </div>
                 <div class="endpoint-body">
@@ -487,7 +474,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method post">POST</span>
-                    <span class="path">/api/chat</span>
+                    <span class="path">/chat</span>
                     <span class="auth-required">🔒 Auth Required</span>
                 </div>
                 <div class="endpoint-body">
@@ -500,7 +487,7 @@
                     <div class="request-example">
                         <span class="example-label">Request Body</span>
                         <pre class="json-highlight"><code>{
-  "message": "I'm looking for someone who shares my love of outdoor activities and has strong family values."
+  "message": "I'm looking for someone who shares my love of outdoor activities."
 }</code></pre>
                     </div>
 
@@ -516,7 +503,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method get">GET</span>
-                    <span class="path">/api/matches</span>
+                    <span class="path">/matches</span>
                     <span class="auth-required">🔒 Auth Required</span>
                 </div>
                 <div class="endpoint-body">
@@ -529,7 +516,7 @@
     {
       "user_id": "potential_match_1",
       "compatibility_score": 0.87,
-      "shared_dimensions": ["familyOrientation", "spirituality", "lifestyle"],
+      "shared_dimensions": ["familyOrientation", "spirituality"],
       "profile_summary": "..."
     }
   ]
@@ -541,7 +528,7 @@
             <div class="endpoint">
                 <div class="endpoint-header">
                     <span class="method post">POST</span>
-                    <span class="path">/api/payment/initiate</span>
+                    <span class="path">/payment/initiate</span>
                     <span class="auth-required">🔒 Auth Required</span>
                 </div>
                 <div class="endpoint-body">
@@ -556,7 +543,30 @@
                         <pre class="json-highlight"><code>{
   "payment_url": "https://xmoney.example.com/pay/placeholder",
   "amount": 49.99,
-  "currency": "USD"
+  "currency": "USD",
+  "member_number": 10001
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/stats</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Get current membership statistics.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "total_members": 1523,
+  "free_members": 1523,
+  "paid_members": 0,
+  "spots_remaining": 8477,
+  "free_limit": 10000
 }</code></pre>
                     </div>
                 </div>
@@ -630,34 +640,7 @@
       "dietaryPreferences": "no restrictions",
       "smokingStatus": "never",
       "drinkingStatus": "socially"
-    },
-    "personality": {
-      "extroversionLevel": 0.7,
-      "communicationStyle": "direct but empathetic",
-      "conflictResolution": "collaborative problem-solving",
-      "humorStyle": "witty with dad jokes"
     }
-  },
-  "preferences": {
-    "ageRange": [25, 35],
-    "educationLevel": "bachelor's degree or higher",
-    "dealBreakers": ["smoking", "doesn't want children"],
-    "mustHaves": ["shared faith", "family-oriented"]
-  },
-  "narratives": {
-    "lifeStory": "Grew up in a close-knit family in the Midwest...",
-    "relationshipHistory": "Had one serious relationship that taught me...",
-    "futureVision": "I see myself in a partnership where we..."
-  },
-  "values": {
-    "core": ["family", "faith", "integrity", "kindness"],
-    "politicalLeanings": "moderate conservative",
-    "careerImportance": "balanced with family"
-  },
-  "quirks": {
-    "uniqueTraits": ["collects vintage books", "makes incredible lasagna"],
-    "petPreferences": "love dogs, neutral on cats",
-    "travelStyle": "adventure seeker with comfort needs"
   }
 }</code></pre>
 
@@ -707,6 +690,7 @@
                     <li>JWT tokens expire after 24 hours</li>
                     <li>Profiles are stored securely on AWS S3</li>
                     <li>Chat history is maintained for continuity</li>
+                    <li>First 10,000 members get free lifetime access</li>
                 </ul>
             </div>
         </div>

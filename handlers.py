@@ -290,7 +290,7 @@ def get_member_stats():
         'free_limit': FIRST_10K_FREE_LIMIT
     })
 
-# Register all routes with the Flask app
+# Register all routes with the Flask app (WITHOUT /api/ prefix)
 def register_routes(app, s3_client_instance, s3_bucket, s3_prefix):
     global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret
     s3_client = s3_client_instance
@@ -298,12 +298,12 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix):
     S3_PREFIX = s3_prefix
     jwt_secret = app.config['JWT_SECRET']
     
-    app.add_url_rule('/api/ping', 'ping', ping, methods=['GET'])
-    app.add_url_rule('/api/register', 'register', register, methods=['POST'])
-    app.add_url_rule('/api/login', 'login', login, methods=['POST'])
-    app.add_url_rule('/api/profile', 'get_profile', get_profile, methods=['GET'])
-    app.add_url_rule('/api/profile', 'update_profile', update_profile, methods=['PUT'])
-    app.add_url_rule('/api/chat', 'chat', chat, methods=['POST'])
-    app.add_url_rule('/api/matches', 'get_matches', get_matches, methods=['GET'])
-    app.add_url_rule('/api/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
-    app.add_url_rule('/api/stats', 'get_member_stats', get_member_stats, methods=['GET'])
+    app.add_url_rule('/ping', 'ping', ping, methods=['GET'])
+    app.add_url_rule('/register', 'register', register, methods=['POST'])
+    app.add_url_rule('/login', 'login', login, methods=['POST'])
+    app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])
+    app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
+    app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
+    app.add_url_rule('/matches', 'get_matches', get_matches, methods=['GET'])
+    app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
+    app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
