@@ -24,14 +24,32 @@ s3_client = boto3.client(
     region_name=config.AWS_REGION
 )
 
-S3_BUCKET = 'mithrilmedia'
-S3_PREFIX = 'lovedashmatcher/'
+# S3 Configuration
+S3_BUCKET = config.S3_BUCKET
+S3_PREFIX = config.S3_PREFIX
+
+# OpenRouter Configuration
+OPENROUTER_CONFIG = {
+    'api_url': config.OPENROUTER_API_URL,
+    'api_key': config.OPENROUTER_API_KEY,
+    'model': config.OPENROUTER_MODEL,
+    'temperature': config.LLM_TEMPERATURE,
+    'max_tokens': config.LLM_MAX_TOKENS
+}
 
 # Import handlers after app is configured
 from handlers import register_routes
 
-# Register all routes
-register_routes(app, s3_client, S3_BUCKET, S3_PREFIX)
+# Register all routes with OpenRouter config
+register_routes(app, s3_client, S3_BUCKET, S3_PREFIX, OPENROUTER_CONFIG)
 
 if __name__ == '__main__':
+    print("=" * 60)
+    print("🔷 LoveDashMatcher API Server Starting")
+    print("=" * 60)
+    print(f"S3 Bucket: {S3_BUCKET}")
+    print(f"S3 Prefix: {S3_PREFIX}")
+    print(f"LLM Model: {config.OPENROUTER_MODEL}")
+    print(f"Server: http://0.0.0.0:5009")
+    print("=" * 60)
     app.run(debug=True, host='0.0.0.0', port=5009)

@@ -10,7 +10,7 @@ s3_client = None
 S3_BUCKET = None
 S3_PREFIX = None
 jwt_secret = None
-llm_api_url = None  # Will be set to LLM completion endpoint
+openrouter_config = None  # Will hold OpenRouter configuration
 
 # Constants
 FIRST_10K_FREE_LIMIT = 10000
@@ -92,22 +92,51 @@ def is_member_free(member_number):
     """Check if member gets free access based on signup order"""
     return member_number <= FIRST_10K_FREE_LIMIT
 
-def call_llm(messages, temperature=0.7, max_tokens=500):
-    """Call the LLM completion endpoint"""
+def call_openrouter_llm(messages):
+    """Call OpenRouter API with Grok model"""
     try:
+        headers = {
+            'Authorization': f"Bearer {openrouter_config['api_key']}",
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://lovedashmatcher.com',  # Optional but recommended
+            'X-Title': 'LoveDashMatcher'  # Optional but recommended
+        }
+        
+        payload = {
+            'model': openrouter_config['model'],
+            'messages': messages,
+            'temperature': openrouter_config['temperature'],
+            'max_tokens': openrouter_config['max_tokens']
+        }
+        
         response = requests.post(
-            llm_api_url,
-            json={
-                'messages': messages,
-                'temperature': temperature,
-                'max_tokens': max_tokens
-            },
+            openrouter_config['api_url'],
+            headers=headers,
+            json=payload,
             timeout=30
         )
         response.raise_for_status()
-        return response.json()
+        
+        result = response.json()
+        
+        # OpenRouter returns choices array with message content
+        if 'choices' in result and len(result['choices']) > 0:
+            return {
+                'content': result['choices'][0]['message']['content'],
+                'model': result.get('model', openrouter_config['model']),
+                'usage': result.get('usage', {})
+            }
+        else:
+            print(f"Unexpected OpenRouter response format: {result}")
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        print(f"OpenRouter API error: {e}")
+        if hasattr(e.response, 'text'):
+            print(f"Response text: {e.response.text}")
+        return None
     except Exception as e:
-        print(f"LLM API error: {e}")
+        print(f"Unexpected error calling OpenRouter: {e}")
         return None
 
 def build_profile_context(profile):
@@ -256,7 +285,7 @@ def update_profile():
 
 @token_required
 def chat():
-    """Chat endpoint with LLM integration"""
+    """Chat endpoint with OpenRouter LLM integration"""
     user_message = request.json.get('message')
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
@@ -290,8 +319,8 @@ def chat():
     # Add current user message
     messages.append({'role': 'user', 'content': user_message})
     
-    # Call LLM
-    llm_response = call_llm(messages)
+    # Call OpenRouter LLM
+    llm_response = call_openrouter_llm(messages)
     
     if not llm_response or 'content' not in llm_response:
         ai_response = "I'm sorry, I'm having trouble processing that right now. Could you try again?"
@@ -304,19 +333,16 @@ def chat():
         'user': user_message,
         'ai': ai_response
     }
+    
+    # Add model info if available
+    if llm_response:
+        chat_entry['model'] = llm_response.get('model', 'unknown')
+        chat_entry['usage'] = llm_response.get('usage', {})
+    
     chat_history['messages'].append(chat_entry)
     chat_history['updated_at'] = datetime.utcnow().isoformat()
     
     s3_put(history_key, chat_history)
-    
-    # Extract and update profile dimensions if LLM provides insights
-    # This could be enhanced with structured output from LLM
-    if llm_response and 'profile_updates' in llm_response:
-        dimensions = llm_response.get('profile_updates', {})
-        if dimensions:
-            profile['dimensions'].update(dimensions)
-            profile['updated_at'] = datetime.utcnow().isoformat()
-            s3_put(f"profiles/{request.user_id}.json", profile)
     
     return jsonify({
         'response': ai_response,
@@ -409,13 +435,13 @@ def get_member_stats():
     })
 
 # Register all routes with the Flask app
-def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, llm_url):
-    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, llm_api_url
+def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cfg):
+    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config
     s3_client = s3_client_instance
     S3_BUCKET = s3_bucket
     S3_PREFIX = s3_prefix
     jwt_secret = app.config['JWT_SECRET']
-    llm_api_url = llm_url
+    openrouter_config = openrouter_cfg
     
     app.add_url_rule('/ping', 'ping', ping, methods=['GET'])
     app.add_url_rule('/register', 'register', register, methods=['POST'])
