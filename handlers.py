@@ -3,16 +3,30 @@ from functools import wraps
 import jwt
 from datetime import datetime, timedelta
 import json
+import requests
 
 # Global variables to be set by api_server
 s3_client = None
 S3_BUCKET = None
 S3_PREFIX = None
 jwt_secret = None
+llm_api_url = None  # Will be set to LLM completion endpoint
 
 # Constants
 FIRST_10K_FREE_LIMIT = 10000
 MEMBER_LIST_KEY = "member_list.json"
+
+# System prompt for the matchmaking AI
+SYSTEM_PROMPT = """You are a professional AI matchmaker for LoveDashMatcher, a service that helps people find compatible partners for lasting relationships. Your role is to:
+
+1. Learn about the user through natural conversation
+2. Understand their values, goals, interests, and what they're looking for in a partner
+3. Assess compatibility across 29 dimensions including: communication style, family values, lifestyle preferences, career ambitions, emotional intelligence, conflict resolution, financial attitudes, religious/spiritual views, parenting philosophy, social preferences, and more
+4. Be warm, empathetic, and professional
+5. Ask thoughtful follow-up questions to deeply understand the user
+6. Provide insights and guidance about relationships and compatibility
+
+Keep your responses conversational and engaging. Make the user feel heard and understood. Be encouraging and positive while remaining honest and realistic about relationship dynamics."""
 
 # JWT decorator
 def token_required(f):
@@ -77,6 +91,47 @@ def add_to_member_list(user_id, email, age, registration_time):
 def is_member_free(member_number):
     """Check if member gets free access based on signup order"""
     return member_number <= FIRST_10K_FREE_LIMIT
+
+def call_llm(messages, temperature=0.7, max_tokens=500):
+    """Call the LLM completion endpoint"""
+    try:
+        response = requests.post(
+            llm_api_url,
+            json={
+                'messages': messages,
+                'temperature': temperature,
+                'max_tokens': max_tokens
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"LLM API error: {e}")
+        return None
+
+def build_profile_context(profile):
+    """Build context string from user profile for LLM"""
+    context_parts = []
+    
+    if profile.get('age'):
+        context_parts.append(f"Age: {profile['age']}")
+    
+    if profile.get('dimensions'):
+        context_parts.append("\nUser Profile Information:")
+        for key, value in profile['dimensions'].items():
+            context_parts.append(f"- {key}: {value}")
+    
+    member_number = profile.get('member_number')
+    if member_number:
+        context_parts.append(f"\nMember #: {member_number}")
+    
+    if profile.get('is_free_member'):
+        context_parts.append("Status: Free lifetime member")
+    
+    if context_parts:
+        return "\n".join(context_parts)
+    return "New user - profile being built"
 
 # Route handlers
 def ping():
@@ -201,20 +256,83 @@ def update_profile():
 
 @token_required
 def chat():
-    # Simplified chat endpoint - integrate OpenAI later
-    message = request.json.get('message')
+    """Chat endpoint with LLM integration"""
+    user_message = request.json.get('message')
+    if not user_message:
+        return jsonify({'error': 'Message is required'}), 400
     
-    # Store chat history
-    history_key = f"profiles/{request.user_id}_history.json"
-    history = s3_get(history_key) or []
-    history.append({
+    # Load user profile
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    # Load chat history
+    history_key = f"chat/{request.user_id}_history.json"
+    chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
+    
+    # Build profile context for system message
+    profile_context = build_profile_context(profile)
+    
+    # Construct messages for LLM
+    messages = [
+        {
+            'role': 'system',
+            'content': f"{SYSTEM_PROMPT}\n\nCurrent User Context:\n{profile_context}"
+        }
+    ]
+    
+    # Add conversation history (last 20 exchanges to keep context manageable)
+    recent_messages = chat_history['messages'][-40:] if chat_history['messages'] else []
+    for msg in recent_messages:
+        messages.append({'role': 'user', 'content': msg['user']})
+        messages.append({'role': 'assistant', 'content': msg['ai']})
+    
+    # Add current user message
+    messages.append({'role': 'user', 'content': user_message})
+    
+    # Call LLM
+    llm_response = call_llm(messages)
+    
+    if not llm_response or 'content' not in llm_response:
+        ai_response = "I'm sorry, I'm having trouble processing that right now. Could you try again?"
+    else:
+        ai_response = llm_response['content']
+    
+    # Store in chat history
+    chat_entry = {
         'timestamp': datetime.utcnow().isoformat(),
-        'user': message,
-        'ai': 'This is a placeholder response. OpenAI integration coming soon!'
-    })
-    s3_put(history_key, history)
+        'user': user_message,
+        'ai': ai_response
+    }
+    chat_history['messages'].append(chat_entry)
+    chat_history['updated_at'] = datetime.utcnow().isoformat()
     
-    return jsonify({'response': 'Thanks for sharing! Tell me more about that.'})
+    s3_put(history_key, chat_history)
+    
+    # Extract and update profile dimensions if LLM provides insights
+    # This could be enhanced with structured output from LLM
+    if llm_response and 'profile_updates' in llm_response:
+        dimensions = llm_response.get('profile_updates', {})
+        if dimensions:
+            profile['dimensions'].update(dimensions)
+            profile['updated_at'] = datetime.utcnow().isoformat()
+            s3_put(f"profiles/{request.user_id}.json", profile)
+    
+    return jsonify({
+        'response': ai_response,
+        'timestamp': chat_entry['timestamp']
+    })
+
+@token_required
+def get_chat_history():
+    """Get user's chat history"""
+    history_key = f"chat/{request.user_id}_history.json"
+    chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
+    
+    return jsonify({
+        'messages': chat_history.get('messages', []),
+        'total_messages': len(chat_history.get('messages', []))
+    })
 
 @token_required
 def get_matches():
@@ -266,7 +384,7 @@ def initiate_payment():
 
 @token_required
 def get_member_stats():
-    """New endpoint to get membership statistics"""
+    """Get membership statistics"""
     member_list = s3_get(MEMBER_LIST_KEY)
     if not member_list:
         return jsonify({
@@ -290,13 +408,14 @@ def get_member_stats():
         'free_limit': FIRST_10K_FREE_LIMIT
     })
 
-# Register all routes with the Flask app (WITHOUT /api/ prefix)
-def register_routes(app, s3_client_instance, s3_bucket, s3_prefix):
-    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret
+# Register all routes with the Flask app
+def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, llm_url):
+    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, llm_api_url
     s3_client = s3_client_instance
     S3_BUCKET = s3_bucket
     S3_PREFIX = s3_prefix
     jwt_secret = app.config['JWT_SECRET']
+    llm_api_url = llm_url
     
     app.add_url_rule('/ping', 'ping', ping, methods=['GET'])
     app.add_url_rule('/register', 'register', register, methods=['POST'])
@@ -304,6 +423,7 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix):
     app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])
     app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
     app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
+    app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
     app.add_url_rule('/matches', 'get_matches', get_matches, methods=['GET'])
     app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
     app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
