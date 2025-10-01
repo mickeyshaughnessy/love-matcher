@@ -29,6 +29,29 @@
             overflow: hidden;
         }
         
+        .home-link {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px 20px;
+            text-align: right;
+        }
+        
+        .home-link a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 8px 20px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        .home-link a:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+        
         header {
             background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
             color: white;
@@ -286,6 +309,9 @@
 </head>
 <body>
     <div class="container">
+        <div class="home-link">
+            <a href="index.html">← Home</a>
+        </div>
         <header>
             <h1>🔷 LoveDashMatcher API</h1>
             <p class="subtitle">AI-Powered Matchmaking Service API Documentation</p>
