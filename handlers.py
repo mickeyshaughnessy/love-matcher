@@ -17,16 +17,78 @@ FIRST_10K_FREE_LIMIT = 10000
 MEMBER_LIST_KEY = "member_list.json"
 
 # System prompt for the matchmaking AI
-SYSTEM_PROMPT = """You are a professional AI matchmaker for LoveDashMatcher, a service that helps people find compatible partners for lasting relationships. Your role is to:
+SYSTEM_PROMPT = """You are LoveDashMatcher, an advanced AI matchmaking service that helps people find compatible partners for lasting relationships and traditional marriage. Your purpose is to engage in thoughtful conversation with users and build comprehensive compatibility profiles.
 
-1. Learn about the user through natural conversation
-2. Understand their values, goals, interests, and what they're looking for in a partner
-3. Assess compatibility across 29 dimensions including: communication style, family values, lifestyle preferences, career ambitions, emotional intelligence, conflict resolution, financial attitudes, religious/spiritual views, parenting philosophy, social preferences, and more
-4. Be warm, empathetic, and professional
-5. Ask thoughtful follow-up questions to deeply understand the user
-6. Provide insights and guidance about relationships and compatibility
+## Your Role:
+1. Warmly welcome users and explain the matching process
+2. Check age - if under 18, explain they can explore the service but matching will be available when they turn 18
+3. Conduct respectful conversations to understand values, lifestyle, and relationship goals
+4. Ask questions naturally, avoiding an interrogation feel
+5. Be encouraging and supportive while maintaining professional boundaries
+6. Focus on long-term compatibility factors for marriage and family formation
 
-Keep your responses conversational and engaging. Make the user feel heard and understood. Be encouraging and positive while remaining honest and realistic about relationship dynamics."""
+## The 29 Dimensions of Compatibility:
+Your conversation should explore these areas (not necessarily in order):
+
+1. Age & life stage alignment
+2. Geographic compatibility & flexibility
+3. Educational background & intellectual curiosity
+4. Career ambition & professional goals
+5. Financial philosophy & money management
+6. Family of origin dynamics & relationships
+7. Desire for children & parenting philosophy
+8. Religious/spiritual beliefs & practice
+9. Political worldview & civic engagement
+10. Communication style & emotional intelligence
+11. Conflict resolution approach
+12. Physical health & fitness commitment
+13. Mental health awareness & self-care
+14. Social energy (introvert/extrovert spectrum)
+15. Domestic lifestyle preferences
+16. Cleanliness & organization standards
+17. Food preferences & dining habits
+18. Travel desires & adventure seeking
+19. Hobbies & recreational interests
+20. Cultural background & traditions
+21. Humor style & playfulness
+22. Affection expression & love languages
+23. Independence vs. togetherness needs
+24. Decision-making style
+25. Time management & punctuality
+26. Technology usage & digital habits
+27. Pet preferences & animal companionship
+28. Substance use attitudes (alcohol, etc.)
+29. Long-term life vision & legacy goals
+
+## Important Policies:
+- Anyone can use the service to create a profile and explore
+- Only users 18+ will be entered into the matching pool
+- Only create matchable profiles for users seeking opposite-gender matches for traditional marriage
+- Verify single/unmarried status before proceeding with matching
+- Maintain strict confidentiality of user information
+- Do not make promises about match timing or quality
+- If users express incompatible values (same-gender matches, polyamory, casual dating only), politely explain this service focuses on traditional marriage-oriented matching
+- One profile per person
+- At most one match per user is allowed
+
+## Conversation Approach:
+1. Welcome and age check (note if under 18, matching is delayed until they turn 18)
+2. Explain the 29-dimension compatibility framework
+3. Have a natural conversation touching on multiple dimensions
+4. Deep dive into areas most important to the user
+5. Circle back to explore gaps in understanding
+6. Allow tangents that reveal character and values
+7. Gather rich, nuanced information for profile building
+
+## Your Communication Style:
+- Be warm, empathetic, and professional
+- Make users feel heard and understood
+- Ask thoughtful follow-up questions
+- Provide insights about relationships and compatibility
+- Be encouraging and positive while remaining honest and realistic
+- Keep responses conversational and engaging
+
+Remember: LoveDashMatcher supports traditional heterosexual marriage and families. The matching algorithm uses sophisticated multi-dimensional compatibility analysis. Your job is to understand each person deeply through authentic conversation."""
 
 # JWT decorator
 def token_required(f):
@@ -98,8 +160,8 @@ def call_openrouter_llm(messages):
         headers = {
             'Authorization': f"Bearer {openrouter_config['api_key']}",
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://lovedashmatcher.com',  # Optional but recommended
-            'X-Title': 'LoveDashMatcher'  # Optional but recommended
+            'HTTP-Referer': 'https://lovedashmatcher.com',
+            'X-Title': 'LoveDashMatcher'
         }
         
         payload = {
@@ -119,7 +181,6 @@ def call_openrouter_llm(messages):
         
         result = response.json()
         
-        # OpenRouter returns choices array with message content
         if 'choices' in result and len(result['choices']) > 0:
             return {
                 'content': result['choices'][0]['message']['content'],
@@ -144,23 +205,35 @@ def build_profile_context(profile):
     context_parts = []
     
     if profile.get('age'):
-        context_parts.append(f"Age: {profile['age']}")
+        age = profile['age']
+        context_parts.append(f"Age: {age}")
+        if age < 18:
+            context_parts.append(f"⚠️ User is under 18 - can explore service but matching delayed until age 18")
+    
+    matching_status = "Eligible for matching" if profile.get('matching_eligible') else "Not yet eligible for matching"
+    context_parts.append(f"Matching Status: {matching_status}")
     
     if profile.get('dimensions'):
-        context_parts.append("\nUser Profile Information:")
+        context_parts.append("\n📊 Profile Dimensions Gathered:")
         for key, value in profile['dimensions'].items():
-            context_parts.append(f"- {key}: {value}")
+            if isinstance(value, dict):
+                context_parts.append(f"- {key}: {json.dumps(value, indent=2)}")
+            else:
+                context_parts.append(f"- {key}: {value}")
     
     member_number = profile.get('member_number')
     if member_number:
-        context_parts.append(f"\nMember #: {member_number}")
+        context_parts.append(f"\n🎫 Member #{member_number}")
     
     if profile.get('is_free_member'):
-        context_parts.append("Status: Free lifetime member")
+        context_parts.append("💎 Status: Free lifetime member")
+    
+    conversation_count = profile.get('conversation_count', 0)
+    context_parts.append(f"💬 Conversations: {conversation_count}")
     
     if context_parts:
         return "\n".join(context_parts)
-    return "New user - profile being built"
+    return "New user - starting profile building process"
 
 # Route handlers
 def ping():
@@ -175,7 +248,6 @@ def register():
     if not all([email, password, age]):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    # Allow registration for all ages, but note matching eligibility
     age_int = int(age)
     matching_eligible = age_int >= 18
     
@@ -205,6 +277,7 @@ def register():
         'payment_status': payment_status,
         'matching_eligible': matching_eligible,
         'profile_complete': False,
+        'conversation_count': 0,
         'dimensions': {},
         'is_free_member': is_free
     }
@@ -228,11 +301,11 @@ def register():
     
     # Add appropriate message based on status
     if not matching_eligible:
-        response_data['message'] = "Account created! You can explore the service and chat with our AI. Matching will be available when you turn 18."
+        response_data['message'] = "Welcome! You can explore LoveDashMatcher and build your profile. Matching will be available when you turn 18."
     elif is_free:
-        response_data['message'] = f"Welcome! You're member #{member_number} and get free lifetime access to LoveDashMatcher!"
+        response_data['message'] = f"Welcome! You're member #{member_number} with free lifetime access to LoveDashMatcher!"
     else:
-        response_data['message'] = f"Welcome! You're member #{member_number}. Payment is required to access matching services."
+        response_data['message'] = f"Welcome! You're member #{member_number}. Payment required for matching services."
     
     return jsonify(response_data)
 
@@ -295,6 +368,10 @@ def chat():
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
     
+    # Increment conversation count
+    profile['conversation_count'] = profile.get('conversation_count', 0) + 1
+    s3_put(f"profiles/{request.user_id}.json", profile)
+    
     # Load chat history
     history_key = f"chat/{request.user_id}_history.json"
     chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
@@ -306,7 +383,7 @@ def chat():
     messages = [
         {
             'role': 'system',
-            'content': f"{SYSTEM_PROMPT}\n\nCurrent User Context:\n{profile_context}"
+            'content': f"{SYSTEM_PROMPT}\n\n{'='*60}\nCURRENT USER CONTEXT:\n{'='*60}\n{profile_context}\n{'='*60}\n\nRemember: Focus on understanding this person deeply across the 29 dimensions. Ask natural, engaging questions. Build a rich profile for the matching algorithm."
         }
     ]
     
