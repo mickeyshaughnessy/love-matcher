@@ -1,532 +1,1109 @@
-from flask import request, jsonify
-from functools import wraps
-import jwt
-from datetime import datetime, timedelta
-import json
-import requests
-
-# Global variables to be set by api_server
-s3_client = None
-S3_BUCKET = None
-S3_PREFIX = None
-jwt_secret = None
-openrouter_config = None  # Will hold OpenRouter configuration
-
-# Constants
-FIRST_10K_FREE_LIMIT = 10000
-MEMBER_LIST_KEY = "member_list.json"
-
-# System prompt for the matchmaking AI
-SYSTEM_PROMPT = """You are LoveDashMatcher, an advanced AI matchmaking service that helps people find compatible partners for lasting relationships and traditional marriage. Your purpose is to engage in thoughtful conversation with users and build comprehensive compatibility profiles.
-
-## Your Role:
-1. Warmly welcome users and explain the matching process
-2. Check age - if under 18, explain they can explore the service but matching will be available when they turn 18
-3. Conduct respectful conversations to understand values, lifestyle, and relationship goals
-4. Ask questions naturally, avoiding an interrogation feel
-5. Be encouraging and supportive while maintaining professional boundaries
-6. Focus on long-term compatibility factors for marriage and family formation
-
-## The 29 Dimensions of Compatibility:
-Your conversation should explore these areas (not necessarily in order):
-
-1. Age & life stage alignment
-2. Geographic compatibility & flexibility
-3. Educational background & intellectual curiosity
-4. Career ambition & professional goals
-5. Financial philosophy & money management
-6. Family of origin dynamics & relationships
-7. Desire for children & parenting philosophy
-8. Religious/spiritual beliefs & practice
-9. Political worldview & civic engagement
-10. Communication style & emotional intelligence
-11. Conflict resolution approach
-12. Physical health & fitness commitment
-13. Mental health awareness & self-care
-14. Social energy (introvert/extrovert spectrum)
-15. Domestic lifestyle preferences
-16. Cleanliness & organization standards
-17. Food preferences & dining habits
-18. Travel desires & adventure seeking
-19. Hobbies & recreational interests
-20. Cultural background & traditions
-21. Humor style & playfulness
-22. Affection expression & love languages
-23. Independence vs. togetherness needs
-24. Decision-making style
-25. Time management & punctuality
-26. Technology usage & digital habits
-27. Pet preferences & animal companionship
-28. Substance use attitudes (alcohol, etc.)
-29. Long-term life vision & legacy goals
-
-## Important Policies:
-- Anyone can use the service to create a profile and explore
-- Only users 18+ will be entered into the matching pool
-- Only create matchable profiles for users seeking opposite-gender matches for traditional marriage
-- Verify single/unmarried status before proceeding with matching
-- Maintain strict confidentiality of user information
-- Do not make promises about match timing or quality
-- If users express incompatible values (same-gender matches, polyamory, casual dating only), politely explain this service focuses on traditional marriage-oriented matching
-- One profile per person
-- At most one match per user is allowed
-
-## Conversation Approach:
-1. Welcome and age check (note if under 18, matching is delayed until they turn 18)
-2. Explain the 29-dimension compatibility framework
-3. Have a natural conversation touching on multiple dimensions
-4. Deep dive into areas most important to the user
-5. Circle back to explore gaps in understanding
-6. Allow tangents that reveal character and values
-7. Gather rich, nuanced information for profile building
-
-## Your Communication Style:
-- Be warm, empathetic, and professional
-- Make users feel heard and understood
-- Ask thoughtful follow-up questions
-- Provide insights about relationships and compatibility
-- Be encouraging and positive while remaining honest and realistic
-- Keep responses conversational and engaging
-
-Remember: LoveDashMatcher supports traditional heterosexual marriage and families. The matching algorithm uses sophisticated multi-dimensional compatibility analysis. Your job is to understand each person deeply through authentic conversation."""
-
-# JWT decorator
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'error': 'Token missing'}), 401
-        try:
-            token = token.replace('Bearer ', '')
-            data = jwt.decode(token, jwt_secret, algorithms=['HS256'])
-            request.user_id = data['user_id']
-        except:
-            return jsonify({'error': 'Invalid token'}), 401
-        return f(*args, **kwargs)
-    return decorated
-
-# Helper functions
-def s3_get(key):
-    try:
-        response = s3_client.get_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{key}")
-        return json.loads(response['Body'].read())
-    except:
-        return None
-
-def s3_put(key, data):
-    s3_client.put_object(
-        Bucket=S3_BUCKET,
-        Key=f"{S3_PREFIX}{key}",
-        Body=json.dumps(data),
-        ContentType='application/json'
-    )
-
-def get_member_count():
-    """Get current member count from S3"""
-    member_list = s3_get(MEMBER_LIST_KEY)
-    if not member_list:
-        return 0
-    return len(member_list.get('members', []))
-
-def add_to_member_list(user_id, email, age, registration_time):
-    """Add new member to the member list and return member number"""
-    member_list = s3_get(MEMBER_LIST_KEY) or {'members': [], 'created_at': datetime.utcnow().isoformat()}
-    
-    member_number = len(member_list['members']) + 1
-    
-    new_member = {
-        'member_number': member_number,
-        'user_id': user_id,
-        'email': email,
-        'age': age,
-        'registration_time': registration_time,
-        'is_free': member_number <= FIRST_10K_FREE_LIMIT
-    }
-    
-    member_list['members'].append(new_member)
-    member_list['updated_at'] = datetime.utcnow().isoformat()
-    
-    s3_put(MEMBER_LIST_KEY, member_list)
-    return member_number
-
-def is_member_free(member_number):
-    """Check if member gets free access based on signup order"""
-    return member_number <= FIRST_10K_FREE_LIMIT
-
-def call_openrouter_llm(messages):
-    """Call OpenRouter API with Grok model"""
-    try:
-        headers = {
-            'Authorization': f"Bearer {openrouter_config['api_key']}",
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://lovedashmatcher.com',
-            'X-Title': 'LoveDashMatcher'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoveDashMatcher API Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        payload = {
-            'model': openrouter_config['model'],
-            'messages': messages,
-            'temperature': openrouter_config['temperature'],
-            'max_tokens': openrouter_config['max_tokens']
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
         }
         
-        response = requests.post(
-            openrouter_config['api_url'],
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        response.raise_for_status()
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
         
-        result = response.json()
+        .home-link {
+            background: white;
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
         
-        if 'choices' in result and len(result['choices']) > 0:
-            return {
-                'content': result['choices'][0]['message']['content'],
-                'model': result.get('model', openrouter_config['model']),
-                'usage': result.get('usage', {})
+        .home-link a {
+            color: #764ba2;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.3s ease;
+        }
+        
+        .home-link a:hover {
+            color: #667eea;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .overview {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 4px solid #764ba2;
+            padding: 30px;
+            margin-bottom: 40px;
+            border-radius: 8px;
+        }
+        
+        h2 {
+            color: #764ba2;
+            font-size: 1.8rem;
+            margin: 40px 0 20px 0;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: #667eea;
+            font-size: 1.3rem;
+            margin: 30px 0 15px 0;
+        }
+        
+        .endpoint {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .endpoint-header {
+            padding: 15px 20px;
+            background: #fff;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .method {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        
+        .method.get {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .method.post {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .method.put {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .path {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .endpoint-body {
+            padding: 20px;
+        }
+        
+        .description {
+            margin-bottom: 20px;
+            color: #6c757d;
+        }
+        
+        .auth-required {
+            display: inline-block;
+            background: #ffeaa7;
+            color: #2d3436;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        
+        pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 15px 0;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .request-example, .response-example {
+            margin: 20px 0;
+        }
+        
+        .example-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .status-code {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 10px;
+        }
+        
+        .status-code.error {
+            background: #dc3545;
+        }
+        
+        .base-url {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .auth-section {
+            background: #fff8e1;
+            border: 1px solid #ffcc02;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+        
+        .note {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .dimensions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .dimension-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        
+        .footer {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+        
+        .toc li {
+            margin: 8px 0;
+        }
+        
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .json-highlight {
+            background: #1e1e1e;
+        }
+
+        @media (max-width: 768px) {
+            .endpoint-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
             }
-        else:
-            print(f"Unexpected OpenRouter response format: {result}")
-            return None
             
-    except requests.exceptions.RequestException as e:
-        print(f"OpenRouter API error: {e}")
-        if hasattr(e.response, 'text'):
-            print(f"Response text: {e.response.text}")
-        return None
-    except Exception as e:
-        print(f"Unexpected error calling OpenRouter: {e}")
-        return None
-
-def build_profile_context(profile):
-    """Build context string from user profile for LLM"""
-    context_parts = []
-    
-    if profile.get('age'):
-        age = profile['age']
-        context_parts.append(f"Age: {age}")
-        if age < 18:
-            context_parts.append(f"⚠️ User is under 18 - can explore service but matching delayed until age 18")
-    
-    matching_status = "Eligible for matching" if profile.get('matching_eligible') else "Not yet eligible for matching"
-    context_parts.append(f"Matching Status: {matching_status}")
-    
-    if profile.get('dimensions'):
-        context_parts.append("\n📊 Profile Dimensions Gathered:")
-        for key, value in profile['dimensions'].items():
-            if isinstance(value, dict):
-                context_parts.append(f"- {key}: {json.dumps(value, indent=2)}")
-            else:
-                context_parts.append(f"- {key}: {value}")
-    
-    member_number = profile.get('member_number')
-    if member_number:
-        context_parts.append(f"\n🎫 Member #{member_number}")
-    
-    if profile.get('is_free_member'):
-        context_parts.append("💎 Status: Free lifetime member")
-    
-    conversation_count = profile.get('conversation_count', 0)
-    context_parts.append(f"💬 Conversations: {conversation_count}")
-    
-    if context_parts:
-        return "\n".join(context_parts)
-    return "New user - starting profile building process"
-
-# Route handlers
-def ping():
-    return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat()})
-
-def register():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
-    age = data.get('age')
-    
-    if not all([email, password, age]):
-        return jsonify({'error': 'Missing required fields'}), 400
-    
-    age_int = int(age)
-    matching_eligible = age_int >= 18
-    
-    # Check if user exists
-    user_id = email.replace('@', '_').replace('.', '_')
-    if s3_get(f"profiles/{user_id}.json"):
-        return jsonify({'error': 'User already exists'}), 400
-    
-    # Add to member list and get member number
-    registration_time = datetime.utcnow().isoformat()
-    member_number = add_to_member_list(user_id, email, age_int, registration_time)
-    is_free = is_member_free(member_number)
-    
-    # Determine payment status
-    if is_free:
-        payment_status = 'free' if matching_eligible else 'free_pending_age'
-    else:
-        payment_status = 'payment_required'
-    
-    # Create user profile
-    profile = {
-        'user_id': user_id,
-        'email': email,
-        'age': age_int,
-        'member_number': member_number,
-        'created_at': registration_time,
-        'payment_status': payment_status,
-        'matching_eligible': matching_eligible,
-        'profile_complete': False,
-        'conversation_count': 0,
-        'dimensions': {},
-        'is_free_member': is_free
-    }
-    
-    s3_put(f"profiles/{user_id}.json", profile)
-    
-    # Generate token
-    token = jwt.encode(
-        {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
-        jwt_secret,
-        algorithm='HS256'
-    )
-    
-    response_data = {
-        'token': token, 
-        'user_id': user_id,
-        'member_number': member_number,
-        'matching_eligible': matching_eligible,
-        'is_free_member': is_free
-    }
-    
-    # Add appropriate message based on status
-    if not matching_eligible:
-        response_data['message'] = "Welcome! You can explore LoveDashMatcher and build your profile. Matching will be available when you turn 18."
-    elif is_free:
-        response_data['message'] = f"Welcome! You're member #{member_number} with free lifetime access to LoveDashMatcher!"
-    else:
-        response_data['message'] = f"Welcome! You're member #{member_number}. Payment required for matching services."
-    
-    return jsonify(response_data)
-
-def login():
-    data = request.json
-    email = data.get('email')
-    user_id = email.replace('@', '_').replace('.', '_')
-    
-    profile = s3_get(f"profiles/{user_id}.json")
-    if not profile:
-        return jsonify({'error': 'User not found'}), 404
-    
-    token = jwt.encode(
-        {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
-        jwt_secret,
-        algorithm='HS256'
-    )
-    
-    return jsonify({'token': token, 'user_id': user_id})
-
-@token_required
-def get_profile():
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    return jsonify(profile)
-
-@token_required
-def update_profile():
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    
-    data = request.json
-    
-    # If user is updating age and becomes 18+, update matching eligibility
-    if 'age' in data:
-        new_age = int(data['age'])
-        if new_age >= 18 and not profile.get('matching_eligible', False):
-            profile['matching_eligible'] = True
-            # Update payment status if they're a free member
-            if profile.get('is_free_member', False):
-                profile['payment_status'] = 'free'
-    
-    profile.update(data)
-    profile['updated_at'] = datetime.utcnow().isoformat()
-    
-    s3_put(f"profiles/{request.user_id}.json", profile)
-    return jsonify(profile)
-
-@token_required
-def chat():
-    """Chat endpoint with OpenRouter LLM integration"""
-    user_message = request.json.get('message')
-    if not user_message:
-        return jsonify({'error': 'Message is required'}), 400
-    
-    # Load user profile
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    
-    # Increment conversation count
-    profile['conversation_count'] = profile.get('conversation_count', 0) + 1
-    s3_put(f"profiles/{request.user_id}.json", profile)
-    
-    # Load chat history
-    history_key = f"chat/{request.user_id}_history.json"
-    chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
-    
-    # Build profile context for system message
-    profile_context = build_profile_context(profile)
-    
-    # Construct messages for LLM
-    messages = [
-        {
-            'role': 'system',
-            'content': f"{SYSTEM_PROMPT}\n\n{'='*60}\nCURRENT USER CONTEXT:\n{'='*60}\n{profile_context}\n{'='*60}\n\nRemember: Focus on understanding this person deeply across the 29 dimensions. Ask natural, engaging questions. Build a rich profile for the matching algorithm."
+            .dimensions-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
         }
-    ]
-    
-    # Add conversation history (last 20 exchanges to keep context manageable)
-    recent_messages = chat_history['messages'][-40:] if chat_history['messages'] else []
-    for msg in recent_messages:
-        messages.append({'role': 'user', 'content': msg['user']})
-        messages.append({'role': 'assistant', 'content': msg['ai']})
-    
-    # Add current user message
-    messages.append({'role': 'user', 'content': user_message})
-    
-    # Call OpenRouter LLM
-    llm_response = call_openrouter_llm(messages)
-    
-    if not llm_response or 'content' not in llm_response:
-        ai_response = "I'm sorry, I'm having trouble processing that right now. Could you try again?"
-    else:
-        ai_response = llm_response['content']
-    
-    # Store in chat history
-    chat_entry = {
-        'timestamp': datetime.utcnow().isoformat(),
-        'user': user_message,
-        'ai': ai_response
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="home-link">
+            <a href="index.html">← Home</a>
+        </div>
+        <header>
+            <h1>🔷 LoveDashMatcher API</h1>
+            <p class="subtitle">AI-Powered Matchmaking Service API Documentation</p>
+        </header>
+        
+        <div class="content">
+            <div class="overview">
+                <h2 style="margin-top: 0;">Overview</h2>
+                <p><strong>LoveDashMatcher</strong> is an AI-assisted matchmaking service that supports traditional heterosexual marriage and families. Our API allows users to register, create detailed compatibility profiles, and find their perfect match using advanced 29-dimension compatibility analysis.</p>
+                <p>While users of any age can register and explore the service, matching is only available for users 18 years or older. The service features a lifetime membership model with a one-time fee structure.</p>
+            </div>
+
+            <div class="toc">
+                <h3>Table of Contents</h3>
+                <ul>
+                    <li><a href="#base-url">Base URL</a></li>
+                    <li><a href="#authentication">Authentication</a></li>
+                    <li><a href="#endpoints">API Endpoints</a></li>
+                    <li><a href="#matching-dimensions">29 Matching Dimensions</a></li>
+                    <li><a href="#profile-structure">Complete Profile Example</a></li>
+                    <li><a href="#error-handling">Error Handling</a></li>
+                </ul>
+            </div>
+
+            <h2 id="base-url">Base URL</h2>
+            <div class="base-url">
+                <strong>Production:</strong> https://rse-api.com:5009<br>
+                <strong>Development:</strong> http://localhost:5009
+            </div>
+
+            <h2 id="authentication">Authentication</h2>
+            <div class="auth-section">
+                <h3>JWT Token Authentication</h3>
+                <p>Most endpoints require authentication using JWT tokens. Include the token in the Authorization header:</p>
+                <pre><code>Authorization: Bearer &lt;your_jwt_token&gt;</code></pre>
+                <p>Tokens expire after 24 hours and must be refreshed by logging in again.</p>
+            </div>
+
+            <h2 id="endpoints">API Endpoints</h2>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/ping</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Health check endpoint to verify API availability.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "status": "ok",
+  "timestamp": "2025-09-29T10:30:00.000Z"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/register</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Register a new user account. Users must be 18 or older for matching eligibility.</p>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "age": 25
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user_id": "user_example_com",
+  "member_number": 1,
+  "matching_eligible": true,
+  "is_free_member": true,
+  "message": "Welcome! You're member #1 and get free lifetime access!"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Error Response <span class="status-code error">400</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Missing required fields"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/login</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Authenticate an existing user and receive a JWT token.</p>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "email": "user@example.com"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user_id": "user_example_com"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/profile</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Retrieve the authenticated user's profile information.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "user_id": "user_example_com",
+  "email": "user@example.com",
+  "age": 25,
+  "member_number": 1,
+  "created_at": "2025-09-29T10:00:00.000Z",
+  "payment_status": "free",
+  "matching_eligible": true,
+  "profile_complete": true,
+  "is_free_member": true,
+  "dimensions": {...}
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method put">PUT</span>
+                    <span class="path">/profile</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Update the authenticated user's profile with new information.</p>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "dimensions": {
+    "age": 26,
+    "location": "New York, NY",
+    "familyOrientation": {
+      "wantsChildren": true,
+      "numberOfChildren": "2-3",
+      "parentingStyle": "balanced"
     }
-    
-    # Add model info if available
-    if llm_response:
-        chat_entry['model'] = llm_response.get('model', 'unknown')
-        chat_entry['usage'] = llm_response.get('usage', {})
-    
-    chat_history['messages'].append(chat_entry)
-    chat_history['updated_at'] = datetime.utcnow().isoformat()
-    
-    s3_put(history_key, chat_history)
-    
-    return jsonify({
-        'response': ai_response,
-        'timestamp': chat_entry['timestamp']
-    })
+  },
+  "profile_complete": true
+}</code></pre>
+                    </div>
 
-@token_required
-def get_chat_history():
-    """Get user's chat history"""
-    history_key = f"chat/{request.user_id}_history.json"
-    chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
-    
-    return jsonify({
-        'messages': chat_history.get('messages', []),
-        'total_messages': len(chat_history.get('messages', []))
-    })
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "user_id": "user_example_com",
+  "email": "user@example.com",
+  "updated_at": "2025-09-29T11:00:00.000Z",
+  ...
+}</code></pre>
+                    </div>
+                </div>
+            </div>
 
-@token_required
-def get_matches():
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    
-    # Check if user is eligible for matching
-    if not profile.get('matching_eligible', False):
-        return jsonify({
-            'matches': [],
-            'message': 'Matching will be available when you turn 18. Keep building your profile!'
-        })
-    
-    # Check payment status
-    payment_status = profile.get('payment_status', 'payment_required')
-    if payment_status not in ['free', 'completed']:
-        return jsonify({
-            'matches': [],
-            'message': 'Payment required to access matching services. Please complete your payment to continue.',
-            'payment_required': True
-        })
-    
-    # Get matches (placeholder for now)
-    matches = s3_get(f"matches/{request.user_id}_matches.json") or []
-    return jsonify({'matches': matches})
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/chat</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Send a message to the AI matchmaker for profile development and guidance.</p>
+                    
+                    <div class="note">
+                        <strong>Note:</strong> This endpoint currently returns placeholder responses. Full OpenAI integration is planned for production release.
+                    </div>
+                    
+                    <div class="request-example">
+                        <span class="example-label">Request Body</span>
+                        <pre class="json-highlight"><code>{
+  "message": "I'm looking for someone who shares my love of outdoor activities."
+}</code></pre>
+                    </div>
 
-@token_required
-def initiate_payment():
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    
-    # Check if user is a free member
-    if profile.get('is_free_member', False):
-        return jsonify({
-            'error': 'You have free lifetime access - no payment required!',
-            'member_number': profile.get('member_number'),
-            'is_free_member': True
-        }), 400
-    
-    # Placeholder for XMoney integration
-    return jsonify({
-        'payment_url': 'https://xmoney.example.com/pay/placeholder',
-        'amount': 49.99,
-        'currency': 'USD',
-        'member_number': profile.get('member_number')
-    })
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "response": "Thanks for sharing! Tell me more about that."
+}</code></pre>
+                    </div>
+                </div>
+            </div>
 
-@token_required
-def get_member_stats():
-    """Get membership statistics"""
-    member_list = s3_get(MEMBER_LIST_KEY)
-    if not member_list:
-        return jsonify({
-            'total_members': 0,
-            'free_members': 0,
-            'paid_members': 0,
-            'spots_remaining': FIRST_10K_FREE_LIMIT
-        })
-    
-    members = member_list.get('members', [])
-    total_members = len(members)
-    free_members = sum(1 for m in members if m.get('is_free', False))
-    paid_members = total_members - free_members
-    spots_remaining = max(0, FIRST_10K_FREE_LIMIT - total_members)
-    
-    return jsonify({
-        'total_members': total_members,
-        'free_members': free_members,
-        'paid_members': paid_members,
-        'spots_remaining': spots_remaining,
-        'free_limit': FIRST_10K_FREE_LIMIT
-    })
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/matches</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Retrieve potential matches for the authenticated user.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "matches": [
+    {
+      "user_id": "potential_match_1",
+      "compatibility_score": 0.87,
+      "shared_dimensions": ["familyOrientation", "spirituality"],
+      "profile_summary": "..."
+    }
+  ]
+}</code></pre>
+                    </div>
+                </div>
+            </div>
 
-# Register all routes with the Flask app
-def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cfg):
-    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config
-    s3_client = s3_client_instance
-    S3_BUCKET = s3_bucket
-    S3_PREFIX = s3_prefix
-    jwt_secret = app.config['JWT_SECRET']
-    openrouter_config = openrouter_cfg
-    
-    app.add_url_rule('/ping', 'ping', ping, methods=['GET'])
-    app.add_url_rule('/register', 'register', register, methods=['POST'])
-    app.add_url_rule('/login', 'login', login, methods=['POST'])
-    app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])
-    app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
-    app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
-    app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
-    app.add_url_rule('/matches', 'get_matches', get_matches, methods=['GET'])
-    app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
-    app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/payment/initiate</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Initiate payment process for lifetime membership.</p>
+                    
+                    <div class="note">
+                        <strong>Note:</strong> This endpoint currently returns placeholder payment URLs. XMoney integration is planned for production release.
+                    </div>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "payment_url": "https://xmoney.example.com/pay/placeholder",
+  "amount": 49.99,
+  "currency": "USD",
+  "member_number": 10001
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/stats</span>
+                    <span class="auth-required">🔒 Auth Required</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="description">Get current membership statistics.</p>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Response <span class="status-code">200</span></span>
+                        <pre class="json-highlight"><code>{
+  "total_members": 1523,
+  "free_members": 1523,
+  "paid_members": 0,
+  "spots_remaining": 8477,
+  "free_limit": 10000
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <h2 id="matching-dimensions">29 Matching Dimensions</h2>
+            <p>Our sophisticated matching algorithm analyzes compatibility across these 29 key dimensions:</p>
+            
+            <div class="dimensions-grid">
+                <div class="dimension-item">1. Age & life stage alignment</div>
+                <div class="dimension-item">2. Geographic compatibility & flexibility</div>
+                <div class="dimension-item">3. Educational background & intellectual curiosity</div>
+                <div class="dimension-item">4. Career ambition & professional goals</div>
+                <div class="dimension-item">5. Financial philosophy & money management</div>
+                <div class="dimension-item">6. Family of origin dynamics & relationships</div>
+                <div class="dimension-item">7. Desire for children & parenting philosophy</div>
+                <div class="dimension-item">8. Religious/spiritual beliefs & practice</div>
+                <div class="dimension-item">9. Political worldview & civic engagement</div>
+                <div class="dimension-item">10. Communication style & emotional intelligence</div>
+                <div class="dimension-item">11. Conflict resolution approach</div>
+                <div class="dimension-item">12. Physical health & fitness commitment</div>
+                <div class="dimension-item">13. Mental health awareness & self-care</div>
+                <div class="dimension-item">14. Social energy (introvert/extrovert spectrum)</div>
+                <div class="dimension-item">15. Domestic lifestyle preferences</div>
+                <div class="dimension-item">16. Cleanliness & organization standards</div>
+                <div class="dimension-item">17. Food preferences & dining habits</div>
+                <div class="dimension-item">18. Travel desires & adventure seeking</div>
+                <div class="dimension-item">19. Hobbies & recreational interests</div>
+                <div class="dimension-item">20. Cultural background & traditions</div>
+                <div class="dimension-item">21. Humor style & playfulness</div>
+                <div class="dimension-item">22. Affection expression & love languages</div>
+                <div class="dimension-item">23. Independence vs. togetherness needs</div>
+                <div class="dimension-item">24. Decision-making style</div>
+                <div class="dimension-item">25. Time management & punctuality</div>
+                <div class="dimension-item">26. Technology usage & digital habits</div>
+                <div class="dimension-item">27. Pet preferences & animal companionship</div>
+                <div class="dimension-item">28. Substance use attitudes (alcohol, etc.)</div>
+                <div class="dimension-item">29. Long-term life vision & legacy goals</div>
+            </div>
+
+            <h2 id="profile-structure">Complete Profile Example</h2>
+            <p>Below is a comprehensive example showing all 29 dimensions populated in a user profile, along with chat history from the AI matchmaker conversation:</p>
+            
+            <pre class="json-highlight"><code>{
+  "userId": "sarah_johnson_gmail_com",
+  "email": "sarah.johnson@gmail.com",
+  "memberNumber": 1247,
+  "createdAt": "2025-09-15T14:22:00.000Z",
+  "lastUpdated": "2025-09-29T10:00:00.000Z",
+  "profileComplete": true,
+  "matchingEligible": true,
+  "paymentStatus": "free",
+  
+  "demographics": {
+    "age": 28,
+    "gender": "female",
+    "dateOfBirth": "1997-03-15"
+  },
+
+  "dimensions": {
+    "1_ageLifeStage": {
+      "age": 28,
+      "lifeStage": "established young professional",
+      "readyForMarriage": true,
+      "timeline": "within 2-3 years"
+    },
+
+    "2_geographicCompatibility": {
+      "currentLocation": {
+        "city": "Denver",
+        "state": "Colorado",
+        "country": "USA"
+      },
+      "willingToRelocate": true,
+      "relocationPreferences": "open to mountain/western states",
+      "urbanRuralPreference": "suburban with outdoor access"
+    },
+
+    "3_educationalBackground": {
+      "highestDegree": "Master's",
+      "field": "Environmental Science",
+      "university": "University of Colorado Boulder",
+      "intellectualCuriosity": "high",
+      "continuingEducation": "regular workshops and conferences",
+      "readingHabits": "2-3 books per month, non-fiction and nature writing"
+    },
+
+    "4_careerAmbition": {
+      "currentRole": "Environmental Consultant",
+      "industry": "Sustainability",
+      "ambitionLevel": "moderate-high",
+      "workLifeBalance": "balanced, prefers 40-45 hour weeks",
+      "careerGoals": "lead sustainability projects for major organizations",
+      "willingToSacrificeCareerForFamily": "flexible, would adjust but not abandon"
+    },
+
+    "5_financialPhilosophy": {
+      "savingsHabits": "disciplined saver, 20% of income",
+      "spendingStyle": "mindful, values experiences over things",
+      "debtStatus": "minimal student loans, no credit card debt",
+      "investmentApproach": "moderate risk, ESG-focused portfolio",
+      "financialGoals": "own home by 30, retire comfortably by 60",
+      "incomeExpectations": "comfortable dual income household"
+    },
+
+    "6_familyOfOrigin": {
+      "parentsMaritalStatus": "married 35 years",
+      "siblingCount": 2,
+      "birthOrder": "middle child",
+      "familyCloseness": "very close, weekly calls",
+      "familyDynamics": "supportive, warm, communicative",
+      "parentalInfluence": "positive role models for marriage"
+    },
+
+    "7_childrenParenting": {
+      "wantsChildren": true,
+      "numberOfChildren": "2-3",
+      "timing": "within 3-5 years of marriage",
+      "parentingPhilosophy": "authoritative, nature-focused",
+      "educationPreference": "public school supplemented with outdoor education",
+      "stayAtHomePreference": "both work with flexible schedules"
+    },
+
+    "8_spiritualityReligion": {
+      "religiousAffiliation": "Christian",
+      "denomination": "non-denominational",
+      "practiceLevel": "attends church 2-3 times per month",
+      "spiritualImportance": "very important",
+      "prayerHabits": "daily personal prayer",
+      "bibleStudy": "weekly small group",
+      "faithInMarriage": "essential foundation"
+    },
+
+    "9_politicalWorldview": {
+      "generalOrientation": "moderate conservative",
+      "civicEngagement": "votes regularly, occasional volunteer",
+      "keyIssues": "environmental stewardship, family values",
+      "politicalImportance": "moderate - seeks common ground",
+      "discussionStyle": "respectful, open to dialogue"
+    },
+
+    "10_communicationStyle": {
+      "expressiveness": "moderately expressive",
+      "emotionalIntelligence": "high",
+      "listeningSkills": "active listener",
+      "conflictCommunication": "direct but gentle",
+      "preferredMedium": "in-person > phone > text",
+      "dailyCheckIns": "enjoys end-of-day conversations"
+    },
+
+    "11_conflictResolution": {
+      "approach": "collaborative problem-solving",
+      "timeoutNeeded": "brief cool-down (30 min max)",
+      "apologizing": "willing and prompt",
+      "holdingGrudges": "forgives easily",
+      "professionalHelp": "open to counseling if needed",
+      "fightingStyle": "calm discussion, no yelling"
+    },
+
+    "12_physicalHealth": {
+      "fitnessLevel": "very active",
+      "exerciseRoutine": "5-6 days per week - hiking, yoga, cycling",
+      "dietQuality": "whole foods, mostly plant-based",
+      "chronicConditions": "none",
+      "healthPriority": "high",
+      "activeLifestyle": "essential for wellbeing"
+    },
+
+    "13_mentalHealth": {
+      "selfAwareness": "high",
+      "therapyExperience": "brief therapy in college, positive experience",
+      "stressManagement": "meditation, journaling, nature time",
+      "anxietyDepression": "occasional stress, well-managed",
+      "selfCareRoutine": "regular, includes boundaries and rest",
+      "emotionalStability": "stable with healthy coping mechanisms"
+    },
+
+    "14_socialEnergy": {
+      "introvertExtrovert": "ambivert leaning introvert",
+      "socialBattery": "recharges with alone time and nature",
+      "idealWeekend": "one social event, rest is quiet or outdoor time",
+      "partyPreference": "small gatherings over large parties",
+      "friendCircle": "close-knit group of 5-6 friends",
+      "aloneTime": "needs 1-2 hours daily"
+    },
+
+    "15_domesticLifestyle": {
+      "homeEnvironment": "cozy, natural materials, plants",
+      "indoorOutdoorBalance": "outdoor-focused lifestyle",
+      "entertainingFrequency": "monthly dinner parties",
+      "homeProjects": "enjoys DIY and gardening",
+      "idealHomeType": "craftsman style near trails",
+      "nesting": "values home as sanctuary"
+    },
+
+    "16_cleanlinessOrganization": {
+      "cleanlinessLevel": "clean and tidy",
+      "organizationStyle": "organized with systems",
+      "choreApproach": "shared responsibilities, routine",
+      "clutter": "minimal, regular decluttering",
+      "cleaningStandards": "weekly deep clean, daily pickup",
+      "tolerance": "needs clean space for peace of mind"
+    },
+
+    "17_foodDining": {
+      "dietaryPreferences": "pescatarian",
+      "cookingSkills": "intermediate, enjoys trying new recipes",
+      "cookingFrequency": "5-6 nights per week",
+      "restaurantPreference": "local farm-to-table",
+      "diningOutFrequency": "2-3 times per month",
+      "foodAdventurousness": "willing to try most things",
+      "mealImportance": "dinner together is important"
+    },
+
+    "18_travelAdventure": {
+      "travelFrequency": "2-3 major trips per year",
+      "travelStyle": "adventure travel, eco-tourism",
+      "budgetLevel": "moderate",
+      "destinations": "national parks, international hiking",
+      "adventureLevel": "high - enjoys backpacking, kayaking",
+      "culturalInterest": "moderate",
+      "idealVacation": "week-long backcountry hiking trip"
+    },
+
+    "19_hobbiesRecreation": {
+      "primaryHobbies": ["hiking", "rock climbing", "photography"],
+      "secondaryHobbies": ["reading", "yoga", "gardening"],
+      "timeCommitment": "10-15 hours per week on hobbies",
+      "sharedActivities": "prefers partner who enjoys outdoors",
+      "solitaryActivities": "photography, reading",
+      "learningNewSkills": "currently learning bird identification"
+    },
+
+    "20_culturalBackground": {
+      "ethnicity": "Caucasian",
+      "culturalHeritage": "Irish-American",
+      "traditions": "celebrates traditional holidays",
+      "languageSpoken": "English",
+      "culturalPride": "moderate connection to heritage",
+      "familyTraditions": "annual camping trip, Sunday dinners",
+      "culturalOpenness": "interested in learning about other cultures"
+    },
+
+    "21_humorPlayfulness": {
+      "humorStyle": "witty, nature puns, gentle teasing",
+      "sarcasm": "occasional, always kind",
+      "laughterFrequency": "daily",
+      "playfulness": "playful in comfortable settings",
+      "funnyBone": "appreciates clever wordplay and situational humor",
+      "seriousness": "balanced - can be silly and serious",
+      "importanceOfLaughter": "very important in relationship"
+    },
+
+    "22_affectionExpression": {
+      "loveLanaguages": ["quality time", "physical touch", "acts of service"],
+      "pda": "comfortable with moderate PDA",
+      "verbalAffection": "regular 'I love you's, affirmations",
+      "physicalAffection": "enjoys cuddling, hand-holding",
+      "gifting": "thoughtful but not frequent",
+      "romanticGestures": "appreciates but doesn't need grand gestures",
+      "affectionNeeds": "daily physical contact and connection"
+    },
+
+    "23_independenceTogetherness": {
+      "timeTogetherPreference": "balanced - together most evenings/weekends",
+      "separateInterests": "healthy to have some separate activities",
+      "couplesIdentity": "strong couple identity while maintaining individuality",
+      "friendshipsMaintenance": "maintains individual friendships",
+      "spaceNeeds": "needs 1-2 solo activities per week",
+      "clinginess": "neither clingy nor distant",
+      "idealBalance": "70% together, 30% independent time"
+    },
+
+    "24_decisionMaking": {
+      "style": "collaborative consensus",
+      "bigDecisions": "discuss thoroughly, decide together",
+      "smallDecisions": "trusts partner to decide independently",
+      "research": "likes to research options",
+      "intuitionVsLogic": "balanced - uses both",
+      "decisionSpeed": "thoughtful but not overly slow",
+      "financialDecisions": "joint decisions over $500"
+    },
+
+    "25_timeManagementPunctuality": {
+      "punctuality": "usually 5-10 minutes early",
+      "planning": "plans ahead, keeps calendar",
+      "spontaneity": "enjoys occasional spontaneity within structure",
+      "timeRespect": "very respectful of others' time",
+      "scheduleFlexibility": "moderately flexible",
+      "morningNight": "morning person",
+      "routineImportance": "values routine with room for flexibility"
+    },
+
+    "26_technologyDigitalHabits": {
+      "screenTime": "moderate, intentional use",
+      "socialMediaUse": "minimal - Instagram for nature photos",
+      "phoneDuringMeals": "no phones at dinner table",
+      "workLifeBoundaries": "strong boundaries, no evening emails",
+      "techInBedroom": "phones charge outside bedroom",
+      "digitalDetox": "regular weekend unplugging",
+      "techSavviness": "comfortable but not tech-obsessed"
+    },
+
+    "27_petPreferences": {
+      "currentPets": "none currently",
+      "futurePets": "wants a dog (medium-large hiking companion)",
+      "petImportance": "important",
+      "animalLove": "loves animals",
+      "petCareCommitment": "willing to share responsibilities",
+      "allergies": "none",
+      "idealPet": "rescue dog, active breed like Australian Shepherd"
+    },
+
+    "28_substanceUse": {
+      "alcohol": "social drinker, 2-3 drinks per week",
+      "smoking": "never",
+      "marijuana": "not interested",
+      "otherSubstances": "none",
+      "partnerExpectations": "moderate drinking okay, no smoking",
+      "sobriety": "not required but respects boundaries",
+      "healthConscious": "prefers low/moderate consumption"
+    },
+
+    "29_longTermVisionLegacy": {
+      "fiveYearPlan": "married, first child, own home",
+      "tenYearPlan": "2-3 kids, established family life, career growth",
+      "retirementVision": "mountain home, travel, grandchildren",
+      "legacyGoals": "raise environmentally conscious children, contribute to conservation",
+      "lifePhilosophy": "live simply, tread lightly, love deeply",
+      "purposeDriven": "wants meaningful work and family",
+      "bigDreams": "visit all US national parks, write nature guide"
+    }
+  },
+
+  "chatHistory": [
+    {
+      "timestamp": "2025-09-15T14:30:00.000Z",
+      "role": "assistant",
+      "message": "Welcome to LoveDashMatcher, Sarah! I'm here to help you build your profile and find your perfect match. Let's start by getting to know you better. What brings you to our service today?"
+    },
+    {
+      "timestamp": "2025-09-15T14:32:00.000Z",
+      "role": "user",
+      "message": "Hi! I'm 28 and ready to find someone serious about marriage and family. I've tried other apps but they seem so superficial."
+    },
+    {
+      "timestamp": "2025-09-15T14:33:00.000Z",
+      "role": "assistant",
+      "message": "That's exactly what we're here for - deep compatibility for lasting marriage. Tell me about what's important to you in a future spouse. What values do they need to share with you?"
+    },
+    {
+      "timestamp": "2025-09-15T14:35:00.000Z",
+      "role": "user",
+      "message": "Faith is really important to me. I'm a Christian and go to church regularly. I'd also love someone who enjoys the outdoors as much as I do - hiking, camping, that kind of thing."
+    },
+    {
+      "timestamp": "2025-09-15T14:37:00.000Z",
+      "role": "assistant",
+      "message": "Wonderful! Faith and shared interests create such a strong foundation. Let's explore your outdoor lifestyle more. How often do you get outside, and what does that look like for you?"
+    },
+    {
+      "timestamp": "2025-09-15T14:40:00.000Z",
+      "role": "user",
+      "message": "I'm outside almost every day! I hike probably 4-5 times a week, go rock climbing on weekends, and I'm working on visiting all the Colorado 14ers. Nature is where I feel closest to God, honestly."
+    },
+    {
+      "timestamp": "2025-09-15T14:42:00.000Z",
+      "role": "assistant",
+      "message": "That's beautiful - connecting your faith and love of creation. Now let's talk about family. You mentioned wanting marriage and family. What does your ideal family life look like?"
+    },
+    {
+      "timestamp": "2025-09-15T14:45:00.000Z",
+      "role": "user",
+      "message": "I definitely want kids - probably 2 or 3. I'd want to raise them to appreciate nature, to be kind and curious. I imagine weekend family hikes, teaching them about the environment. My parents have been married 35 years and they're great role models."
+    },
+    {
+      "timestamp": "2025-09-15T14:48:00.000Z",
+      "role": "assistant",
+      "message": "That's lovely that you have such a positive example. Let's talk about practical matters - where do you see yourself living long-term? Would you relocate for the right person?"
+    },
+    {
+      "timestamp": "2025-09-15T14:50:00.000Z",
+      "role": "user",
+      "message": "I love Colorado but I'd be open to other mountain states - Montana, Wyoming, maybe Utah. I need to be somewhere with outdoor access and four seasons. I work as an environmental consultant so I have some flexibility."
+    },
+    {
+      "timestamp": "2025-09-15T15:00:00.000Z",
+      "role": "assistant",
+      "message": "Perfect. Let's dive into some other areas. Tell me about your ideal evening at home with a partner. What does that look like?"
+    },
+    {
+      "timestamp": "2025-09-15T15:03:00.000Z",
+      "role": "user",
+      "message": "Cooking dinner together, maybe trying a new recipe. Then sitting on the porch or by a fire, talking about our days, planning our next adventure. I'm not really a TV person - I'd rather read or just be together."
+    },
+    {
+      "timestamp": "2025-09-22T19:15:00.000Z",
+      "role": "user",
+      "message": "Hey, I've been thinking more about what I want in a partner. They need to be okay with my introverted side - I love people but I also need quiet time to recharge."
+    },
+    {
+      "timestamp": "2025-09-22T19:17:00.000Z",
+      "role": "assistant",
+      "message": "That's really important to clarify! Would you say you're more introverted or are you somewhere in the middle?"
+    },
+    {
+      "timestamp": "2025-09-22T19:20:00.000Z",
+      "role": "user",
+      "message": "I'd say ambivert leaning introvert. I enjoy social time but in small doses. A big party drains me, but a dinner with close friends energizes me. I definitely need alone time daily to feel balanced."
+    },
+    {
+      "timestamp": "2025-09-29T09:45:00.000Z",
+      "role": "assistant",
+      "message": "Your profile is looking comprehensive, Sarah! Just to confirm a few final details - you mentioned being pescatarian. How important is it that your partner shares similar dietary preferences?"
+    },
+    {
+      "timestamp": "2025-09-29T09:48:00.000Z",
+      "role": "user",
+      "message": "They don't need to be pescatarian, but I'd prefer someone who eats healthily and isn't a big meat-every-meal person. I'm happy to cook fish or vegetarian meals, and they can eat what they want when we're out."
+    },
+    {
+      "timestamp": "2025-09-29T09:50:00.000Z",
+      "role": "assistant",
+      "message": "That sounds very reasonable and flexible. I think we have a wonderful, complete picture of who you are and what you're looking for. Your profile is now ready for matching! Would you like to review anything before we proceed?"
+    },
+    {
+      "timestamp": "2025-09-29T09:52:00.000Z",
+      "role": "user",
+      "message": "I think I'm ready! This feels so much more thorough than anything else I've tried. I'm excited to see who you match me with!"
+    }
+  ],
+
+  "matchingPreferences": {
+    "ageRange": {
+      "min": 26,
+      "max": 35
+    },
+    "maximumDistance": 500,
+    "dealBreakers": [
+      "must share Christian faith",
+      "must want children",
+      "must be non-smoker",
+      "must enjoy outdoor activities"
+    ],
+    "highPriorityDimensions": [
+      "spiritualityReligion",
+      "childrenParenting",
+      "physicalHealth",
+      "travelAdventure",
+      "longTermVisionLegacy"
+    ]
+  }
+}</code></pre>
+                    </div>
+
+            <h2 id="error-handling">Error Handling</h2>
+            <p>The API uses standard HTTP status codes and returns JSON error responses:</p>
+
+            <div class="endpoint">
+                <div class="endpoint-body">
+                    <h3>Common Error Responses</h3>
+                    
+                    <div class="response-example">
+                        <span class="example-label">Bad Request <span class="status-code error">400</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Missing required fields"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Unauthorized <span class="status-code error">401</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Token missing"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Not Found <span class="status-code error">404</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "User not found"
+}</code></pre>
+                    </div>
+
+                    <div class="response-example">
+                        <span class="example-label">Server Error <span class="status-code error">500</span></span>
+                        <pre class="json-highlight"><code>{
+  "error": "Internal server error"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note">
+                <h3>Important Notes</h3>
+                <ul>
+                    <li>Only users 18+ are eligible for matching</li>
+                    <li>Service supports traditional heterosexual marriage-oriented matching</li>
+                    <li>One profile per person policy</li>
+                    <li>JWT tokens expire after 24 hours</li>
+                    <li>Profiles are stored securely on AWS S3</li>
+                    <li>Chat history is maintained for continuity</li>
+                    <li>First 10,000 members get free lifetime access</li>
+                    <li>All 29 dimensions should be populated for optimal matching</li>
+                    <li>Profile structure is flexible - AI can interpret various JSON formats</li>
+                </ul>
+            </div>
+        </div>
+        
+        <footer class="footer">
+            <p>LoveDashMatcher API Documentation</p>
+            <p>Building Lasting Connections Through AI-Powered Compatibility</p>
+            <p>Follow us: <a href="https://x.com/lovedashmatcher" target="_blank">@lovedashmatcher</a></p>
+        </footer>
+    </div>
+</body>
+</html>
