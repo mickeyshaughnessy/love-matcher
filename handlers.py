@@ -4,6 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 import json
 import requests
+import bcrypt
 
 import config
 
@@ -344,6 +345,10 @@ def register():
     if s3_get(f"profiles/{user_id}.json"):
         return jsonify({'error': 'User already exists'}), 400
     
+    # Hash password
+    salt = bcrypt.gensalt()
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    
     # Add to member list and get member number
     registration_time = datetime.utcnow().isoformat()
     member_number = add_to_member_list(user_id, email, age_int, registration_time)
@@ -359,6 +364,7 @@ def register():
     profile = {
         'user_id': user_id,
         'email': email,
+        'password_hash': password_hash,
         'age': age_int,
         'member_number': member_number,
         'created_at': registration_time,
@@ -400,11 +406,24 @@ def register():
 def login():
     data = request.json
     email = data.get('email')
+    password = data.get('password')
+    
+    if not email or not password:
+        return jsonify({'error': 'Email and password required'}), 400
+    
     user_id = email.replace('@', '_').replace('.', '_')
     
     profile = s3_get(f"profiles/{user_id}.json")
     if not profile:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({'error': 'Invalid email or password'}), 401
+    
+    # Verify password
+    stored_hash = profile.get('password_hash')
+    if not stored_hash:
+        return jsonify({'error': 'Account error - please contact support'}), 500
+    
+    if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+        return jsonify({'error': 'Invalid email or password'}), 401
     
     token = jwt.encode(
         {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
