@@ -423,10 +423,15 @@ def login():
     # Verify password
     stored_hash = profile.get('password_hash')
     if not stored_hash:
+        print(f"⚠️ Profile {user_id} missing password_hash")
         return jsonify({'error': 'Account error - please contact support'}), 500
     
-    if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-        return jsonify({'error': 'Invalid email or password'}), 401
+    try:
+        if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+            return jsonify({'error': 'Invalid email or password'}), 401
+    except Exception as e:
+        print(f"❌ Password verification error for {user_id}: {e}")
+        return jsonify({'error': 'Authentication error - please contact support'}), 500
     
     token = jwt.encode(
         {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
