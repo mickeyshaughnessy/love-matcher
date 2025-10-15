@@ -6,7 +6,6 @@
     <title>Love Matcher - AI-Powered Relationship Matching</title>
     <script src="https://js.stripe.com/v3/"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://clerk.browser.love-matcher.com/npm/@clerk/clerk-js@4/dist/clerk.browser.js"></script>
     <script type="module" src="./js/payment.js"></script>
     <style>
         @keyframes gradient {
@@ -155,31 +154,80 @@
     </div>
 
     <!-- Sign Up Modal -->
-    <div id="signup-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full">
+    <div id="signup-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full relative">
+            <button id="close-signup" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
             <h2 class="text-2xl font-bold mb-6">Create Your Account</h2>
-            <div id="clerk-signup-container"></div>
-            <div id="payment-container" class="hidden mt-6">
-                <div id="card-element" class="bg-gray-700 rounded-md p-4 mb-4"></div>
-                <div id="payment-error" class="hidden text-red-500 mb-4"></div>
-                <button id="submit-payment" 
+            <form id="signup-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="signup-email" required
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Password</label>
+                    <input type="password" id="signup-password" required
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Age</label>
+                    <input type="number" id="signup-age" required min="18"
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                </div>
+                <div id="signup-error" class="hidden text-red-500 text-sm"></div>
+                <button type="submit"
                         class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-                    Pay $150 and Join
+                    Create Account
                 </button>
+            </form>
+            <div id="payment-container" class="hidden mt-6">
+                <p class="text-center mb-4">Account created! Now complete your payment.</p>
+                <button id="submit-payment" 
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                    Pay $150 and Start Matching
+                </button>
+                <div id="payment-error" class="hidden text-red-500 text-sm mt-2"></div>
             </div>
         </div>
     </div>
 
     <!-- Login Modal -->
-    <div id="login-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full">
+    <div id="login-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full relative">
+            <button id="close-login" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
             <h2 class="text-2xl font-bold mb-6">Welcome Back</h2>
-            <div id="clerk-login-container"></div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="login-email" required
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Password</label>
+                    <input type="password" id="login-password" required
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                </div>
+                <div id="login-error" class="hidden text-red-500 text-sm"></div>
+                <button type="submit"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                    Login
+                </button>
+            </form>
         </div>
     </div>
     <script type="module">
-        import { initializePayment, handlePayment } from './js/payment.js';
-        import { initializeClerk, mountSignUp, mountSignIn } from './js/auth.js';
+        import { handlePayment } from './js/payment.js';
+        
+        const API_BASE = 'http://localhost:5009';
+        let currentUser = null;
         
         // Show signup modal
         document.getElementById('signup-button').addEventListener('click', () => {
@@ -191,6 +239,15 @@
             document.getElementById('login-modal').classList.remove('hidden');
         });
 
+        // Close modals
+        document.getElementById('close-signup').addEventListener('click', () => {
+            document.getElementById('signup-modal').classList.add('hidden');
+        });
+
+        document.getElementById('close-login').addEventListener('click', () => {
+            document.getElementById('login-modal').classList.add('hidden');
+        });
+
         // Close modals when clicking outside
         document.querySelectorAll('#signup-modal, #login-modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -200,18 +257,99 @@
             });
         });
 
-        // Initialize Clerk and mount components
-        window.addEventListener('load', async () => {
-            await initializeClerk();
-            mountSignUp();
-            mountSignIn();
+        // Handle signup
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const age = document.getElementById('signup-age').value;
+            const errorDiv = document.getElementById('signup-error');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating account...';
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_BASE}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password, age: parseInt(age) })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Registration failed');
+                }
+                
+                // Save token and user info
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user_id', data.user_id);
+                currentUser = { email, token: data.token };
+                
+                // Hide signup form and show payment
+                document.getElementById('signup-form').classList.add('hidden');
+                document.getElementById('payment-container').classList.remove('hidden');
+                
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+            }
+        });
+
+        // Handle login
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Login failed');
+                }
+                
+                // Save token and redirect to app
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user_id', data.user_id);
+                
+                // Redirect to main app (you'll need to create this page)
+                window.location.href = '/app.html';
+                
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
         });
 
         // Handle payment submission
         document.getElementById('submit-payment').addEventListener('click', async () => {
-            const user = await window.Clerk.user;
-            if (user) {
-                await handlePayment(user);
+            if (currentUser) {
+                await handlePayment(currentUser);
             }
         });
     </script>

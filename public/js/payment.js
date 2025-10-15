@@ -1,16 +1,7 @@
-"""
-🤔 Payment Module - Simple Stripe checkout with product ID
-"""
-
 const stripe = Stripe('pk_test_TYooMQauvdEDq54NiTphI7jx');
 
-export async function initializePayment() {
-    console.log('Starting payment...');
-    return stripe;
-}
-
 export async function handlePayment(user) {
-    console.log('Processing payment:', user?.emailAddress);
+    console.log('Processing payment:', user?.email);
     
     const button = document.querySelector('#submit-payment');
     button.disabled = true;
@@ -18,11 +9,11 @@ export async function handlePayment(user) {
     
     try {
         const { error } = await stripe.redirectToCheckout({
-            items: [{ product: 'prod_R92mKzdvXQKc9N', quantity: 1 }],
+            lineItems: [{ price: 'price_1QQnfiP3RiwFKPqfhXg4c7n3', quantity: 1 }],
             mode: 'payment',
-            successUrl: `${window.location.origin}/success`,
-            cancelUrl: `${window.location.origin}/cancel`,
-            customerEmail: user?.emailAddress
+            successUrl: `${window.location.origin}/js/success.html`,
+            cancelUrl: `${window.location.origin}/js/cancel.html`,
+            customerEmail: user?.email
         });
 
         if (error) throw error;
