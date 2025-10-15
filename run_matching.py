@@ -198,17 +198,20 @@ def run_matching(dry_run=False):
     Args:
         dry_run: If True, only simulate matching without saving changes
     """
-    print("=" * 60)
+    print("\n" + "=" * 60)
     print(f"🎯 LoveDashMatcher Daily Matching {'(DRY RUN)' if dry_run else ''}")
     print(f"Run time: {datetime.utcnow().isoformat()}")
-    print("=" * 60)
+    print("=" * 60 + "\n")
     
     # Get all profile keys
+    print("📂 Loading profiles from S3...")
     profile_keys = s3_list_profiles()
-    print(f"Found {len(profile_keys)} total profiles")
+    print(f"✓ Found {len(profile_keys)} total profile files in S3")
     
     # Load all profiles
+    print("\n📊 Loading and validating profiles...")
     all_profiles = []
+    invalid_profiles = []
     for key in profile_keys:
         # Extract just the filename part after the prefix
         filename = key.replace(f"{S3_PREFIX}profiles/", "")
@@ -216,13 +219,37 @@ def run_matching(dry_run=False):
         if profile and isinstance(profile, dict):
             all_profiles.append(profile)
         else:
-            print(f"⚠️ Skipping invalid profile: {filename}")
+            invalid_profiles.append(filename)
+            print(f"  ⚠️  Skipping invalid profile: {filename}")
     
-    print(f"Loaded {len(all_profiles)} profiles successfully")
+    print(f"✓ Loaded {len(all_profiles)} valid profiles")
+    if invalid_profiles:
+        print(f"✗ Skipped {len(invalid_profiles)} invalid profiles")
+    
+    # Data checking - profile status breakdown
+    print("\n📈 Profile Status Breakdown:")
+    total_users = len(all_profiles)
+    already_matched = sum(1 for p in all_profiles if p.get('current_match_id'))
+    active_matching = sum(1 for p in all_profiles if p.get('matching_active', True))
+    inactive_matching = total_users - active_matching
+    eligible = sum(1 for p in all_profiles if p.get('matching_eligible', False))
+    under_18 = sum(1 for p in all_profiles if p.get('age', 0) < 18)
+    free_members = sum(1 for p in all_profiles if p.get('is_free_member', False))
+    paid_members = total_users - free_members
+    
+    print(f"  Total profiles: {total_users}")
+    print(f"  Already matched: {already_matched}")
+    print(f"  Active in matching pool: {active_matching}")
+    print(f"  Inactive/paused: {inactive_matching}")
+    print(f"  Eligible (18+): {eligible}")
+    print(f"  Under 18: {under_18}")
+    print(f"  Free members: {free_members}")
+    print(f"  Paid members: {paid_members}")
     
     # Filter for active, eligible users without matches
     # Note: matching_active defaults to True if not set
     # Note: matching_eligible must be True (age >= 18 and payment status OK)
+    print("\n🔍 Filtering users for matching...")
     active_users = [
         p for p in all_profiles 
         if p.get('matching_active', True) 
@@ -231,7 +258,7 @@ def run_matching(dry_run=False):
         and p.get('payment_status') in ['free', 'completed', 'free_pending_age']
     ]
     
-    print(f"Active users seeking matches: {len(active_users)}")
+    print(f"  Active users seeking matches: {len(active_users)}")
     
     # Filter only those who are actually eligible (18+)
     eligible_active_users = [
@@ -239,24 +266,36 @@ def run_matching(dry_run=False):
         if u.get('matching_eligible', False) and u.get('payment_status') in ['free', 'completed']
     ]
     
-    print(f"Eligible active users (18+, paid/free): {len(eligible_active_users)}")
+    print(f"  Eligible active users (18+, paid/free): {len(eligible_active_users)}")
     
     if len(eligible_active_users) < 2:
-        print("Not enough eligible active users for matching")
+        print("\n⚠️  Not enough eligible active users for matching")
+        print(f"   Need at least 2 users, have {len(eligible_active_users)}")
         return {
             'success': True,
             'matches_created': 0,
             'reason': 'Not enough eligible users',
-            'eligible_users': len(eligible_active_users)
+            'eligible_users': len(eligible_active_users),
+            'total_profiles': len(all_profiles),
+            'already_matched': already_matched
         }
     
     # Track matches created
     matches_created = []
     
     # Sort by profile completeness (prioritize complete profiles)
+    print("\n🔄 Sorting users by profile completeness...")
     eligible_active_users.sort(key=lambda p: len(p.get('dimensions', {})), reverse=True)
     
+    # Show profile completion stats
+    if eligible_active_users:
+        completions = [len(p.get('dimensions', {})) for p in eligible_active_users]
+        avg_completion = sum(completions) / len(completions)
+        print(f"  Average profile completion: {avg_completion:.1f}/29 dimensions")
+        print(f"  Most complete: {max(completions)}/29, Least complete: {min(completions)}/29")
+    
     # Match users
+    print("\n💑 Starting matching process...")
     matched_user_ids = set()
     
     for user in eligible_active_users:
@@ -309,11 +348,16 @@ def run_matching(dry_run=False):
                 'score': score
             })
             
-            print(f"✅ Matched {user_id} with {match_id} (score: {score}%)")
+            print(f"  ✅ Matched {user_id} with {match_id} (score: {score}%)")
     
-    print("=" * 60)
-    print(f"Matching complete: {len(matches_created)} new matches created")
-    print("=" * 60)
+    # Report unmatched users
+    unmatched_count = len(eligible_active_users) - (len(matches_created) * 2)
+    if unmatched_count > 0:
+        print(f"\n  ⚠️  {unmatched_count} eligible users remain unmatched this round")
+    
+    print("\n" + "=" * 60)
+    print(f"✓ Matching complete: {len(matches_created)} new matches created")
+    print("=" * 60 + "\n")
     
     # Save matching run log (unless dry run)
     log_entry = {

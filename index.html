@@ -1263,6 +1263,7 @@
         const API_URL = 'https://rse-api.com:5009';
         let authToken = null;
         let currentUser = null;
+        let matchMessagesInterval = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -1295,6 +1296,12 @@
 
         // View management
         function showView(viewName) {
+            // Clear any existing message polling
+            if (matchMessagesInterval) {
+                clearInterval(matchMessagesInterval);
+                matchMessagesInterval = null;
+            }
+            
             // Hide all views
             document.getElementById('landingPage').style.display = 'none';
             document.getElementById('dashboardView').style.display = 'none';
@@ -1321,6 +1328,13 @@
                     document.getElementById('matchView').style.display = 'block';
                     document.querySelectorAll('.nav-link')[2].classList.add('active');
                     loadMatch();
+                    // Start polling for new messages if chatting with match (inactive status)
+                    matchMessagesInterval = setInterval(() => {
+                        const matchChatMessages = document.getElementById('matchChatMessages');
+                        if (matchChatMessages && !matchChatMessages.querySelector('[style*="text-align: center"]')) {
+                            loadMatchMessages();
+                        }
+                    }, 5000); // Poll every 5 seconds
                     break;
                 case 'profile':
                     document.getElementById('profileView').style.display = 'block';
@@ -1387,6 +1401,7 @@
                 
                 if (response.ok) {
                     authToken = data.token;
+                    currentUser = data;
                     document.getElementById('loginMessage').innerHTML = 
                         `<div class="success">Login successful!</div>`;
                     
@@ -1758,6 +1773,13 @@
         // Load match messages
         async function loadMatchMessages() {
             try {
+                // Get current user profile to determine user_id
+                const profileResponse = await fetch(`${API_URL}/profile`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const profile = await profileResponse.json();
+                const myUserId = profile.user_id;
+                
                 const response = await fetch(`${API_URL}/match/messages`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
@@ -1769,7 +1791,7 @@
                     messagesDiv.innerHTML = '';
                     
                     data.messages.forEach(msg => {
-                        const type = msg.from === currentUser?.user_id ? 'sent' : 'received';
+                        const type = msg.from === myUserId ? 'sent' : 'received';
                         addMatchMessage(msg.message, type, msg.timestamp);
                     });
                 }
@@ -1845,6 +1867,12 @@
 
         // Logout
         function logout() {
+            // Clear any intervals
+            if (matchMessagesInterval) {
+                clearInterval(matchMessagesInterval);
+                matchMessagesInterval = null;
+            }
+            
             authToken = null;
             currentUser = null;
             document.getElementById('mainNav').classList.remove('active');
