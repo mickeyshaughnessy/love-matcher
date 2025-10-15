@@ -640,10 +640,20 @@ def get_current_match():
     # Get current match
     match_id = profile.get('current_match_id')
     if not match_id:
+        profile_complete = profile.get('profile_complete', False)
+        dimensions_count = len(profile.get('dimensions', {}))
+        
+        if profile_complete:
+            message = 'No match yet. Check back soon - we\'re working on finding your perfect match!'
+        else:
+            message = f'No match yet. Complete your profile to improve matching! ({dimensions_count}/29 dimensions filled)'
+        
         return jsonify({
             'match': None,
             'matching_active': profile.get('matching_active', True),
-            'message': 'No match yet. Complete your profile to improve matching!'
+            'profile_complete': profile_complete,
+            'dimensions_count': dimensions_count,
+            'message': message
         })
     
     # Load match profile (limited info)

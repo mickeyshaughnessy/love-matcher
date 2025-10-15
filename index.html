@@ -1152,10 +1152,10 @@
             </div>
             <div id="matchContainer" style="max-width: 800px; margin: 0 auto;">
                 <!-- Match content will be loaded here -->
-                <div style="text-align: center; padding: 40px; color: #6c757d;">
+                <div style="text-align: center; padding: 40px; color: #2c3e50;">
                     <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
-                    <h3>No match yet</h3>
-                    <p>Complete your profile to get matched!</p>
+                    <h3 style="color: #2c3e50;">No match yet</h3>
+                    <p style="color: #34495e;">Complete your profile to get matched!</p>
                     <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
                 </div>
             </div>
@@ -1501,12 +1501,19 @@
                     }
                 } else {
                     // No match yet
+                    const profileComplete = data.profile_complete;
+                    const dimensionsCount = data.dimensions_count || 0;
+                    
                     matchContainer.innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <div style="text-align: center; padding: 40px; color: #2c3e50;">
                             <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
-                            <h3>${data.message || 'No match yet'}</h3>
-                            <p>Complete your profile to get matched!</p>
-                            <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
+                            <h3 style="color: #2c3e50; margin-bottom: 15px;">${data.message || 'No match yet'}</h3>
+                            ${!profileComplete ? `
+                                <p style="color: #34495e; margin-bottom: 20px;">You have ${dimensionsCount}/29 dimensions filled.</p>
+                                <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
+                            ` : `
+                                <p style="color: #34495e;">Your profile is complete! We'll notify you when we find a great match.</p>
+                            `}
                         </div>
                     `;
                 }
