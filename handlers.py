@@ -155,7 +155,7 @@ def is_member_free(member_number):
     return member_number <= FIRST_10K_FREE_LIMIT
 
 def call_openrouter_llm(messages):
-    """Call OpenRouter API with Grok model"""
+    """Call OpenRouter API with configured model"""
     try:
         headers = {
             'Authorization': f"Bearer {openrouter_config['api_key']}",
@@ -171,33 +171,41 @@ def call_openrouter_llm(messages):
             'max_tokens': openrouter_config['max_tokens']
         }
         
+        print(f"🤖 Calling OpenRouter with model: {openrouter_config['model']}")
+        
         response = requests.post(
             openrouter_config['api_url'],
             headers=headers,
             json=payload,
             timeout=30
         )
+        
+        print(f"📥 OpenRouter response status: {response.status_code}")
+        
         response.raise_for_status()
         
         result = response.json()
         
         if 'choices' in result and len(result['choices']) > 0:
+            print(f"✅ Successfully got response from {result.get('model', 'unknown model')}")
             return {
                 'content': result['choices'][0]['message']['content'],
                 'model': result.get('model', openrouter_config['model']),
                 'usage': result.get('usage', {})
             }
         else:
-            print(f"Unexpected OpenRouter response format: {result}")
+            print(f"❌ Unexpected OpenRouter response format: {result}")
             return None
             
     except requests.exceptions.RequestException as e:
-        print(f"OpenRouter API error: {e}")
-        if hasattr(e.response, 'text'):
+        print(f"❌ OpenRouter API error: {e}")
+        if hasattr(e, 'response') and hasattr(e.response, 'text'):
             print(f"Response text: {e.response.text}")
         return None
     except Exception as e:
-        print(f"Unexpected error calling OpenRouter: {e}")
+        print(f"❌ Unexpected error calling OpenRouter: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def build_profile_context(profile):
