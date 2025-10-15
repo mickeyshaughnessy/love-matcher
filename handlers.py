@@ -674,7 +674,10 @@ def get_current_match():
         'matching_active': profile.get('matching_active', True)
     }
     
-    return jsonify({'match': match_info})
+    return jsonify({
+        'match': match_info,
+        'matching_active': profile.get('matching_active', True)
+    })
 
 @token_required
 def toggle_matching_active():
