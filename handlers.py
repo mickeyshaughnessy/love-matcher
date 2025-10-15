@@ -586,7 +586,8 @@ def get_chat_history():
     })
 
 @token_required
-def get_matches():
+def get_current_match():
+    """Get user's current match (at most one)"""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
@@ -594,7 +595,7 @@ def get_matches():
     # Check if user is eligible for matching
     if not profile.get('matching_eligible', False):
         return jsonify({
-            'matches': [],
+            'match': None,
             'message': 'Matching will be available when you turn 18. Keep building your profile!'
         })
     
@@ -602,14 +603,160 @@ def get_matches():
     payment_status = profile.get('payment_status', 'payment_required')
     if payment_status not in ['free', 'completed']:
         return jsonify({
-            'matches': [],
+            'match': None,
             'message': 'Payment required to access matching services. Please complete your payment to continue.',
             'payment_required': True
         })
     
-    # Get matches (placeholder for now)
-    matches = s3_get(f"matches/{request.user_id}_matches.json") or []
-    return jsonify({'matches': matches})
+    # Get current match
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({
+            'match': None,
+            'matching_active': profile.get('matching_active', True),
+            'message': 'No match yet. Complete your profile to improve matching!'
+        })
+    
+    # Load match profile (limited info)
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    if not match_profile:
+        # Match profile deleted, clear the match
+        profile['current_match_id'] = None
+        s3_put(f"profiles/{request.user_id}.json", profile)
+        return jsonify({'match': None})
+    
+    # Return limited match info
+    match_info = {
+        'match_id': match_id,
+        'age': match_profile.get('age'),
+        'match_score': profile.get('match_score', 0),
+        'matched_at': profile.get('matched_at'),
+        'dimensions': match_profile.get('dimensions', {}),
+        'matching_active': profile.get('matching_active', True)
+    }
+    
+    return jsonify({'match': match_info})
+
+@token_required
+def toggle_matching_active():
+    """Toggle user's active/inactive status for matching"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    data = request.json
+    active = data.get('active', True)
+    
+    profile['matching_active'] = active
+    profile['matching_active_updated_at'] = datetime.utcnow().isoformat()
+    
+    s3_put(f"profiles/{request.user_id}.json", profile)
+    
+    return jsonify({
+        'matching_active': active,
+        'message': 'Matching activated' if active else 'Matching paused'
+    })
+
+@token_required
+def reject_match():
+    """Reject current match and return to matching pool"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match to reject'}), 400
+    
+    # Add to rejected list
+    if 'rejected_matches' not in profile:
+        profile['rejected_matches'] = []
+    profile['rejected_matches'].append(match_id)
+    
+    # Clear current match
+    profile['current_match_id'] = None
+    profile['match_score'] = None
+    profile['matched_at'] = None
+    profile['match_rejected_at'] = datetime.utcnow().isoformat()
+    
+    s3_put(f"profiles/{request.user_id}.json", profile)
+    
+    # Update other user's profile
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    if match_profile:
+        match_profile['current_match_id'] = None
+        match_profile['match_score'] = None
+        match_profile['matched_at'] = None
+        s3_put(f"profiles/{match_id}.json", match_profile)
+    
+    return jsonify({
+        'message': 'Match rejected. You will be matched with someone new in the next matching cycle.',
+        'matching_active': profile.get('matching_active', True)
+    })
+
+@token_required
+def send_match_message():
+    """Send message to current match"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match'}), 400
+    
+    message = request.json.get('message')
+    if not message:
+        return jsonify({'error': 'Message required'}), 400
+    
+    # Determine chat key (consistent ordering)
+    user_ids = sorted([request.user_id, match_id])
+    chat_key = f"match_chats/{user_ids[0]}_{user_ids[1]}.json"
+    
+    # Load or create chat
+    chat = s3_get(chat_key) or {
+        'user1_id': user_ids[0],
+        'user2_id': user_ids[1],
+        'created_at': datetime.utcnow().isoformat(),
+        'messages': []
+    }
+    
+    # Add message
+    chat['messages'].append({
+        'from': request.user_id,
+        'message': message,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+    chat['updated_at'] = datetime.utcnow().isoformat()
+    
+    s3_put(chat_key, chat)
+    
+    return jsonify({
+        'success': True,
+        'timestamp': chat['messages'][-1]['timestamp']
+    })
+
+@token_required
+def get_match_messages():
+    """Get messages with current match"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match'}), 400
+    
+    # Determine chat key
+    user_ids = sorted([request.user_id, match_id])
+    chat_key = f"match_chats/{user_ids[0]}_{user_ids[1]}.json"
+    
+    chat = s3_get(chat_key) or {'messages': []}
+    
+    return jsonify({
+        'messages': chat.get('messages', []),
+        'match_id': match_id
+    })
 
 @token_required
 def initiate_payment():
@@ -674,6 +821,10 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
     app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
     app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
-    app.add_url_rule('/matches', 'get_matches', get_matches, methods=['GET'])
+    app.add_url_rule('/match', 'get_current_match', get_current_match, methods=['GET'])
+    app.add_url_rule('/match/toggle', 'toggle_matching_active', toggle_matching_active, methods=['POST'])
+    app.add_url_rule('/match/reject', 'reject_match', reject_match, methods=['POST'])
+    app.add_url_rule('/match/messages', 'get_match_messages', get_match_messages, methods=['GET'])
+    app.add_url_rule('/match/messages', 'send_match_message', send_match_message, methods=['POST'])
     app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
     app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
