@@ -5,15 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LoveDashMatcher - AI-Powered Lifetime Matching</title>
     
-    <!-- Clerk SDK -->
-    <script
-        async
-        crossorigin="anonymous"
-        data-clerk-publishable-key="pk_live_Y2xlcmsubG92ZS1tYXRjaGVyLmNvbSQ"
-        src="https://clerk.love-matcher.com/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-        type="text/javascript"
-    ></script>
-    
     <style>
         * {
             margin: 0;
@@ -379,21 +370,43 @@
 
         <div class="error" id="error"></div>
 
-        <!-- Clerk Authentication Screen -->
+        <!-- Login/Signup Screen -->
         <div class="screen active" id="auth-screen">
-            <h2 style="margin-bottom: 20px;">Welcome to LoveDashMatcher</h2>
-            <div id="clerk-signin"></div>
-        </div>
-
-        <!-- Age Collection Screen (for new Clerk users) -->
-        <div class="screen" id="age-screen">
-            <h2 style="margin-bottom: 20px;">Complete Your Profile</h2>
-            <p style="margin-bottom: 20px; color: #666;">Please provide your age to continue.</p>
-            <div class="form-group">
-                <label>Age</label>
-                <input type="number" id="user-age" placeholder="18+" min="18">
+            <h2 style="margin-bottom: 20px; text-align: center;">Welcome to LoveDashMatcher</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Sign Up -->
+                <div style="border-right: 1px solid #e0e0e0; padding-right: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">Sign Up</h3>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="signup-email" placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="signup-password" placeholder="Password">
+                    </div>
+                    <div class="form-group">
+                        <label>Age</label>
+                        <input type="number" id="signup-age" placeholder="18+" min="18">
+                    </div>
+                    <button class="btn" onclick="signup()">Create Account</button>
+                </div>
+                
+                <!-- Login -->
+                <div style="padding-left: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">Login</h3>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="login-email" placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" placeholder="Password">
+                    </div>
+                    <button class="btn" onclick="login()">Login</button>
+                </div>
             </div>
-            <button class="btn" onclick="submitAge()">Continue</button>
         </div>
 
         <!-- Payment Screen -->
@@ -459,40 +472,18 @@
         
         console.log('API URL:', API_URL);
         
-        let clerkInstance = null;
+        let authToken = null;
         let currentUser = null;
         let currentMatch = null;
         let matchMessagesInterval = null;
 
-        // Initialize Clerk
+        // Check for stored auth token on load
         window.addEventListener('load', async () => {
-            try {
-                clerkInstance = window.Clerk;
-                await clerkInstance.load();
-                
-                if (clerkInstance.user) {
-                    // User is signed in with Clerk
-                    console.log('Clerk user signed in:', clerkInstance.user.id);
-                    await handleClerkAuth();
-                } else {
-                    // User not signed in, mount sign-in component
-                    showScreen('auth-screen');
-                    clerkInstance.mountSignIn(document.getElementById('clerk-signin'));
-                }
-                
-                // Listen for Clerk auth changes
-                clerkInstance.addListener((session) => {
-                    if (session) {
-                        console.log('Clerk session updated');
-                        handleClerkAuth();
-                    } else {
-                        console.log('Clerk session ended');
-                        handleSignOut();
-                    }
-                });
-            } catch (error) {
-                console.error('Clerk initialization error:', error);
-                showError('Authentication service failed to load');
+            authToken = localStorage.getItem('authToken');
+            if (authToken) {
+                await loadProfile();
+            } else {
+                showScreen('auth-screen');
             }
         });
 
@@ -509,89 +500,73 @@
             document.getElementById(screenId).classList.add('active');
         }
 
-        async function handleClerkAuth() {
-            try {
-                // Get Clerk session token
-                const token = await clerkInstance.session.getToken();
-                
-                if (!token) {
-                    showError('Failed to get authentication token');
-                    return;
-                }
-                
-                // Try to load profile
-                const profile = await loadProfileWithToken(token);
-                
-                if (!profile) {
-                    // New user - need to collect age
-                    showScreen('age-screen');
-                } else {
-                    // Existing user - continue to app
-                    currentUser = profile;
-                    navigateBasedOnProfile(profile);
-                }
-            } catch (error) {
-                console.error('Clerk auth handling error:', error);
-                showError('Failed to authenticate. Please try again.');
+        async function signup() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const age = document.getElementById('signup-age').value;
+
+            if (!email || !password || !age) {
+                showError('All fields are required');
+                return;
             }
-        }
 
-        async function loadProfileWithToken(token) {
-            try {
-                const response = await fetch(`${API_URL}/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (response.status === 404) {
-                    // Profile doesn't exist yet
-                    return null;
-                }
-
-                if (!response.ok) {
-                    throw new Error('Failed to load profile');
-                }
-
-                return await response.json();
-            } catch (error) {
-                console.error('Error loading profile:', error);
-                return null;
-            }
-        }
-
-        async function submitAge() {
-            const age = document.getElementById('user-age').value;
-
-            if (!age || age < 18) {
-                showError('Please enter a valid age (18+)');
+            if (age < 18) {
+                showError('You must be 18 or older to sign up');
                 return;
             }
 
             try {
-                const token = await clerkInstance.session.getToken();
-                
-                const response = await fetch(`${API_URL}/clerk/sync`, {
+                const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ age: parseInt(age) })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, age: parseInt(age) })
                 });
 
                 const data = await response.json();
-                
+
                 if (!response.ok) {
-                    showError(data.error || 'Failed to create profile');
+                    showError(data.error || 'Failed to create account');
                     return;
                 }
 
-                console.log('Profile created:', data);
-                
-                // Load the profile and continue
-                await handleClerkAuth();
+                authToken = data.token;
+                localStorage.setItem('authToken', authToken);
+                await loadProfile();
             } catch (error) {
-                console.error('Error submitting age:', error);
-                showError('Failed to create profile. Please try again.');
+                console.error('Signup error:', error);
+                showError('Failed to create account. Please try again.');
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                showError('Email and password are required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showError(data.error || 'Failed to login');
+                    return;
+                }
+
+                authToken = data.token;
+                localStorage.setItem('authToken', authToken);
+                await loadProfile();
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Failed to login. Please try again.');
             }
         }
 
@@ -607,30 +582,24 @@
             }
         }
 
-        function handleSignOut() {
-            currentUser = null;
-            currentMatch = null;
-            stopMatchMessagesPolling();
-            showScreen('auth-screen');
-            if (clerkInstance) {
-                clerkInstance.mountSignIn(document.getElementById('clerk-signin'));
-            }
-        }
-
         async function loadProfile() {
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load profile');
+                }
 
                 const profile = await response.json();
                 currentUser = profile;
 
                 navigateBasedOnProfile(profile);
             } catch (error) {
+                console.error('Load profile error:', error);
                 showError('Failed to load profile');
-                handleSignOut();
+                logout();
             }
         }
 
@@ -657,11 +626,10 @@
             input.value = '';
 
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/chat`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ message })
@@ -685,10 +653,9 @@
 
         async function processPayment() {
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/payment/initiate`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
                 const data = await response.json();
@@ -700,7 +667,7 @@
                 await fetch(`${API_URL}/profile`, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ payment_status: 'completed' })
@@ -714,9 +681,8 @@
 
         async function loadMatch() {
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/match`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
                 const data = await response.json();
@@ -789,7 +755,6 @@
 
         async function toggleMatching() {
             try {
-                const token = await clerkInstance.session.getToken();
                 const toggle = document.getElementById('matching-toggle');
                 const statusText = document.getElementById('matching-status-text');
                 const newStatus = !toggle.classList.contains('active');
@@ -797,7 +762,7 @@
                 const response = await fetch(`${API_URL}/match/toggle`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ active: newStatus })
@@ -821,10 +786,9 @@
             }
             
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/match/reject`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
                 const data = await response.json();
@@ -843,9 +807,8 @@
             if (!currentMatch) return;
             
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/match/messages`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
                 const data = await response.json();
@@ -874,11 +837,10 @@
             if (!message) return;
 
             try {
-                const token = await clerkInstance.session.getToken();
                 const response = await fetch(`${API_URL}/match/messages`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ message })
@@ -905,13 +867,13 @@
             }
         }
 
-        async function logout() {
-            try {
-                await clerkInstance.signOut();
-            } catch (error) {
-                console.error('Logout error:', error);
-            }
-            handleSignOut();
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            currentMatch = null;
+            localStorage.removeItem('authToken');
+            stopMatchMessagesPolling();
+            showScreen('auth-screen');
         }
 
         // Allow Enter key to send message

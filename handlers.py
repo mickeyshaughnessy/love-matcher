@@ -2,7 +2,6 @@ from flask import request, jsonify
 from functools import wraps
 import jwt
 from datetime import datetime, timedelta
-from jwt import PyJWKClient
 import json
 import requests
 import bcrypt
@@ -15,10 +14,6 @@ S3_BUCKET = None
 S3_PREFIX = None
 jwt_secret = None
 openrouter_config = None  # Will hold OpenRouter configuration
-
-# Clerk configuration
-CLERK_JWKS_URL = "https://api.clerk.com/v1/jwks"
-clerk_jwks_client = None
 
 # Constants
 FIRST_10K_FREE_LIMIT = 10000
@@ -65,27 +60,7 @@ For initial greetings:
 
 Your job: Understand each person deeply through focused questions, ONE AT A TIME."""
 
-# Clerk JWT verification
-def verify_clerk_token(token):
-    """Verify Clerk session token and return user data"""
-    try:
-        # Get signing key from Clerk's JWKS
-        signing_key = clerk_jwks_client.get_signing_key_from_jwt(token)
-        
-        # Decode and verify token
-        data = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            options={"verify_aud": False}  # Clerk tokens don't always have audience
-        )
-        
-        return data
-    except Exception as e:
-        print(f"Clerk token verification failed: {e}")
-        return None
-
-# JWT decorator - supports both Clerk and legacy tokens
+# JWT decorator for email-password authentication
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -95,24 +70,8 @@ def token_required(f):
         
         try:
             token = token.replace('Bearer ', '')
-            
-            # Try Clerk token first
-            clerk_data = verify_clerk_token(token)
-            if clerk_data:
-                # Clerk token verified - extract user ID
-                clerk_user_id = clerk_data.get('sub')  # Clerk uses 'sub' for user ID
-                # Map Clerk user ID to our internal user ID format
-                request.user_id = f"clerk_{clerk_user_id}"
-                request.clerk_user_id = clerk_user_id
-                request.clerk_email = clerk_data.get('email')
-                return f(*args, **kwargs)
-            
-            # Fallback to legacy JWT for backward compatibility
             data = jwt.decode(token, jwt_secret, algorithms=['HS256'])
             request.user_id = data['user_id']
-            request.clerk_user_id = None
-            request.clerk_email = None
-            
         except Exception as e:
             print(f"Token verification failed: {e}")
             return jsonify({'error': 'Invalid token'}), 401
@@ -477,92 +436,7 @@ def login():
     
     return jsonify({'token': token, 'user_id': user_id})
 
-@token_required
-def sync_clerk_user():
-    """Sync or create user profile from Clerk authentication"""
-    data = request.json
-    age = data.get('age')
-    
-    if not age:
-        return jsonify({'error': 'Age is required'}), 400
-    
-    age_int = int(age)
-    matching_eligible = age_int >= 18
-    
-    # Use Clerk user ID as primary identifier
-    clerk_user_id = request.clerk_user_id
-    user_id = request.user_id  # This is clerk_{clerk_user_id}
-    email = request.clerk_email
-    
-    # Check if profile already exists
-    profile = s3_get(f"profiles/{user_id}.json")
-    
-    if profile:
-        # Update existing profile
-        profile['age'] = age_int
-        profile['matching_eligible'] = matching_eligible
-        profile['email'] = email
-        profile['updated_at'] = datetime.utcnow().isoformat()
-        
-        # Update payment status if age changed
-        if matching_eligible and profile.get('is_free_member', False):
-            profile['payment_status'] = 'free'
-        
-        s3_put(f"profiles/{user_id}.json", profile)
-        
-        return jsonify({
-            'user_id': user_id,
-            'member_number': profile.get('member_number'),
-            'matching_eligible': matching_eligible,
-            'is_free_member': profile.get('is_free_member', False),
-            'message': 'Profile updated successfully'
-        })
-    
-    # Create new profile
-    registration_time = datetime.utcnow().isoformat()
-    member_number = add_to_member_list(user_id, email, age_int, registration_time)
-    is_free = is_member_free(member_number)
-    
-    # Determine payment status
-    if is_free:
-        payment_status = 'free' if matching_eligible else 'free_pending_age'
-    else:
-        payment_status = 'payment_required'
-    
-    profile = {
-        'user_id': user_id,
-        'clerk_user_id': clerk_user_id,
-        'email': email,
-        'age': age_int,
-        'member_number': member_number,
-        'created_at': registration_time,
-        'payment_status': payment_status,
-        'matching_eligible': matching_eligible,
-        'profile_complete': False,
-        'conversation_count': 0,
-        'dimensions': {},
-        'is_free_member': is_free,
-        'auth_provider': 'clerk'
-    }
-    
-    s3_put(f"profiles/{user_id}.json", profile)
-    
-    response_data = {
-        'user_id': user_id,
-        'member_number': member_number,
-        'matching_eligible': matching_eligible,
-        'is_free_member': is_free
-    }
-    
-    # Add appropriate message based on status
-    if not matching_eligible:
-        response_data['message'] = "Welcome! You can explore LoveDashMatcher and build your profile. Matching will be available when you turn 18."
-    elif is_free:
-        response_data['message'] = f"Welcome! You're member #{member_number} with free lifetime access to LoveDashMatcher!"
-    else:
-        response_data['message'] = f"Welcome! You're member #{member_number}. Payment required for matching services."
-    
-    return jsonify(response_data)
+
 
 @token_required
 def get_profile():
@@ -957,20 +831,16 @@ def get_member_stats():
 
 # Register all routes with the Flask app
 def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cfg):
-    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config, clerk_jwks_client
+    global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config
     s3_client = s3_client_instance
     S3_BUCKET = s3_bucket
     S3_PREFIX = s3_prefix
     jwt_secret = app.config['JWT_SECRET']
     openrouter_config = openrouter_cfg
     
-    # Initialize Clerk JWKS client for token verification
-    clerk_jwks_client = PyJWKClient(CLERK_JWKS_URL)
-    
     app.add_url_rule('/ping', 'ping', ping, methods=['GET'])
     app.add_url_rule('/register', 'register', register, methods=['POST'])
     app.add_url_rule('/login', 'login', login, methods=['POST'])
-    app.add_url_rule('/clerk/sync', 'sync_clerk_user', sync_clerk_user, methods=['POST'])
     app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])
     app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
     app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
