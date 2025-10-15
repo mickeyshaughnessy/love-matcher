@@ -465,10 +465,8 @@
     </div>
 
     <script>
-        // Dynamically determine API URL based on current hostname
-        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:5009'
-            : `http://${window.location.hostname}:5009`;
+        // API URL for production
+        const API_URL = 'https://rse-api.com:5009';
         
         console.log('API URL:', API_URL);
         
