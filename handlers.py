@@ -847,6 +847,54 @@ def get_member_stats():
         'free_limit': FIRST_10K_FREE_LIMIT
     })
 
+def run_daily_matching():
+    """
+    Run daily matching algorithm
+    Can be called manually or via cron
+    Requires admin token (in production) or can be open for testing
+    """
+    # Import the matching function
+    try:
+        import run_matching
+    except ImportError:
+        return jsonify({'error': 'Matching module not found'}), 500
+    
+    # Check for dry-run parameter
+    dry_run = request.args.get('dry_run', 'false').lower() == 'true'
+    
+    try:
+        result = run_matching.run_matching(dry_run=dry_run)
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Error running matching: {error_trace}")
+        return jsonify({
+            'error': str(e),
+            'traceback': error_trace
+        }), 500
+
+def get_matching_logs():
+    """
+    Get matching history logs
+    Admin endpoint to view past matching runs
+    """
+    logs = s3_get('matching_logs.json')
+    if not logs:
+        return jsonify({
+            'runs': [],
+            'message': 'No matching runs recorded yet'
+        })
+    
+    # Return last 20 runs
+    recent_runs = logs.get('runs', [])[-20:]
+    
+    return jsonify({
+        'last_run': logs.get('last_run'),
+        'total_runs': len(logs.get('runs', [])),
+        'recent_runs': recent_runs
+    })
+
 # Register all routes with the Flask app
 def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cfg):
     global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config
@@ -870,3 +918,7 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/match/messages', 'send_match_message', send_match_message, methods=['POST'])
     app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
     app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
+    
+    # Admin/Cron endpoints for matching
+    app.add_url_rule('/admin/run-matching', 'run_daily_matching', run_daily_matching, methods=['POST'])
+    app.add_url_rule('/admin/matching-logs', 'get_matching_logs', get_matching_logs, methods=['GET'])
