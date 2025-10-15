@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import json
 import requests
 
+import config
+
 # Global variables to be set by api_server
 s3_client = None
 S3_BUCKET = None
@@ -17,48 +19,78 @@ FIRST_10K_FREE_LIMIT = 10000
 MEMBER_LIST_KEY = "member_list.json"
 
 # System prompt for the matchmaking AI
-SYSTEM_PROMPT = """You are LoveDashMatcher, an advanced AI matchmaking service that helps people find compatible partners for lasting relationships and traditional marriage. Your purpose is to engage in thoughtful conversation with users and build comprehensive compatibility profiles.
+SYSTEM_PROMPT = """You are LoveDashMatcher, an advanced AI matchmaking service that helps people find compatible partners for lasting relationships and traditional marriage. Your purpose is to engage in thoughtful conversation with users and build comprehensive compatibility profiles through a natural, one-question-at-a-time approach.
 
 ## Your Role:
 1. Warmly welcome users and explain the matching process
 2. Check age - if under 18, explain they can explore the service but matching will be available when they turn 18
-3. Conduct respectful conversations to understand values, lifestyle, and relationship goals
-4. Ask questions naturally, avoiding an interrogation feel
-5. Be encouraging and supportive while maintaining professional boundaries
-6. Focus on long-term compatibility factors for marriage and family formation
+3. Build the profile conversationally by asking ONE focused question at a time
+4. Listen carefully to responses and acknowledge what they share before moving to the next question
+5. Make the conversation feel natural, not like an interrogation
+6. Be encouraging and supportive while maintaining professional boundaries
+7. Focus on long-term compatibility factors for marriage and family formation
 
 ## The 29 Dimensions of Compatibility:
-Your conversation should explore these areas (not necessarily in order):
+You must systematically gather information across these dimensions (in roughly this order, but adapt based on conversation flow):
 
-1. Age & life stage alignment
-2. Geographic compatibility & flexibility
-3. Educational background & intellectual curiosity
-4. Career ambition & professional goals
-5. Financial philosophy & money management
-6. Family of origin dynamics & relationships
-7. Desire for children & parenting philosophy
-8. Religious/spiritual beliefs & practice
-9. Political worldview & civic engagement
-10. Communication style & emotional intelligence
-11. Conflict resolution approach
-12. Physical health & fitness commitment
-13. Mental health awareness & self-care
-14. Social energy (introvert/extrovert spectrum)
-15. Domestic lifestyle preferences
-16. Cleanliness & organization standards
-17. Food preferences & dining habits
-18. Travel desires & adventure seeking
-19. Hobbies & recreational interests
-20. Cultural background & traditions
-21. Humor style & playfulness
-22. Affection expression & love languages
-23. Independence vs. togetherness needs
-24. Decision-making style
-25. Time management & punctuality
-26. Technology usage & digital habits
-27. Pet preferences & animal companionship
-28. Substance use attitudes (alcohol, etc.)
-29. Long-term life vision & legacy goals
+1. age - Age & life stage alignment
+2. location - Geographic compatibility & flexibility
+3. education - Educational background & intellectual curiosity
+4. career - Career ambition & professional goals
+5. finances - Financial philosophy & money management
+6. family_origin - Family of origin dynamics & relationships
+7. children - Desire for children & parenting philosophy
+8. religion - Religious/spiritual beliefs & practice
+9. politics - Political worldview & civic engagement
+10. communication - Communication style & emotional intelligence
+11. conflict - Conflict resolution approach
+12. health - Physical health & fitness commitment
+13. mental_health - Mental health awareness & self-care
+14. social_energy - Social energy (introvert/extrovert spectrum)
+15. domestic - Domestic lifestyle preferences
+16. cleanliness - Cleanliness & organization standards
+17. food - Food preferences & dining habits
+18. travel - Travel desires & adventure seeking
+19. hobbies - Hobbies & recreational interests
+20. culture - Cultural background & traditions
+21. humor - Humor style & playfulness
+22. affection - Affection expression & love languages
+23. independence - Independence vs. togetherness needs
+24. decisions - Decision-making style
+25. time - Time management & punctuality
+26. technology - Technology usage & digital habits
+27. pets - Pet preferences & animal companionship
+28. substances - Substance use attitudes (alcohol, etc.)
+29. vision - Long-term life vision & legacy goals
+
+## CRITICAL: One Question at a Time Approach
+- Ask ONLY ONE question per response
+- Keep questions conversational and warm, not clinical
+- After they answer, briefly acknowledge their response (1-2 sentences)
+- Then naturally transition to the next dimension with your next question
+- Track which dimensions have been covered in the user context
+- Focus on dimensions that haven't been explored yet
+- If a dimension is already filled, skip to the next unfilled dimension
+
+## CRITICAL: Structured Response Format
+Your response MUST follow this EXACT format:
+
+[DIMENSION: dimension_name]
+[VALUE: extracted_value]
+[ACKNOWLEDGMENT: brief acknowledgment of their answer]
+[NEXT_QUESTION: your next question to explore a new dimension]
+
+Example:
+[DIMENSION: age]
+[VALUE: 28, looking to settle down in next few years]
+[ACKNOWLEDGMENT: That's a great age to be thinking about a serious relationship.]
+[NEXT_QUESTION: Where are you currently located, and are you open to relocating for the right person?]
+
+If they just gave a greeting or initial message (no dimension data yet):
+[DIMENSION: none]
+[VALUE: none]
+[ACKNOWLEDGMENT: your welcoming message]
+[NEXT_QUESTION: your first dimension question]
 
 ## Important Policies:
 - Anyone can use the service to create a profile and explore
@@ -71,24 +103,15 @@ Your conversation should explore these areas (not necessarily in order):
 - One profile per person
 - At most one match per user is allowed
 
-## Conversation Approach:
-1. Welcome and age check (note if under 18, matching is delayed until they turn 18)
-2. Explain the 29-dimension compatibility framework
-3. Have a natural conversation touching on multiple dimensions
-4. Deep dive into areas most important to the user
-5. Circle back to explore gaps in understanding
-6. Allow tangents that reveal character and values
-7. Gather rich, nuanced information for profile building
-
 ## Your Communication Style:
 - Be warm, empathetic, and professional
 - Make users feel heard and understood
-- Ask thoughtful follow-up questions
-- Provide insights about relationships and compatibility
+- Ask one thoughtful, focused question at a time
+- Keep questions conversational and engaging
 - Be encouraging and positive while remaining honest and realistic
-- Keep responses conversational and engaging
+- Move through dimensions systematically but naturally
 
-Remember: LoveDashMatcher supports traditional heterosexual marriage and families. The matching algorithm uses sophisticated multi-dimensional compatibility analysis. Your job is to understand each person deeply through authentic conversation."""
+Remember: LoveDashMatcher supports traditional heterosexual marriage and families. The matching algorithm uses sophisticated multi-dimensional compatibility analysis. Your job is to understand each person deeply through authentic conversation, ONE DIMENSION AT A TIME."""
 
 # JWT decorator
 def token_required(f):
@@ -157,8 +180,12 @@ def is_member_free(member_number):
 def call_openrouter_llm(messages):
     """Call OpenRouter API with configured model"""
     try:
+        api_key = getattr(config, 'OPENROUTER_API_KEY', None)
+        if not api_key:
+            raise ValueError('OpenRouter API key not found in config.py')
+
         headers = {
-            'Authorization': f"Bearer {openrouter_config['api_key']}",
+            'Authorization': f"Bearer {api_key}",
             'Content-Type': 'application/json',
             'HTTP-Referer': 'https://lovedashmatcher.com',
             'X-Title': 'LoveDashMatcher'
@@ -182,31 +209,113 @@ def call_openrouter_llm(messages):
         
         print(f"📥 OpenRouter response status: {response.status_code}")
         
-        response.raise_for_status()
+        try:
+            result = response.json()
+        except ValueError:
+            result = None
         
-        result = response.json()
+        if response.status_code >= 400:
+            error_message = None
+            if isinstance(result, dict):
+                error_message = (
+                    result.get('error', {}).get('message')
+                    or result.get('error', {}).get('details')
+                    or result.get('message')
+                )
+            if not error_message:
+                error_message = response.text.strip() or f"HTTP {response.status_code} error"
+            print(f"❌ OpenRouter returned error: {error_message}")
+            return {
+                'error': error_message,
+                'status_code': response.status_code,
+                'raw_response': result if result is not None else response.text
+            }
         
-        if 'choices' in result and len(result['choices']) > 0:
+        if isinstance(result, dict) and 'choices' in result and len(result['choices']) > 0:
             print(f"✅ Successfully got response from {result.get('model', 'unknown model')}")
             return {
                 'content': result['choices'][0]['message']['content'],
                 'model': result.get('model', openrouter_config['model']),
-                'usage': result.get('usage', {})
+                'usage': result.get('usage', {}),
+                'raw_response': result
             }
         else:
             print(f"❌ Unexpected OpenRouter response format: {result}")
-            return None
+            return {
+                'error': 'Unexpected OpenRouter response format',
+                'raw_response': result if result is not None else response.text
+            }
             
     except requests.exceptions.RequestException as e:
         print(f"❌ OpenRouter API error: {e}")
         if hasattr(e, 'response') and hasattr(e.response, 'text'):
             print(f"Response text: {e.response.text}")
-        return None
+        return {
+            'error': str(e),
+            'status_code': getattr(getattr(e, 'response', None), 'status_code', None),
+            'raw_response': getattr(getattr(e, 'response', None), 'text', None)
+        }
     except Exception as e:
         print(f"❌ Unexpected error calling OpenRouter: {e}")
         import traceback
         traceback.print_exc()
-        return None
+        return {
+            'error': str(e)
+        }
+
+def parse_llm_response(response_text):
+    """Parse structured response from LLM to extract dimension data"""
+    parsed = {
+        'dimension': None,
+        'value': None,
+        'acknowledgment': '',
+        'next_question': '',
+        'display_text': response_text  # Fallback to full text
+    }
+    
+    try:
+        # Extract dimension
+        dim_match = response_text.find('[DIMENSION:')
+        if dim_match != -1:
+            dim_end = response_text.find(']', dim_match)
+            if dim_end != -1:
+                parsed['dimension'] = response_text[dim_match+11:dim_end].strip()
+        
+        # Extract value
+        val_match = response_text.find('[VALUE:')
+        if val_match != -1:
+            val_end = response_text.find(']', val_match)
+            if val_end != -1:
+                parsed['value'] = response_text[val_match+7:val_end].strip()
+        
+        # Extract acknowledgment
+        ack_match = response_text.find('[ACKNOWLEDGMENT:')
+        if ack_match != -1:
+            ack_end = response_text.find(']', ack_match)
+            if ack_end != -1:
+                parsed['acknowledgment'] = response_text[ack_match+16:ack_end].strip()
+        
+        # Extract next question
+        q_match = response_text.find('[NEXT_QUESTION:')
+        if q_match != -1:
+            q_end = response_text.find(']', q_match)
+            if q_end != -1:
+                parsed['next_question'] = response_text[q_match+15:q_end].strip()
+        
+        # Build display text from acknowledgment and next question
+        if parsed['acknowledgment'] or parsed['next_question']:
+            display_parts = []
+            if parsed['acknowledgment']:
+                display_parts.append(parsed['acknowledgment'])
+            if parsed['next_question']:
+                display_parts.append(parsed['next_question'])
+            parsed['display_text'] = ' '.join(display_parts)
+    
+    except Exception as e:
+        print(f"⚠️ Error parsing LLM response: {e}")
+        # Return original text if parsing fails
+    
+    return parsed
 
 def build_profile_context(profile):
     """Build context string from user profile for LLM"""
@@ -221,13 +330,38 @@ def build_profile_context(profile):
     matching_status = "Eligible for matching" if profile.get('matching_eligible') else "Not yet eligible for matching"
     context_parts.append(f"Matching Status: {matching_status}")
     
-    if profile.get('dimensions'):
-        context_parts.append("\n📊 Profile Dimensions Gathered:")
-        for key, value in profile['dimensions'].items():
+    # List dimensions already gathered
+    dimensions_filled = profile.get('dimensions', {})
+    dimensions_count = len(dimensions_filled)
+    context_parts.append(f"\n📊 Profile Dimensions: {dimensions_count}/29 completed")
+    
+    if dimensions_filled:
+        context_parts.append("\nDimensions already gathered:")
+        for key in dimensions_filled.keys():
+            context_parts.append(f"  ✓ {key}")
+        
+        context_parts.append("\nDimension details:")
+        for key, value in dimensions_filled.items():
             if isinstance(value, dict):
                 context_parts.append(f"- {key}: {json.dumps(value, indent=2)}")
             else:
                 context_parts.append(f"- {key}: {value}")
+    
+    # List dimensions still needed
+    all_dimensions = [
+        'age', 'location', 'education', 'career', 'finances', 'family_origin',
+        'children', 'religion', 'politics', 'communication', 'conflict', 'health',
+        'mental_health', 'social_energy', 'domestic', 'cleanliness', 'food',
+        'travel', 'hobbies', 'culture', 'humor', 'affection', 'independence',
+        'decisions', 'time', 'technology', 'pets', 'substances', 'vision'
+    ]
+    
+    remaining_dimensions = [d for d in all_dimensions if d not in dimensions_filled]
+    if remaining_dimensions:
+        context_parts.append(f"\nDimensions still needed ({len(remaining_dimensions)}):")
+        context_parts.append(f"  {', '.join(remaining_dimensions[:10])}")
+        if len(remaining_dimensions) > 10:
+            context_parts.append(f"  ... and {len(remaining_dimensions) - 10} more")
     
     member_number = profile.get('member_number')
     if member_number:
@@ -407,10 +541,39 @@ def chat():
     # Call OpenRouter LLM
     llm_response = call_openrouter_llm(messages)
     
-    if not llm_response or 'content' not in llm_response:
-        ai_response = "I'm sorry, I'm having trouble processing that right now. Could you try again?"
-    else:
-        ai_response = llm_response['content']
+    ai_response = "I'm sorry, I'm having trouble processing that right now. Could you try again?"
+    parsed_response = None
+    
+    if llm_response and 'content' in llm_response:
+        raw_ai_response = llm_response['content']
+        # Parse the structured response
+        parsed_response = parse_llm_response(raw_ai_response)
+        ai_response = parsed_response['display_text']
+        
+        # Update profile dimensions if we extracted dimension data
+        if parsed_response['dimension'] and parsed_response['dimension'] != 'none':
+            if parsed_response['value'] and parsed_response['value'] != 'none':
+                if 'dimensions' not in profile:
+                    profile['dimensions'] = {}
+                
+                # Store the dimension value
+                profile['dimensions'][parsed_response['dimension']] = parsed_response['value']
+                
+                # Calculate completion percentage
+                dimensions_count = len(profile['dimensions'])
+                profile['completion_percentage'] = round((dimensions_count / 29) * 100)
+                
+                # Mark profile as complete if all 29 dimensions filled
+                if dimensions_count >= 29:
+                    profile['profile_complete'] = True
+                
+                # Save updated profile
+                s3_put(f"profiles/{request.user_id}.json", profile)
+                
+                print(f"✅ Updated dimension '{parsed_response['dimension']}' - Profile now {dimensions_count}/29 complete")
+        
+    elif llm_response and 'error' in llm_response:
+        ai_response = f"LLM Error: {llm_response['error']}"
     
     # Store in chat history
     chat_entry = {
@@ -419,20 +582,51 @@ def chat():
         'ai': ai_response
     }
     
+    # Add parsed dimension info to chat entry for debugging
+    if parsed_response:
+        chat_entry['parsed_dimension'] = parsed_response['dimension']
+        chat_entry['parsed_value'] = parsed_response['value']
+    
     # Add model info if available
     if llm_response:
         chat_entry['model'] = llm_response.get('model', 'unknown')
         chat_entry['usage'] = llm_response.get('usage', {})
+        if 'raw_response' in llm_response:
+            chat_entry['raw_response'] = llm_response['raw_response']
+        if 'status_code' in llm_response:
+            chat_entry['status_code'] = llm_response['status_code']
     
     chat_history['messages'].append(chat_entry)
     chat_history['updated_at'] = datetime.utcnow().isoformat()
     
     s3_put(history_key, chat_history)
     
-    return jsonify({
+    response_payload = {
         'response': ai_response,
         'timestamp': chat_entry['timestamp']
-    })
+    }
+    
+    # Add profile completion info
+    if profile.get('dimensions'):
+        response_payload['profile_completion'] = {
+            'count': len(profile['dimensions']),
+            'percentage': profile.get('completion_percentage', 0),
+            'complete': profile.get('profile_complete', False)
+        }
+    
+    if llm_response:
+        if 'model' in llm_response:
+            response_payload['model'] = llm_response.get('model')
+        if 'usage' in llm_response:
+            response_payload['usage'] = llm_response.get('usage')
+        if 'raw_response' in llm_response:
+            response_payload['raw_response'] = llm_response.get('raw_response')
+        if 'error' in llm_response:
+            response_payload['error'] = llm_response.get('error')
+        if 'status_code' in llm_response:
+            response_payload['status_code'] = llm_response.get('status_code')
+    
+    return jsonify(response_payload)
 
 @token_required
 def get_chat_history():
