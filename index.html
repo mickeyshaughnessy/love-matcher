@@ -581,24 +581,12 @@
             margin-bottom: 10px;
         }
         
-        .matches-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-        
         .match-card {
             background: white;
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.1);
             transition: all 0.3s;
-            cursor: pointer;
-        }
-        
-        .match-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
         }
         
         .match-score {
@@ -661,14 +649,87 @@
             transition: all 0.2s;
         }
         
-        .btn-connect {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .btn-reject {
+            background: #dc3545;
             color: white;
         }
         
-        .btn-pass {
-            background: #e9ecef;
-            color: #6c757d;
+        .btn-reject:hover {
+            background: #c82333;
+        }
+        
+        /* Match Chat */
+        .match-chat-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        .match-chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .match-message {
+            margin-bottom: 15px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            max-width: 75%;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .match-message.sent {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .match-message.received {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .match-chat-input-area {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .match-chat-input-area input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 1rem;
+            transition: border 0.2s;
+        }
+        
+        .match-chat-input-area input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .match-chat-input-area button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .match-chat-input-area button:hover {
+            transform: scale(1.05);
         }
         
         /* Profile View */
@@ -845,9 +906,9 @@
         <div class="nav-links">
             <a href="#" class="nav-link" onclick="showView('dashboard')">Dashboard</a>
             <a href="#" class="nav-link" onclick="showView('chat')">Chat with AI</a>
-            <a href="#" class="nav-link" onclick="showView('matches')">
-                My Matches
-                <span class="nav-badge hidden" id="matchBadge">0</span>
+            <a href="#" class="nav-link" onclick="showView('match')">
+                Match
+                <span class="nav-badge hidden" id="matchBadge">1</span>
             </a>
             <a href="#" class="nav-link" onclick="showView('profile')">Profile</a>
             <a href="#" class="nav-link" onclick="logout()">Logout</a>
@@ -1013,11 +1074,11 @@
                     <a href="#" class="card-action">Start Conversation →</a>
                 </div>
 
-                <div class="dashboard-card" onclick="showView('matches')">
+                <div class="dashboard-card" onclick="showView('match')">
                     <div class="card-icon">❤️</div>
-                    <h3 class="card-title">View Matches</h3>
-                    <p class="card-description">See your most compatible matches based on 29-dimension analysis.</p>
-                    <a href="#" class="card-action">View Matches →</a>
+                    <h3 class="card-title">View Match</h3>
+                    <p class="card-description">See your current match based on 29-dimension analysis.</p>
+                    <a href="#" class="card-action">View Match →</a>
                 </div>
 
                 <div class="dashboard-card" onclick="showView('profile')">
@@ -1074,17 +1135,27 @@
             </div>
         </div>
 
-        <!-- Matches View -->
-        <div id="matchesView" class="matches-view">
+        <!-- Match View -->
+        <div id="matchView" class="matches-view">
             <div class="matches-header">
-                <h2>Your Compatible Matches</h2>
+                <h2>Your Match</h2>
                 <p style="color: #6c757d; margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
+                
+                <!-- Active/Inactive Toggle -->
+                <div style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 15px;">
+                    <span style="font-weight: 500;">Matching Status:</span>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="matchingActiveToggle" onchange="toggleMatchingStatus()" style="margin-right: 8px; cursor: pointer; width: 20px; height: 20px;">
+                        <span id="matchingStatusLabel">Active</span>
+                    </label>
+                </div>
             </div>
-            <div class="matches-grid" id="matchesGrid">
-                <div style="text-align: center; padding: 40px; grid-column: 1/-1; color: #6c757d;">
+            <div id="matchContainer" style="max-width: 800px; margin: 0 auto;">
+                <!-- Match content will be loaded here -->
+                <div style="text-align: center; padding: 40px; color: #6c757d;">
                     <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
-                    <h3>No matches yet</h3>
-                    <p>Complete your profile to start seeing compatible matches!</p>
+                    <h3>No match yet</h3>
+                    <p>Complete your profile to get matched!</p>
                     <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
                 </div>
             </div>
@@ -1149,7 +1220,7 @@
             document.getElementById('landingPage').style.display = 'none';
             document.getElementById('dashboardView').style.display = 'none';
             document.getElementById('chatView').style.display = 'none';
-            document.getElementById('matchesView').style.display = 'none';
+            document.getElementById('matchView').style.display = 'none';
             document.getElementById('profileView').style.display = 'none';
 
             // Remove active class from all nav links
@@ -1167,10 +1238,10 @@
                     document.querySelectorAll('.nav-link')[1].classList.add('active');
                     loadChatHistory();
                     break;
-                case 'matches':
-                    document.getElementById('matchesView').style.display = 'block';
+                case 'match':
+                    document.getElementById('matchView').style.display = 'block';
                     document.querySelectorAll('.nav-link')[2].classList.add('active');
-                    loadMatches();
+                    loadMatch();
                     break;
                 case 'profile':
                     document.getElementById('profileView').style.display = 'block';
@@ -1404,58 +1475,251 @@
             }
         });
 
-        // Load matches
-        async function loadMatches() {
+        // Load current match
+        async function loadMatch() {
             try {
-                const response = await fetch(`${API_URL}/matches`, {
+                const response = await fetch(`${API_URL}/match`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
                 
                 const data = await response.json();
                 
-                if (response.ok && data.matches.length > 0) {
-                    const matchesGrid = document.getElementById('matchesGrid');
-                    matchesGrid.innerHTML = '';
+                // Update matching toggle status
+                const isActive = data.match?.matching_active !== false;
+                document.getElementById('matchingActiveToggle').checked = isActive;
+                document.getElementById('matchingStatusLabel').textContent = isActive ? 'Active' : 'Inactive';
+                
+                const matchContainer = document.getElementById('matchContainer');
+                
+                if (response.ok && data.match) {
+                    const match = data.match;
+                    matchContainer.innerHTML = createMatchCard(match, isActive);
                     
-                    data.matches.forEach(match => {
-                        const matchCard = createMatchCard(match);
-                        matchesGrid.appendChild(matchCard);
-                    });
+                    // Load match messages if inactive (chatting)
+                    if (!isActive) {
+                        loadMatchMessages();
+                    }
+                } else {
+                    // No match yet
+                    matchContainer.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #6c757d;">
+                            <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
+                            <h3>${data.message || 'No match yet'}</h3>
+                            <p>Complete your profile to get matched!</p>
+                            <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
+                        </div>
+                    `;
                 }
             } catch (error) {
-                console.error('Error loading matches:', error);
+                console.error('Error loading match:', error);
             }
         }
 
         // Create match card
-        function createMatchCard(match) {
-            const card = document.createElement('div');
-            card.className = 'match-card';
+        function createMatchCard(match, isActive) {
+            const score = Math.round((match.match_score || 0) * 100);
             
-            const score = Math.round(match.compatibility_score * 100);
+            let dimensionTags = '';
+            if (match.dimensions) {
+                const dimensions = Object.keys(match.dimensions).slice(0, 10);
+                dimensionTags = dimensions.map(dim => 
+                    `<span class="dimension-tag">${dim}</span>`
+                ).join('');
+            }
             
-            card.innerHTML = `
-                <div class="match-score">
-                    <div class="compatibility-circle">${score}%</div>
-                    <div style="color: #6c757d;">Compatibility</div>
-                </div>
-                <div class="match-info">
-                    <h3>Match #${match.user_id.substring(0, 8)}</h3>
-                    <p style="color: #6c757d;">${match.profile_summary || 'View full profile for details'}</p>
-                </div>
-                <div class="shared-dimensions">
-                    ${match.shared_dimensions.map(dim => 
-                        `<span class="dimension-tag">${dim}</span>`
-                    ).join('')}
-                </div>
-                <div class="match-actions">
-                    <button class="btn-connect">Connect</button>
-                    <button class="btn-pass">Pass</button>
+            let actionsHtml = '';
+            if (isActive) {
+                // Show reject button when active
+                actionsHtml = `
+                    <div class="match-actions">
+                        <button class="btn-reject" onclick="rejectMatch()">Reject Match</button>
+                    </div>
+                `;
+            } else {
+                // Show chat interface when inactive
+                actionsHtml = `
+                    <div class="match-chat-container">
+                        <h3 style="margin-bottom: 15px; color: #764ba2;">💬 Chat with Your Match</h3>
+                        <div class="match-chat-messages" id="matchChatMessages">
+                            <div style="text-align: center; color: #6c757d; padding: 20px;">
+                                Start a conversation!
+                            </div>
+                        </div>
+                        <div class="match-chat-input-area">
+                            <input type="text" id="matchChatInput" placeholder="Type your message...">
+                            <button onclick="sendMatchMessage()">Send</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="match-card">
+                    <div class="match-score">
+                        <div class="compatibility-circle">${score}%</div>
+                        <div style="color: #6c757d;">Compatibility</div>
+                    </div>
+                    <div class="match-info">
+                        <h3>Your Match</h3>
+                        <p style="color: #6c757d;">Age: ${match.age || 'N/A'}</p>
+                        <p style="color: #6c757d; margin-top: 10px;">Matched on ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}</p>
+                    </div>
+                    <div class="shared-dimensions">
+                        ${dimensionTags}
+                    </div>
+                    ${actionsHtml}
                 </div>
             `;
-            
-            return card;
         }
+
+        // Toggle matching active/inactive
+        async function toggleMatchingStatus() {
+            const isActive = document.getElementById('matchingActiveToggle').checked;
+            
+            try {
+                const response = await fetch(`${API_URL}/match/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ active: isActive })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('matchingStatusLabel').textContent = isActive ? 'Active' : 'Inactive';
+                    // Reload match view to show appropriate UI
+                    loadMatch();
+                } else {
+                    alert(data.error || 'Failed to update status');
+                    // Revert toggle
+                    document.getElementById('matchingActiveToggle').checked = !isActive;
+                }
+            } catch (error) {
+                console.error('Error toggling status:', error);
+                alert('Connection error. Please try again.');
+                document.getElementById('matchingActiveToggle').checked = !isActive;
+            }
+        }
+
+        // Reject current match
+        async function rejectMatch() {
+            if (!confirm('Are you sure you want to reject this match? You will be matched with someone new in the next cycle.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/match/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(data.message || 'Match rejected successfully');
+                    loadMatch();
+                } else {
+                    alert(data.error || 'Failed to reject match');
+                }
+            } catch (error) {
+                console.error('Error rejecting match:', error);
+                alert('Connection error. Please try again.');
+            }
+        }
+
+        // Send message to match
+        async function sendMatchMessage() {
+            const input = document.getElementById('matchChatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/match/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ message })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    input.value = '';
+                    // Add message to UI immediately
+                    addMatchMessage(message, 'sent', data.timestamp);
+                } else {
+                    alert(data.error || 'Failed to send message');
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Connection error. Please try again.');
+            }
+        }
+
+        // Load match messages
+        async function loadMatchMessages() {
+            try {
+                const response = await fetch(`${API_URL}/match/messages`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.messages.length > 0) {
+                    const messagesDiv = document.getElementById('matchChatMessages');
+                    messagesDiv.innerHTML = '';
+                    
+                    data.messages.forEach(msg => {
+                        const type = msg.from === currentUser?.user_id ? 'sent' : 'received';
+                        addMatchMessage(msg.message, type, msg.timestamp);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading match messages:', error);
+            }
+        }
+
+        // Add match message to UI
+        function addMatchMessage(text, type, timestamp) {
+            const messagesDiv = document.getElementById('matchChatMessages');
+            if (!messagesDiv) return;
+            
+            // Clear placeholder if exists
+            if (messagesDiv.querySelector('[style*="text-align: center"]')) {
+                messagesDiv.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `match-message ${type}`;
+            
+            const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : 'Just now';
+            
+            messageDiv.innerHTML = `
+                <div>${text}</div>
+                <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 5px;">${timeStr}</div>
+            `;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Enter key to send match message
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('keypress', (e) => {
+                if (e.target.id === 'matchChatInput' && e.key === 'Enter') {
+                    sendMatchMessage();
+                }
+            });
+        });
 
         // Load profile
         async function loadProfile() {
@@ -1497,7 +1761,7 @@
             document.getElementById('landingPage').style.display = 'block';
             document.getElementById('dashboardView').style.display = 'none';
             document.getElementById('chatView').style.display = 'none';
-            document.getElementById('matchesView').style.display = 'none';
+            document.getElementById('matchView').style.display = 'none';
             document.getElementById('profileView').style.display = 'none';
             
             // Clear forms
