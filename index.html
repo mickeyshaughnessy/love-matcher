@@ -1125,12 +1125,21 @@
                 const response = await fetch(`${API_URL}/stats`);
                 const data = await response.json();
                 
-                if (response.ok) {
-                    document.getElementById('totalMembers').textContent = data.total_members.toLocaleString();
-                    document.getElementById('spotsRemaining').textContent = data.spots_remaining.toLocaleString();
+                if (response.ok && data) {
+                    // Update the stats display with actual data
+                    const totalMembers = data.total_members || 0;
+                    const spotsRemaining = data.spots_remaining !== undefined ? data.spots_remaining : 10000;
+                    
+                    document.getElementById('totalMembers').textContent = totalMembers.toLocaleString();
+                    document.getElementById('spotsRemaining').textContent = spotsRemaining.toLocaleString();
+                    
+                    console.log('Stats loaded:', data);
+                } else {
+                    console.error('Failed to load stats:', data);
                 }
             } catch (error) {
                 console.error('Error loading stats:', error);
+                // Keep default values on error
             }
         }
 

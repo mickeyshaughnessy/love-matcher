@@ -687,9 +687,8 @@ def initiate_payment():
         'member_number': profile.get('member_number')
     })
 
-@token_required
 def get_member_stats():
-    """Get membership statistics"""
+    """Get membership statistics - public endpoint, no auth required"""
     member_list = s3_get(MEMBER_LIST_KEY)
     if not member_list:
         return jsonify({
