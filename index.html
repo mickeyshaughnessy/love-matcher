@@ -1349,6 +1349,16 @@
                         <div class="profile-header">
                             <h2>My Profile & Match</h2>
                             <p style="color: #6c757d;">Your 29-dimension compatibility profile</p>
+                            
+                            <!-- Prominent Active/Inactive Toggle -->
+                            <div class="toggle-container" style="margin-top: 20px;">
+                                <span class="toggle-label">Matching Status:</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="mainMatchingToggle" onchange="toggleMainMatchingStatus()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span id="mainMatchingStatusLabel" class="status-text active">Active</span>
+                            </div>
                         </div>
                         
                         <div class="profile-stats">
@@ -1978,6 +1988,16 @@
                     document.getElementById('profileCompletion').textContent = `${percentage}%`;
                     document.getElementById('profileConvos').textContent = profile.conversation_count || 0;
                     
+                    // Set main matching toggle state
+                    const isActive = profile.matching_active !== false;
+                    const mainToggle = document.getElementById('mainMatchingToggle');
+                    const mainStatusLabel = document.getElementById('mainMatchingStatusLabel');
+                    if (mainToggle) {
+                        mainToggle.checked = isActive;
+                        mainStatusLabel.textContent = isActive ? 'Active' : 'Inactive';
+                        mainStatusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    }
+                    
                     // Update dimension chips
                     const dimensionsSummary = document.getElementById('dimensionsSummary');
                     if (dimensionsCount > 0) {
@@ -2060,7 +2080,39 @@
             }
         }
         
-        // Toggle matching status from profile view
+        // Toggle main matching status from profile view
+        async function toggleMainMatchingStatus() {
+            const isActive = document.getElementById('mainMatchingToggle').checked;
+            const statusLabel = document.getElementById('mainMatchingStatusLabel');
+            
+            try {
+                const response = await fetch(`${API_URL}/match/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ active: isActive })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusLabel.textContent = isActive ? 'Active' : 'Inactive';
+                    statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    loadMatchInProfile();
+                } else {
+                    alert(data.error || 'Failed to update status');
+                    document.getElementById('mainMatchingToggle').checked = !isActive;
+                }
+            } catch (error) {
+                console.error('Error toggling status:', error);
+                alert('Connection error. Please try again.');
+                document.getElementById('mainMatchingToggle').checked = !isActive;
+            }
+        }
+        
+        // Toggle matching status from profile view (secondary toggle in match section)
         async function toggleMatchingStatusFromProfile() {
             const isActive = document.getElementById('profileMatchToggle').checked;
             const statusLabel = document.getElementById('profileMatchStatusLabel');
@@ -2080,6 +2132,14 @@
                 if (response.ok) {
                     statusLabel.textContent = isActive ? 'Active' : 'Inactive';
                     statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    // Also update main toggle
+                    const mainToggle = document.getElementById('mainMatchingToggle');
+                    const mainStatusLabel = document.getElementById('mainMatchingStatusLabel');
+                    if (mainToggle) {
+                        mainToggle.checked = isActive;
+                        mainStatusLabel.textContent = isActive ? 'Active' : 'Inactive';
+                        mainStatusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    }
                     loadMatchInProfile();
                 } else {
                     alert(data.error || 'Failed to update status');
