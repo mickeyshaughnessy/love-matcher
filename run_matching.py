@@ -9,11 +9,18 @@ import json
 from datetime import datetime
 import random
 import sys
+import requests
 
 try:
     import config
 except ImportError:
     print("ERROR: config.py not found")
+    sys.exit(1)
+
+try:
+    import prompts
+except ImportError:
+    print("ERROR: prompts.py not found")
     sys.exit(1)
 
 # AWS S3 Setup
@@ -58,9 +65,91 @@ def s3_list_profiles():
         print(f"Error listing profiles: {e}")
         return []
 
+def call_openrouter_completion(prompt, temperature=0.3, max_tokens=500):
+    """
+    Call OpenRouter completion endpoint for match scoring
+    Uses lower temperature for more consistent scoring
+    """
+    try:
+        headers = {
+            'Authorization': f"Bearer {config.OPENROUTER_API_KEY}",
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://lovedashmatcher.com',
+            'X-Title': 'LoveDashMatcher-Matching'
+        }
+        
+        payload = {
+            'model': config.OPENROUTER_MODEL,
+            'messages': [
+                {'role': 'user', 'content': prompt}
+            ],
+            'temperature': temperature,
+            'max_tokens': max_tokens
+        }
+        
+        response = requests.post(
+            config.OPENROUTER_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code >= 400:
+            print(f"⚠️ OpenRouter error {response.status_code}: {response.text}")
+            return None
+        
+        result = response.json()
+        if 'choices' in result and len(result['choices']) > 0:
+            return result['choices'][0]['message']['content']
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ Error calling OpenRouter: {e}")
+        return None
+
 def calculate_compatibility_score(profile1, profile2):
     """
-    Simple rule-based compatibility scoring
+    LLM-based compatibility scoring using OpenRouter /completion endpoint
+    Returns a score between 0-100 and analysis details
+    """
+    # Build compatibility analysis prompt
+    prompt = prompts.build_match_compatibility_prompt(profile1, profile2)
+    
+    # Call LLM
+    llm_response = call_openrouter_completion(prompt, temperature=0.3, max_tokens=500)
+    
+    if not llm_response:
+        print(f"  ⚠️ LLM scoring failed for {profile1.get('user_id')} x {profile2.get('user_id')}, using fallback")
+        return calculate_compatibility_score_fallback(profile1, profile2)
+    
+    # Parse JSON response
+    try:
+        # Extract JSON from response (might have markdown code blocks)
+        json_str = llm_response
+        if '```json' in llm_response:
+            json_str = llm_response.split('```json')[1].split('```')[0].strip()
+        elif '```' in llm_response:
+            json_str = llm_response.split('```')[1].split('```')[0].strip()
+        
+        analysis = json.loads(json_str)
+        score = int(analysis.get('score', 0))
+        
+        # Validate score range
+        if score < 0 or score > 100:
+            print(f"  ⚠️ Invalid score {score}, using fallback")
+            return calculate_compatibility_score_fallback(profile1, profile2)
+        
+        print(f"  💡 LLM Match Score: {score}% - {analysis.get('reasoning', 'N/A')[:60]}...")
+        return score, analysis
+        
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"  ⚠️ Failed to parse LLM response: {e}, using fallback")
+        return calculate_compatibility_score_fallback(profile1, profile2)
+
+def calculate_compatibility_score_fallback(profile1, profile2):
+    """
+    Simple rule-based compatibility scoring as fallback
     Returns a score between 0-100
     """
     score = 0
@@ -127,14 +216,15 @@ def calculate_compatibility_score(profile1, profile2):
     
     # Calculate percentage
     if max_score == 0:
-        return 0
+        return 50, {'reasoning': 'Insufficient profile data for accurate matching', 'strengths': 'Unknown', 'concerns': 'Incomplete profiles'}
     
-    return int((score / max_score) * 100)
+    final_score = int((score / max_score) * 100)
+    return final_score, {'reasoning': 'Rule-based fallback scoring', 'strengths': 'Basic compatibility', 'concerns': 'Limited analysis'}
 
 def find_match_for_user(user_profile, all_profiles):
     """
     Find best available match for a user
-    Returns (matched_profile, score) or (None, 0)
+    Returns (matched_profile, score, analysis) or (None, 0, None)
     """
     user_id = user_profile['user_id']
     user_gender = user_profile.get('gender')
@@ -145,10 +235,11 @@ def find_match_for_user(user_profile, all_profiles):
     
     # If user already has a match, skip
     if current_match:
-        return None, 0
+        return None, 0, None
     
     best_match = None
     best_score = 0
+    best_analysis = None
     
     for candidate in all_profiles:
         candidate_id = candidate['user_id']
@@ -178,19 +269,33 @@ def find_match_for_user(user_profile, all_profiles):
         if user_id in candidate.get('rejected_matches', []):
             continue
         
-        # Traditional heterosexual matching (if gender specified)
+        # Traditional heterosexual matching - only match males with females
         if user_gender and candidate_gender:
-            if user_gender == candidate_gender:
+            # Require opposite gender for matching
+            if user_gender.lower() == candidate_gender.lower():
                 continue
+            # Ensure both are male/female (not other values)
+            valid_genders = {'male', 'female', 'm', 'f'}
+            if user_gender.lower() not in valid_genders or candidate_gender.lower() not in valid_genders:
+                continue
+        else:
+            # If gender not specified, skip to ensure heterosexual matching
+            continue
         
-        # Calculate compatibility
-        score = calculate_compatibility_score(user_profile, candidate)
+        # Calculate compatibility using LLM
+        score_result = calculate_compatibility_score(user_profile, candidate)
+        if isinstance(score_result, tuple):
+            score, analysis = score_result
+        else:
+            score = score_result
+            analysis = None
         
         if score > best_score:
             best_score = score
             best_match = candidate
+            best_analysis = analysis
     
-    return best_match, best_score
+    return best_match, best_score, best_analysis
 
 def run_matching(dry_run=False):
     """Main matching algorithm - runs daily
@@ -306,7 +411,7 @@ def run_matching(dry_run=False):
             continue
         
         # Find best match
-        match, score = find_match_for_user(user, all_profiles)
+        match, score, analysis = find_match_for_user(user, all_profiles)
         
         if match and score >= 30:  # Minimum 30% compatibility
             match_id = match['user_id']
@@ -315,14 +420,20 @@ def run_matching(dry_run=False):
             if match_id in matched_user_ids:
                 continue
             
-            # Create mutual match
+            # Create mutual match with pending acceptance status
             user['current_match_id'] = match_id
             user['match_score'] = score
             user['matched_at'] = datetime.utcnow().isoformat()
+            user['match_accepted'] = False  # Pending acceptance
+            if analysis:
+                user['match_analysis'] = analysis
             
             match['current_match_id'] = user_id
             match['match_score'] = score
             match['matched_at'] = datetime.utcnow().isoformat()
+            match['match_accepted'] = False  # Pending acceptance
+            if analysis:
+                match['match_analysis'] = analysis
             
             # Save updated profiles (unless dry run)
             if not dry_run:
@@ -335,20 +446,27 @@ def run_matching(dry_run=False):
                     'user1_id': chat_ids[0],
                     'user2_id': chat_ids[1],
                     'created_at': datetime.utcnow().isoformat(),
-                    'messages': []
+                    'messages': [],
+                    'match_score': score,
+                    'match_analysis': analysis if analysis else {}
                 }
                 s3_put(f"match_chats/{chat_ids[0]}_{chat_ids[1]}.json", match_chat)
             
             matched_user_ids.add(user_id)
             matched_user_ids.add(match_id)
             
-            matches_created.append({
+            match_entry = {
                 'user1': user_id,
                 'user2': match_id,
                 'score': score
-            })
+            }
+            if analysis:
+                match_entry['reasoning'] = analysis.get('reasoning', '')
             
-            print(f"  ✅ Matched {user_id} with {match_id} (score: {score}%)")
+            matches_created.append(match_entry)
+            
+            reasoning_preview = analysis.get('reasoning', 'N/A')[:50] + "..." if analysis else "N/A"
+            print(f"  ✅ Matched {user_id} with {match_id} (score: {score}%) - {reasoning_preview}")
     
     # Report unmatched users
     unmatched_count = len(eligible_active_users) - (len(matches_created) * 2)

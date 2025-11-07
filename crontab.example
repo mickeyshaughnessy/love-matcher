@@ -1,0 +1,23 @@
+# LoveDashMatcher Crontab Configuration
+# Run daily matching to create new matches based on LLM compatibility scoring
+
+# INSTALLATION:
+# 1. Copy this file: cp crontab.example my_crontab
+# 2. Edit paths to match your system (change /Users/michaelshaughnessy/Repos/love-matcher to your path)
+# 3. Verify python3 path: which python3
+# 4. Install: crontab my_crontab
+# 5. Verify: crontab -l
+
+# Run matching daily at 2:00 AM (matches active, opposite-gender profiles)
+0 2 * * * cd /Users/michaelshaughnessy/Repos/love-matcher && /usr/bin/python3 run_matching.py >> /tmp/lovematcher_cron.log 2>&1
+
+# Alternative: Run twice daily (morning and evening)
+# 0 8 * * * cd /Users/michaelshaughnessy/Repos/love-matcher && /usr/bin/python3 run_matching.py >> /tmp/lovematcher_cron.log 2>&1
+# 0 20 * * * cd /Users/michaelshaughnessy/Repos/love-matcher && /usr/bin/python3 run_matching.py >> /tmp/lovematcher_cron.log 2>&1
+
+# Alternative: Use API endpoint (requires server to be running)
+# 0 2 * * * curl -X POST http://localhost:5009/admin/run-matching >> /tmp/lovematcher_api_cron.log 2>&1
+
+# Monitoring:
+# View logs: tail -f /tmp/lovematcher_cron.log
+# Test manually: cd /Users/michaelshaughnessy/Repos/love-matcher && python3 run_matching.py --dry-run

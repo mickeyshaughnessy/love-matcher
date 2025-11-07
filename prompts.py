@@ -19,6 +19,7 @@ You're not a survey form - you're a curious, empathetic conversationalist. Draw 
 DIMENSIONS_DESCRIPTION = """## The 29 Dimensions You're Exploring:
 
 **Foundation (Core Identity)**
+- gender: Their gender identity (male or female for traditional heterosexual matching)
 - age: Their current life stage and readiness
 - location: Where they are and where they dream of being
 - education: How they've cultivated their mind
@@ -215,7 +216,7 @@ def build_profile_context(profile):
     
     # Organize dimensions by category for better understanding
     dimension_categories = {
-        'Foundation': ['age', 'location', 'education', 'career', 'finances'],
+        'Foundation': ['gender', 'age', 'location', 'education', 'career', 'finances'],
         'Family': ['family_origin', 'children'],
         'Values': ['religion', 'politics', 'vision'],
         'Relationships': ['communication', 'conflict', 'affection', 'humor'],
@@ -226,7 +227,7 @@ def build_profile_context(profile):
     }
     
     all_dimensions = [
-        'age', 'location', 'education', 'career', 'finances', 'family_origin',
+        'gender', 'age', 'location', 'education', 'career', 'finances', 'family_origin',
         'children', 'religion', 'politics', 'communication', 'conflict', 'health',
         'mental_health', 'social_energy', 'domestic', 'cleanliness', 'food',
         'travel', 'hobbies', 'culture', 'humor', 'affection', 'independence',
@@ -236,6 +237,10 @@ def build_profile_context(profile):
     # Show what's been captured with rich detail
     if dimensions_filled:
         context_parts.append("\n=== DIMENSIONS GATHERED (Use these to personalize your questions!) ===")
+        
+        # Special note if gender is not yet collected
+        if 'gender' not in dimensions_filled:
+            context_parts.append("\n⚠️ IMPORTANT: Gender not specified yet - ask this early for proper matching!")
         
         for category, dims in dimension_categories.items():
             category_dims = {k: v for k, v in dimensions_filled.items() if k in dims}
@@ -265,8 +270,11 @@ def build_profile_context(profile):
         # Suggest natural next topics based on what's been gathered
         context_parts.append("\n💡 STRATEGIC GUIDANCE:")
         
+        if 'gender' not in dimensions_filled:
+            context_parts.append("  - ⚠️ PRIORITY: Ask about gender early (male/female) - required for matching")
+        
         if dimensions_count == 0:
-            context_parts.append("  - Start with a warm welcome and their location/current life stage")
+            context_parts.append("  - Start with a warm welcome, ask about gender and location/current life stage")
         elif dimensions_count < 5:
             context_parts.append("  - Continue building foundation (location, education, career, finances)")
         elif 'religion' not in dimensions_filled and 'politics' not in dimensions_filled:
@@ -388,6 +396,95 @@ KEY REMINDERS:
 
 Now engage with this user authentically and help them build a profile that will lead to their perfect match.
 """
+
+# ============================================================================
+# MATCH COMPATIBILITY PROMPT - For ranking match suitability
+# ============================================================================
+
+MATCH_COMPATIBILITY_PROMPT = """You are a compatibility analyst for LoveDashMatcher, a traditional heterosexual marriage-focused matchmaking service.
+
+Your task is to analyze two user profiles and provide a compatibility score from 0-100, where:
+- 0-29: Poor compatibility - significant misalignments in core values or lifestyle
+- 30-49: Low compatibility - some shared values but notable incompatibilities
+- 50-69: Moderate compatibility - decent alignment with some differences
+- 70-84: Good compatibility - strong alignment in most important areas
+- 85-100: Excellent compatibility - exceptional alignment across values and lifestyle
+
+## Evaluation Framework:
+
+**Critical Factors (High Weight):**
+1. **Values Alignment** - Religion, political views, vision for future family life
+2. **Family & Children** - Alignment on desire for children and family structure
+3. **Life Stage & Location** - Age compatibility, location preferences, readiness for commitment
+4. **Relationship Fundamentals** - Communication styles, conflict resolution, affection needs
+
+**Important Factors (Medium Weight):**
+5. **Lifestyle Compatibility** - Daily routines, cleanliness standards, domestic roles
+6. **Social & Energy Levels** - Introversion/extroversion, social needs, independence balance
+7. **Health & Wellbeing** - Physical health, mental health awareness, substances approach
+8. **Financial & Career** - Financial values, career ambitions, work-life balance
+
+**Enhancement Factors (Lower Weight):**
+9. **Shared Interests** - Hobbies, travel desires, cultural interests, humor compatibility
+10. **Practical Alignment** - Technology use, pets, food preferences, time management
+
+## Your Response Format:
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "score": [number 0-100],
+  "reasoning": "[2-3 sentence summary of key compatibility factors]",
+  "strengths": "[Brief list of 2-3 top compatibility strengths]",
+  "concerns": "[Brief list of 1-2 potential areas of incompatibility, or 'None identified' if excellent match]"
+}
+
+## Important Guidelines:
+- Focus on TRADITIONAL MARRIAGE COMPATIBILITY - long-term partnership potential
+- Values alignment (religion, children, vision) should heavily influence the score
+- Consider both compatibility AND potential for growth together
+- Be honest about incompatibilities but optimistic about workable differences
+- Age gaps over 10 years should be noted but not automatically disqualifying
+- Different interests can be complementary, not just incompatible
+
+Now analyze the two profiles provided and return your compatibility assessment in JSON format."""
+
+def build_match_compatibility_prompt(profile1, profile2):
+    """
+    Build prompt for LLM to evaluate match compatibility
+    
+    Args:
+        profile1: First user profile dict
+        profile2: Second user profile dict
+    
+    Returns:
+        String prompt with both profiles for LLM evaluation
+    """
+    import json
+    
+    # Extract relevant profile data for matching (exclude sensitive fields)
+    def extract_matching_data(profile):
+        return {
+            'user_id': profile.get('user_id', 'unknown'),
+            'age': profile.get('age'),
+            'gender': profile.get('gender'),
+            'dimensions': profile.get('dimensions', {}),
+            'completion_percentage': profile.get('completion_percentage', 0)
+        }
+    
+    p1_data = extract_matching_data(profile1)
+    p2_data = extract_matching_data(profile2)
+    
+    prompt = f"""{MATCH_COMPATIBILITY_PROMPT}
+
+=== PROFILE 1 ===
+{json.dumps(p1_data, indent=2)}
+
+=== PROFILE 2 ===
+{json.dumps(p2_data, indent=2)}
+
+Provide your compatibility analysis in JSON format:"""
+    
+    return prompt
 
 # ============================================================================
 # CONVENIENCE FUNCTIONS

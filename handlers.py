@@ -419,6 +419,17 @@ def chat():
                 # Store the dimension value
                 profile['dimensions'][parsed_response['dimension']] = parsed_response['value']
                 
+                # Special handling for gender - store at profile level for matching
+                if parsed_response['dimension'] == 'gender':
+                    gender_value = str(parsed_response['value']).lower()
+                    # Normalize gender values
+                    if 'male' in gender_value and 'female' not in gender_value:
+                        profile['gender'] = 'male'
+                    elif 'female' in gender_value:
+                        profile['gender'] = 'female'
+                    else:
+                        profile['gender'] = gender_value
+                
                 # Calculate completion percentage
                 dimensions_count = len(profile['dimensions'])
                 profile['completion_percentage'] = round((dimensions_count / 29) * 100)
@@ -541,7 +552,7 @@ def get_current_match():
             'message': message
         })
     
-    # Load match profile (limited info)
+    # Load match profile
     match_profile = s3_get(f"profiles/{match_id}.json")
     if not match_profile:
         # Match profile deleted, clear the match
@@ -549,15 +560,35 @@ def get_current_match():
         s3_put(f"profiles/{request.user_id}.json", profile)
         return jsonify({'match': None})
     
-    # Return limited match info
+    # Check acceptance status
+    user_accepted = profile.get('match_accepted', False)
+    match_accepted = match_profile.get('match_accepted', False)
+    mutual_acceptance = user_accepted and match_accepted
+    
+    # Build match info - show limited data until accepted, full profile after mutual acceptance
     match_info = {
         'match_id': match_id,
         'age': match_profile.get('age'),
         'match_score': profile.get('match_score', 0),
         'matched_at': profile.get('matched_at'),
-        'dimensions': match_profile.get('dimensions', {}),
-        'matching_active': profile.get('matching_active', True)
+        'user_accepted': user_accepted,
+        'match_accepted': match_accepted,
+        'mutual_acceptance': mutual_acceptance,
+        'matching_active': profile.get('matching_active', True),
+        'match_analysis': profile.get('match_analysis', {})
     }
+    
+    # Show full match profile JSON only after mutual acceptance
+    if mutual_acceptance:
+        match_info['full_profile'] = match_profile.get('dimensions', {})
+        match_info['member_number'] = match_profile.get('member_number')
+    else:
+        # Before acceptance, show limited preview
+        match_info['preview'] = {
+            'age': match_profile.get('age'),
+            'location': match_profile.get('dimensions', {}).get('location', 'Not specified'),
+            'completion_percentage': match_profile.get('completion_percentage', 0)
+        }
     
     return jsonify({
         'match': match_info,
@@ -585,6 +616,33 @@ def toggle_matching_active():
     })
 
 @token_required
+def accept_match():
+    """Accept current match - enables chat when both sides accept"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match to accept'}), 400
+    
+    # Mark match as accepted
+    profile['match_accepted'] = True
+    profile['match_accepted_at'] = datetime.utcnow().isoformat()
+    s3_put(f"profiles/{request.user_id}.json", profile)
+    
+    # Check if other user has also accepted
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    mutual_acceptance = match_profile and match_profile.get('match_accepted', False)
+    
+    return jsonify({
+        'success': True,
+        'match_accepted': True,
+        'mutual_acceptance': mutual_acceptance,
+        'message': 'Match accepted! Chat will be enabled when both users accept.' if not mutual_acceptance else 'Match accepted! You can now chat with your match.'
+    })
+
+@token_required
 def reject_match():
     """Reject current match and return to matching pool"""
     profile = s3_get(f"profiles/{request.user_id}.json")
@@ -604,26 +662,30 @@ def reject_match():
     profile['current_match_id'] = None
     profile['match_score'] = None
     profile['matched_at'] = None
+    profile['match_accepted'] = False
+    profile['match_analysis'] = None
     profile['match_rejected_at'] = datetime.utcnow().isoformat()
     
     s3_put(f"profiles/{request.user_id}.json", profile)
     
-    # Update other user's profile
+    # Update other user's profile - clear their match too
     match_profile = s3_get(f"profiles/{match_id}.json")
     if match_profile:
         match_profile['current_match_id'] = None
         match_profile['match_score'] = None
         match_profile['matched_at'] = None
+        match_profile['match_accepted'] = False
+        match_profile['match_analysis'] = None
         s3_put(f"profiles/{match_id}.json", match_profile)
     
     return jsonify({
-        'message': 'Match rejected. You will be matched with someone new in the next matching cycle.',
+        'message': 'Match declined. You will be matched with someone new in the next matching cycle.',
         'matching_active': profile.get('matching_active', True)
     })
 
 @token_required
 def send_match_message():
-    """Send message to current match"""
+    """Send message to current match - only allowed after mutual acceptance"""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
@@ -631,6 +693,18 @@ def send_match_message():
     match_id = profile.get('current_match_id')
     if not match_id:
         return jsonify({'error': 'No current match'}), 400
+    
+    # Check mutual acceptance
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    user_accepted = profile.get('match_accepted', False)
+    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
+    
+    if not (user_accepted and match_accepted):
+        return jsonify({
+            'error': 'Chat is only available after both users accept the match',
+            'user_accepted': user_accepted,
+            'match_accepted': match_accepted
+        }), 403
     
     message = request.json.get('message')
     if not message:
@@ -665,7 +739,7 @@ def send_match_message():
 
 @token_required
 def get_match_messages():
-    """Get messages with current match"""
+    """Get messages with current match - only allowed after mutual acceptance"""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
@@ -673,6 +747,20 @@ def get_match_messages():
     match_id = profile.get('current_match_id')
     if not match_id:
         return jsonify({'error': 'No current match'}), 400
+    
+    # Check mutual acceptance
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    user_accepted = profile.get('match_accepted', False)
+    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
+    mutual_acceptance = user_accepted and match_accepted
+    
+    if not mutual_acceptance:
+        return jsonify({
+            'messages': [],
+            'match_id': match_id,
+            'mutual_acceptance': False,
+            'message': 'Chat will be available after both users accept the match'
+        })
     
     # Determine chat key
     user_ids = sorted([request.user_id, match_id])
@@ -682,7 +770,8 @@ def get_match_messages():
     
     return jsonify({
         'messages': chat.get('messages', []),
-        'match_id': match_id
+        'match_id': match_id,
+        'mutual_acceptance': True
     })
 
 @token_required
@@ -798,6 +887,7 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
     app.add_url_rule('/match', 'get_current_match', get_current_match, methods=['GET'])
     app.add_url_rule('/match/toggle', 'toggle_matching_active', toggle_matching_active, methods=['POST'])
+    app.add_url_rule('/match/accept', 'accept_match', accept_match, methods=['POST'])
     app.add_url_rule('/match/reject', 'reject_match', reject_match, methods=['POST'])
     app.add_url_rule('/match/messages', 'get_match_messages', get_match_messages, methods=['GET'])
     app.add_url_rule('/match/messages', 'send_match_message', send_match_message, methods=['POST'])

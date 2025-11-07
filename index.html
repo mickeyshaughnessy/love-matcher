@@ -1727,8 +1727,8 @@
                     const match = data.match;
                     matchContainer.innerHTML = createMatchCard(match, isActive);
                     
-                    // Load match messages if inactive (chatting)
-                    if (!isActive) {
+                    // Load match messages if both users accepted (mutual acceptance)
+                    if (match.mutual_acceptance) {
                         loadMatchMessages();
                     }
                 } else {
@@ -1756,29 +1756,88 @@
 
         // Create match card
         function createMatchCard(match, isActive) {
-            const score = Math.round((match.match_score || 0) * 100);
+            const score = match.match_score || 0;
+            const userAccepted = match.user_accepted || false;
+            const matchAccepted = match.match_accepted || false;
+            const mutualAcceptance = match.mutual_acceptance || false;
             
-            let dimensionTags = '';
-            if (match.dimensions) {
-                const dimensions = Object.keys(match.dimensions).slice(0, 10);
-                dimensionTags = dimensions.map(dim => 
-                    `<span class="dimension-tag">${dim}</span>`
-                ).join('');
+            // Match analysis
+            const analysis = match.match_analysis || {};
+            const reasoning = analysis.reasoning || 'AI-powered compatibility analysis';
+            const strengths = analysis.strengths || 'Analyzing compatibility...';
+            const concerns = analysis.concerns || 'None identified';
+            
+            let profileDataHtml = '';
+            if (mutualAcceptance && match.full_profile) {
+                // Show full profile JSON after mutual acceptance
+                const fullProfile = match.full_profile;
+                const profileKeys = Object.keys(fullProfile);
+                const profileItems = profileKeys.map(key => {
+                    const value = typeof fullProfile[key] === 'object' ? JSON.stringify(fullProfile[key]) : fullProfile[key];
+                    return `<div style="margin-bottom: 10px;"><strong>${key}:</strong> ${value}</div>`;
+                }).join('');
+                
+                profileDataHtml = `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                        <h4 style="color: #764ba2; margin-bottom: 15px;">📋 Match Profile (${profileKeys.length} dimensions)</h4>
+                        <div style="max-height: 300px; overflow-y: auto; font-size: 0.9rem;">
+                            ${profileItems}
+                        </div>
+                    </div>
+                `;
+            } else if (match.preview) {
+                // Show limited preview before acceptance
+                const preview = match.preview;
+                profileDataHtml = `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                        <h4 style="color: #764ba2; margin-bottom: 15px;">👤 Match Preview</h4>
+                        <p><strong>Age:</strong> ${preview.age || 'N/A'}</p>
+                        <p><strong>Location:</strong> ${preview.location || 'N/A'}</p>
+                        <p><strong>Profile Completion:</strong> ${preview.completion_percentage || 0}%</p>
+                        <p style="color: #6c757d; font-style: italic; margin-top: 10px;">
+                            Accept the match to see full profile details and start chatting!
+                        </p>
+                    </div>
+                `;
             }
             
             let actionsHtml = '';
-            if (isActive) {
-                // Show reject button when active
+            if (!userAccepted) {
+                // Show accept/decline buttons
                 actionsHtml = `
-                    <div class="match-actions">
-                        <button class="btn-reject" onclick="rejectMatch()">Reject Match</button>
+                    <div class="match-actions" style="margin-top: 20px;">
+                        <p style="color: #6c757d; margin-bottom: 15px; text-align: center;">
+                            Review this match and decide if you'd like to connect
+                        </p>
+                        <div style="display: flex; gap: 15px; justify-content: center;">
+                            <button class="btn-primary" onclick="acceptMatch()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                                ✓ Accept Match
+                            </button>
+                            <button class="btn-reject" onclick="rejectMatch()">
+                                ✗ Decline Match
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (!mutualAcceptance) {
+                // User accepted, waiting for match to accept
+                actionsHtml = `
+                    <div style="background: #d1ecf1; padding: 20px; border-radius: 8px; margin-top: 20px; text-align: center;">
+                        <h4 style="color: #0c5460; margin-bottom: 10px;">⏳ Waiting for Match Response</h4>
+                        <p style="color: #0c5460;">You've accepted this match! Waiting for them to accept too.</p>
+                        <p style="color: #0c5460; font-size: 0.9rem; margin-top: 10px;">
+                            Chat will be enabled once both of you accept.
+                        </p>
                     </div>
                 `;
             } else {
-                // Show chat interface when inactive
+                // Both accepted - show chat interface
                 actionsHtml = `
-                    <div class="match-chat-container">
-                        <h3 style="margin-bottom: 15px; color: #764ba2;">💬 Chat with Your Match</h3>
+                    <div class="match-chat-container" style="margin-top: 20px;">
+                        <h3 style="margin-bottom: 15px; color: #764ba2;">💬 Private Chat</h3>
+                        <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                            <p style="color: #155724; font-weight: 600;">🎉 Match Accepted! You can now chat privately.</p>
+                        </div>
                         <div class="match-chat-messages" id="matchChatMessages">
                             <div style="text-align: center; color: #6c757d; padding: 20px;">
                                 Start a conversation!
@@ -1802,10 +1861,16 @@
                         <h3>Your Match</h3>
                         <p style="color: #6c757d;">Age: ${match.age || 'N/A'}</p>
                         <p style="color: #6c757d; margin-top: 10px;">Matched on ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}</p>
+                        ${userAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ You accepted</p>' : ''}
+                        ${matchAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ Match accepted</p>' : ''}
                     </div>
-                    <div class="shared-dimensions">
-                        ${dimensionTags}
+                    <div style="background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); padding: 15px; border-radius: 8px; margin-top: 15px;">
+                        <h4 style="color: #764ba2; margin-bottom: 10px;">🔍 Compatibility Analysis</h4>
+                        <p style="color: #2c3e50; margin-bottom: 8px;"><strong>Reasoning:</strong> ${reasoning}</p>
+                        <p style="color: #2c3e50; margin-bottom: 8px;"><strong>Strengths:</strong> ${strengths}</p>
+                        <p style="color: #2c3e50;"><strong>Considerations:</strong> ${concerns}</p>
                     </div>
+                    ${profileDataHtml}
                     ${actionsHtml}
                 </div>
             `;
@@ -1845,9 +1910,38 @@
             }
         }
 
+        // Accept current match
+        async function acceptMatch() {
+            if (!confirm('Accept this match? This will allow both of you to chat once they also accept.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/match/accept`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(data.message || 'Match accepted successfully!');
+                    loadMatch();
+                } else {
+                    alert(data.error || 'Failed to accept match');
+                }
+            } catch (error) {
+                console.error('Error accepting match:', error);
+                alert('Connection error. Please try again.');
+            }
+        }
+
         // Reject current match
         async function rejectMatch() {
-            if (!confirm('Are you sure you want to reject this match? You will be matched with someone new in the next cycle.')) {
+            if (!confirm('Decline this match? You will be matched with someone new in the next cycle.')) {
                 return;
             }
             
@@ -1863,13 +1957,13 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    alert(data.message || 'Match rejected successfully');
+                    alert(data.message || 'Match declined successfully');
                     loadMatch();
                 } else {
-                    alert(data.error || 'Failed to reject match');
+                    alert(data.error || 'Failed to decline match');
                 }
             } catch (error) {
-                console.error('Error rejecting match:', error);
+                console.error('Error declining match:', error);
                 alert('Connection error. Please try again.');
             }
         }
@@ -2032,7 +2126,6 @@
                 
                 if (response.ok && data.match) {
                     const match = data.match;
-                    const score = Math.round((match.match_score || 0) * 100);
                     const isActive = data.matching_active !== false;
                     
                     matchSection.innerHTML = `
@@ -2050,22 +2143,7 @@
                             </div>
                         </div>
                         
-                        <div class="match-card">
-                            <div class="match-score">
-                                <div class="compatibility-circle">${score}%</div>
-                                <div style="color: #6c757d;">Compatibility</div>
-                            </div>
-                            <div class="match-info">
-                                <h3>Your Match</h3>
-                                <p style="color: #6c757d;">Age: ${match.age || 'N/A'}</p>
-                                <p style="color: #6c757d; margin-top: 10px;">Matched on ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}</p>
-                            </div>
-                            ${isActive ? `
-                                <div class="match-actions">
-                                    <button class="btn-reject" onclick="rejectMatch()">Reject Match</button>
-                                </div>
-                            ` : ''}
-                        </div>
+                        ${createMatchCard(match, isActive)}
                     `;
                 } else {
                     matchSection.innerHTML = `
