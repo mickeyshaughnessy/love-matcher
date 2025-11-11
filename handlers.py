@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 import json
 import requests
 import bcrypt
+import time
+import os
+from werkzeug.utils import secure_filename
 
 import config
 import prompts
@@ -19,6 +22,9 @@ openrouter_config = None  # Will hold OpenRouter configuration
 # Constants
 FIRST_10K_FREE_LIMIT = 10000
 MEMBER_LIST_KEY = "member_list.json"
+ALLOWED_PHOTO_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_PHOTOS_PER_USER = 3
 
 # JWT decorator for email-password authentication
 def token_required(f):
@@ -86,6 +92,49 @@ def add_to_member_list(user_id, email, age, registration_time):
 def is_member_free(member_number):
     """Check if member gets free access based on signup order"""
     return member_number <= FIRST_10K_FREE_LIMIT
+
+def allowed_photo_file(filename):
+    """Check if file has allowed extension"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_PHOTO_EXTENSIONS
+
+def get_file_extension(filename):
+    """Get file extension"""
+    return filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+
+def upload_photo_to_s3(file, user_id):
+    """Upload photo to S3 and return URL"""
+    try:
+        # Generate unique filename
+        timestamp = int(time.time())
+        extension = get_file_extension(file.filename)
+        filename = f"photos/{user_id}/photo_{timestamp}.{extension}"
+        
+        # Upload to S3
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=f"{S3_PREFIX}{filename}",
+            Body=file.read(),
+            ContentType=file.content_type,
+            ACL='private'  # Keep photos private
+        )
+        
+        # Return S3 URL
+        return f"https://{S3_BUCKET}.s3.amazonaws.com/{S3_PREFIX}{filename}"
+    except Exception as e:
+        print(f"Error uploading photo to S3: {e}")
+        return None
+
+def delete_photo_from_s3(photo_url):
+    """Delete photo from S3 given its URL"""
+    try:
+        # Extract key from URL
+        key = photo_url.split(f"{S3_BUCKET}.s3.amazonaws.com/")[1]
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+        return True
+    except Exception as e:
+        print(f"Error deleting photo from S3: {e}")
+        return False
 
 def call_openrouter_llm(messages):
     """Call OpenRouter API with configured model"""
@@ -280,7 +329,11 @@ def register():
         'profile_complete': False,
         'conversation_count': 0,
         'dimensions': {},
-        'is_free_member': is_free
+        'is_free_member': is_free,
+        'name': '',
+        'location': '',
+        'about': '',
+        'photos': []
     }
     
     s3_put(f"profiles/{user_id}.json", profile)
@@ -376,6 +429,105 @@ def update_profile():
     return jsonify(profile)
 
 @token_required
+def upload_photo():
+    """Upload a photo for the user's profile"""
+    try:
+        # Check if photo file exists in request
+        if 'photo' not in request.files:
+            return jsonify({'error': 'No photo provided'}), 400
+        
+        file = request.files['photo']
+        
+        # Check if file was actually uploaded
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Validate file type
+        if not allowed_photo_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Use JPG, PNG, GIF, or WEBP'}), 400
+        
+        # Load user profile
+        profile = s3_get(f"profiles/{request.user_id}.json")
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+        
+        # Check photo limit
+        current_photos = profile.get('photos', [])
+        if len(current_photos) >= MAX_PHOTOS_PER_USER:
+            return jsonify({'error': f'Maximum {MAX_PHOTOS_PER_USER} photos allowed'}), 400
+        
+        # Check file size
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > MAX_PHOTO_SIZE:
+            return jsonify({'error': 'Photo must be less than 5MB'}), 400
+        
+        # Upload to S3
+        photo_url = upload_photo_to_s3(file, request.user_id)
+        if not photo_url:
+            return jsonify({'error': 'Failed to upload photo'}), 500
+        
+        # Update profile with new photo
+        current_photos.append(photo_url)
+        profile['photos'] = current_photos
+        profile['updated_at'] = datetime.utcnow().isoformat()
+        
+        s3_put(f"profiles/{request.user_id}.json", profile)
+        
+        return jsonify({
+            'success': True,
+            'photo_url': photo_url,
+            'photos': current_photos
+        })
+        
+    except Exception as e:
+        print(f"Photo upload error: {e}")
+        return jsonify({'error': 'Failed to upload photo'}), 500
+
+@token_required
+def delete_photo():
+    """Delete a photo from the user's profile"""
+    try:
+        data = request.json
+        photo_url = data.get('photo_url')
+        
+        if not photo_url:
+            return jsonify({'error': 'photo_url is required'}), 400
+        
+        # Load user profile
+        profile = s3_get(f"profiles/{request.user_id}.json")
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+        
+        current_photos = profile.get('photos', [])
+        
+        # Check if photo exists in profile
+        if photo_url not in current_photos:
+            return jsonify({'error': 'Photo not found in profile'}), 404
+        
+        # Delete from S3
+        if not delete_photo_from_s3(photo_url):
+            print(f"Warning: Failed to delete photo from S3: {photo_url}")
+        
+        # Update profile
+        current_photos.remove(photo_url)
+        profile['photos'] = current_photos
+        profile['updated_at'] = datetime.utcnow().isoformat()
+        
+        s3_put(f"profiles/{request.user_id}.json", profile)
+        
+        return jsonify({
+            'success': True,
+            'photos': current_photos
+        })
+        
+    except Exception as e:
+        print(f"Photo delete error: {e}")
+        return jsonify({'error': 'Failed to delete photo'}), 500
+
+@token_required
 def chat():
     """Chat endpoint with OpenRouter LLM integration"""
     user_message = request.json.get('message')
@@ -410,6 +562,32 @@ def chat():
         parsed_response = parse_llm_response(raw_ai_response)
         ai_response = parsed_response['display_text']
         
+        # Extract basic info fields from user message (simple keyword matching)
+        profile_updated = False
+        user_lower = user_message.lower()
+        
+        # Extract name if not set (look for "my name is", "i'm", "call me")
+        if not profile.get('name') or profile.get('name') == '':
+            if 'my name is' in user_lower or "i'm " in user_lower or 'call me' in user_lower:
+                # Simple extraction - take words after the trigger phrase
+                import re
+                name_match = re.search(r"(?:my name is|i'm|call me)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)", user_message, re.IGNORECASE)
+                if name_match:
+                    profile['name'] = name_match.group(1).strip()
+                    profile_updated = True
+                    print(f"✅ Extracted name: {profile['name']}")
+        
+        # Extract location if not set (look for "in", "from", "live in", "located in")
+        if not profile.get('location') or profile.get('location') == '':
+            if ' in ' in user_lower or 'from ' in user_lower or 'live' in user_lower:
+                # Simple extraction - this is basic, LLM should ideally store in dimension
+                import re
+                location_match = re.search(r"(?:in|from|live in|located in)\s+([A-Z][a-zA-Z\s,]+(?:[A-Z]{2})?)", user_message)
+                if location_match:
+                    profile['location'] = location_match.group(1).strip()
+                    profile_updated = True
+                    print(f"✅ Extracted location: {profile['location']}")
+        
         # Update profile dimensions if we extracted dimension data
         if parsed_response['dimension'] and parsed_response['dimension'] != 'none':
             if parsed_response['value'] and parsed_response['value'] != 'none':
@@ -418,6 +596,17 @@ def chat():
                 
                 # Store the dimension value
                 profile['dimensions'][parsed_response['dimension']] = parsed_response['value']
+                
+                # Special handling for basic info dimensions
+                if parsed_response['dimension'] == 'name' and not profile.get('name'):
+                    profile['name'] = str(parsed_response['value'])
+                    profile_updated = True
+                elif parsed_response['dimension'] == 'location' and not profile.get('location'):
+                    profile['location'] = str(parsed_response['value'])
+                    profile_updated = True
+                elif parsed_response['dimension'] == 'about':
+                    profile['about'] = str(parsed_response['value'])
+                    profile_updated = True
                 
                 # Special handling for gender - store at profile level for matching
                 if parsed_response['dimension'] == 'gender':
@@ -438,10 +627,12 @@ def chat():
                 if dimensions_count >= 29:
                     profile['profile_complete'] = True
                 
-                # Save updated profile
-                s3_put(f"profiles/{request.user_id}.json", profile)
-                
+                profile_updated = True
                 print(f"✅ Updated dimension '{parsed_response['dimension']}' - Profile now {dimensions_count}/29 complete")
+        
+        # Save profile if updated
+        if profile_updated:
+            s3_put(f"profiles/{request.user_id}.json", profile)
         
     elif llm_response and 'error' in llm_response:
         ai_response = f"LLM Error: {llm_response['error']}"
@@ -582,6 +773,11 @@ def get_current_match():
     if mutual_acceptance:
         match_info['full_profile'] = match_profile.get('dimensions', {})
         match_info['member_number'] = match_profile.get('member_number')
+        # Add basic info fields
+        match_info['name'] = match_profile.get('name', '')
+        match_info['location'] = match_profile.get('location', '')
+        match_info['about'] = match_profile.get('about', '')
+        match_info['photos'] = match_profile.get('photos', [])
     else:
         # Before acceptance, show limited preview
         match_info['preview'] = {
@@ -883,6 +1079,8 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/login', 'login', login, methods=['POST'])
     app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])
     app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
+    app.add_url_rule('/profile/photos', 'upload_photo', upload_photo, methods=['POST'])
+    app.add_url_rule('/profile/photos', 'delete_photo', delete_photo, methods=['DELETE'])
     app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
     app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
     app.add_url_rule('/match', 'get_current_match', get_current_match, methods=['GET'])

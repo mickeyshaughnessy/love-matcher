@@ -207,6 +207,22 @@ def build_profile_context(profile):
     conversation_count = profile.get('conversation_count', 0)
     context_parts.append(f"Conversation Count: {conversation_count}")
     
+    # Basic info section
+    name = profile.get('name', '')
+    location = profile.get('location', '')
+    about = profile.get('about', '')
+    photos = profile.get('photos', [])
+    
+    context_parts.append("\n=== BASIC INFO ===")
+    context_parts.append(f"Name: {name if name else '❌ NOT SET - ASK FIRST!'}")
+    context_parts.append(f"Location: {location if location else '❌ NOT SET - ASK EARLY!'}")
+    context_parts.append(f"About/Bio: {about if about else '❌ NOT SET - ASK THEM TO DESCRIBE THEMSELVES!'}")
+    context_parts.append(f"Photos: {len(photos)}/3 uploaded")
+    
+    if not name or not location or not about:
+        context_parts.append("\n⚠️ PRIORITY: Get basic info (name, location, about) BEFORE diving into 29 dimensions!")
+        context_parts.append("💡 These fields help the user feel more connected and give context for dimension questions.")
+    
     # Profile Completion Status
     dimensions_filled = profile.get('dimensions', {})
     dimensions_count = len(dimensions_filled)
