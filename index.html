@@ -4,6 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LoveDashMatcher - AI-Powered Matchmaking</title>
+    
+    <!-- Meta Tags for SEO and Social Sharing -->
+    <meta name="description" content="Find your perfect match through AI-powered 29-dimension compatibility analysis. Join LoveDashMatcher for meaningful, lasting connections.">
+    <meta name="keywords" content="dating, matchmaking, AI dating, compatibility, relationships, love, online dating">
+    <meta name="author" content="LoveDashMatcher">
+    
+    <!-- Open Graph Meta Tags (Facebook, LinkedIn) -->
+    <meta property="og:title" content="LoveDashMatcher - AI-Powered Matchmaking">
+    <meta property="og:description" content="Find your perfect match through AI-powered 29-dimension compatibility analysis.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://rse-api.com">
+    <meta property="og:image" content="https://rse-api.com/og-image.jpg">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="LoveDashMatcher - AI-Powered Matchmaking">
+    <meta name="twitter:description" content="Find your perfect match through AI-powered 29-dimension compatibility analysis.">
+    <meta name="twitter:image" content="https://rse-api.com/twitter-image.jpg">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔷</text></svg>">
+    
     <style>
         * {
             margin: 0;
@@ -535,6 +557,115 @@
             to { transform: rotate(360deg); }
         }
         
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: white;
+            padding: 16px 24px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideInUp 0.3s ease, fadeOut 0.3s ease 2.7s;
+            z-index: 10000;
+            max-width: 400px;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+        
+        .toast.success {
+            border-left: 4px solid #28a745;
+        }
+        
+        .toast.error {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .toast.info {
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .toast-icon {
+            font-size: 1.5rem;
+        }
+        
+        .toast-message {
+            flex: 1;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .toast-close {
+            cursor: pointer;
+            color: #999;
+            font-size: 1.2rem;
+            padding: 0 4px;
+        }
+        
+        .toast-close:hover {
+            color: #333;
+        }
+        
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            max-width: 75px;
+            margin-bottom: 15px;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #764ba2;
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+        
+        @keyframes typingBounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
         /* Chat Sidebar */
         .chat-sidebar {
             background: white;
@@ -1040,6 +1171,52 @@
             color: #dc3545;
         }
         
+        /* Footer */
+        footer {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            padding: 40px 20px 20px;
+            margin-top: 60px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .footer-section h3 {
+            color: #764ba2;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .footer-section p, .footer-section a {
+            color: #6c757d;
+            text-decoration: none;
+            line-height: 1.8;
+            font-size: 0.95rem;
+            display: block;
+        }
+        
+        .footer-section a:hover {
+            color: #764ba2;
+        }
+        
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
         /* Utility Classes */
         .hidden {
             display: none !important;
@@ -1047,8 +1224,24 @@
         
         /* Mobile Responsive */
         @media (max-width: 768px) {
+            .hero {
+                padding: 40px 25px;
+            }
+            
             .hero h1 {
                 font-size: 2rem;
+            }
+            
+            .hero .tagline {
+                font-size: 1.1rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+            }
+            
+            .btn-primary, .btn-secondary {
+                width: 100%;
             }
             
             .auth-forms {
@@ -1057,10 +1250,15 @@
             
             .chat-container {
                 grid-template-columns: 1fr;
+                height: calc(100vh - 100px);
             }
             
             .chat-sidebar {
                 display: none;
+            }
+            
+            .chat-input-area input {
+                font-size: 16px; /* Prevents zoom on iOS */
             }
             
             .profile-layout {
@@ -1081,6 +1279,44 @@
             
             .profile-stats {
                 grid-template-columns: 1fr;
+            }
+            
+            .dimensions-summary {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            
+            .nav-links {
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            
+            .nav-link {
+                font-size: 0.9rem;
+                padding: 6px 12px;
+            }
+            
+            .toast {
+                right: 15px;
+                left: 15px;
+                bottom: 15px;
+                max-width: none;
+            }
+            
+            footer {
+                padding: 30px 15px 15px;
+            }
+            
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+            
+            .match-actions {
+                flex-direction: column;
+            }
+            
+            .match-actions button {
+                width: 100%;
             }
         }
     </style>
@@ -1416,16 +1652,102 @@
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>🔷 LoveDashMatcher</h3>
+                <p>AI-powered matchmaking using 29-dimension compatibility analysis for meaningful, lasting relationships.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <a href="#" onclick="scrollToAuth(); return false;">Sign Up</a>
+                <a href="#" onclick="scrollToDimensions(); return false;">29 Dimensions</a>
+                <a href="#" onclick="document.getElementById('mainNav').classList.contains('active') && showView('dashboard'); return false;">Dashboard</a>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Support</h3>
+                <a href="mailto:support@rse-api.com">Contact Support</a>
+                <a href="#privacy">Privacy Policy</a>
+                <a href="#terms">Terms of Service</a>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Connect</h3>
+                <p>Join thousands finding meaningful connections through AI-powered compatibility matching.</p>
+                <p style="margin-top: 10px;">✉️ support@rse-api.com</p>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2025 LoveDashMatcher. All rights reserved. | Made with ❤️ by AI</p>
+        </div>
+    </footer>
+
     <script>
         const API_URL = 'https://rse-api.com:5009';
         let authToken = null;
         let currentUser = null;
         let matchMessagesInterval = null;
+        
+        // Toast notification system
+        function showToast(message, type = 'info') {
+            const toastHTML = `
+                <div class="toast ${type}">
+                    <div class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</div>
+                    <div class="toast-message">${message}</div>
+                    <div class="toast-close" onclick="this.parentElement.remove()">×</div>
+                </div>
+            `;
+            
+            const toast = document.createElement('div');
+            toast.innerHTML = toastHTML;
+            document.body.appendChild(toast.firstElementChild);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                const toastEl = document.querySelector('.toast:last-of-type');
+                if (toastEl) toastEl.remove();
+            }, 3000);
+        }
+        
+        // Show typing indicator
+        function showTypingIndicator() {
+            const messagesDiv = document.getElementById('chatMessages');
+            const indicator = document.createElement('div');
+            indicator.className = 'typing-indicator';
+            indicator.id = 'typingIndicator';
+            indicator.innerHTML = '<span></span><span></span><span></span>';
+            messagesDiv.appendChild(indicator);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Remove typing indicator
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadMemberStats();
+            checkAutoLogin();
         });
+        
+        // Check for saved session and auto-login
+        function checkAutoLogin() {
+            const savedToken = localStorage.getItem('authToken');
+            const savedUser = localStorage.getItem('currentUser');
+            
+            if (savedToken && savedUser) {
+                authToken = savedToken;
+                currentUser = JSON.parse(savedUser);
+                document.getElementById('mainNav').classList.add('active');
+                showView('dashboard');
+            }
+        }
 
         // Load membership statistics
         async function loadMemberStats() {
@@ -1495,9 +1817,24 @@
         // Signup
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('signupEmail').value;
+            const email = document.getElementById('signupEmail').value.trim();
             const password = document.getElementById('signupPassword').value;
-            const age = document.getElementById('signupAge').value;
+            const age = parseInt(document.getElementById('signupAge').value);
+            
+            // Input validation
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            if (age < 18 || age > 120) {
+                showToast('Age must be between 18 and 120', 'error');
+                return;
+            }
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span>Creating...';
             
             try {
                 const response = await fetch(`${API_URL}/register`, {
@@ -1511,6 +1848,12 @@
                 if (response.ok) {
                     authToken = data.token;
                     currentUser = data;
+                    
+                    // Save to localStorage for auto-login
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    showToast(data.message || 'Account created successfully!', 'success');
                     document.getElementById('signupMessage').innerHTML = 
                         `<div class="success">${data.message}</div>`;
                     
@@ -1520,20 +1863,38 @@
                         showView('dashboard');
                     }, 1500);
                 } else {
+                    const errorMsg = data.error || 'Signup failed';
+                    showToast(errorMsg, 'error');
                     document.getElementById('signupMessage').innerHTML = 
-                        `<div class="error">${data.error}</div>`;
+                        `<div class="error">${errorMsg}</div>`;
                 }
             } catch (error) {
+                const errorMsg = 'Connection error. Please try again.';
+                showToast(errorMsg, 'error');
                 document.getElementById('signupMessage').innerHTML = 
-                    `<div class="error">Connection error. Please try again.</div>`;
+                    `<div class="error">${errorMsg}</div>`;
+                console.error('Signup error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
             }
         });
 
         // Login
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
+            const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value;
+            
+            // Input validation
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span>Logging in...';
             
             try {
                 const response = await fetch(`${API_URL}/login`, {
@@ -1547,6 +1908,12 @@
                 if (response.ok) {
                     authToken = data.token;
                     currentUser = data;
+                    
+                    // Save to localStorage for auto-login
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    showToast('Login successful!', 'success');
                     document.getElementById('loginMessage').innerHTML = 
                         `<div class="success">Login successful!</div>`;
                     
@@ -1556,12 +1923,20 @@
                         showView('dashboard');
                     }, 1000);
                 } else {
+                    const errorMsg = data.error || 'Login failed';
+                    showToast(errorMsg, 'error');
                     document.getElementById('loginMessage').innerHTML = 
-                        `<div class="error">${data.error}</div>`;
+                        `<div class="error">${errorMsg}</div>`;
                 }
             } catch (error) {
+                const errorMsg = 'Connection error. Please try again.';
+                showToast(errorMsg, 'error');
                 document.getElementById('loginMessage').innerHTML = 
-                    `<div class="error">Connection error. Please try again.</div>`;
+                    `<div class="error">${errorMsg}</div>`;
+                console.error('Login error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
             }
         });
 
@@ -1667,6 +2042,9 @@
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<span class="spinner"></span>Sending...';
             
+            // Show typing indicator
+            showTypingIndicator();
+            
             try {
                 const response = await fetch(`${API_URL}/chat`, {
                     method: 'POST',
@@ -1679,14 +2057,23 @@
                 
                 const data = await response.json();
                 
+                // Remove typing indicator
+                removeTypingIndicator();
+                
                 if (response.ok) {
                     addMessage(data.response, 'ai', data.timestamp);
                     updateChatSidebar();
                 } else {
-                    addMessage('Sorry, there was an error. Please try again.', 'ai');
+                    const errorMsg = data.error || 'Sorry, there was an error. Please try again.';
+                    addMessage(errorMsg, 'ai');
+                    showToast(errorMsg, 'error');
                 }
             } catch (error) {
-                addMessage('Connection error. Please try again.', 'ai');
+                removeTypingIndicator();
+                const errorMsg = 'Connection error. Please try again.';
+                addMessage(errorMsg, 'ai');
+                showToast(errorMsg, 'error');
+                console.error('Chat error:', error);
             } finally {
                 // Re-enable input and remove spinner
                 input.disabled = false;
@@ -1713,10 +2100,14 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Enter key to send
-        document.getElementById('chatInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        // Keyboard shortcuts for chat input
+        document.getElementById('chatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
+            } else if (e.key === 'Escape') {
+                e.target.value = '';
+                e.target.blur();
             }
         });
 
@@ -1896,6 +2287,8 @@
             const isActive = document.getElementById('matchingActiveToggle').checked;
             const statusLabel = document.getElementById('matchingStatusLabel');
             
+            showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'info');
+            
             try {
                 const response = await fetch(`${API_URL}/match/toggle`, {
                     method: 'POST',
@@ -1911,16 +2304,17 @@
                 if (response.ok) {
                     statusLabel.textContent = isActive ? 'Active' : 'Inactive';
                     statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    showToast(`Matching ${isActive ? 'activated' : 'deactivated'} successfully`, 'success');
                     // Reload match view to show appropriate UI
                     loadMatch();
                 } else {
-                    alert(data.error || 'Failed to update status');
+                    showToast(data.error || 'Failed to update status', 'error');
                     // Revert toggle
                     document.getElementById('matchingActiveToggle').checked = !isActive;
                 }
             } catch (error) {
                 console.error('Error toggling status:', error);
-                alert('Connection error. Please try again.');
+                showToast('Connection error. Please try again.', 'error');
                 document.getElementById('matchingActiveToggle').checked = !isActive;
             }
         }
@@ -1930,6 +2324,8 @@
             if (!confirm('Accept this match? This will allow both of you to chat once they also accept.')) {
                 return;
             }
+            
+            showToast('Accepting match...', 'info');
             
             try {
                 const response = await fetch(`${API_URL}/match/accept`, {
@@ -1943,14 +2339,14 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    alert(data.message || 'Match accepted successfully!');
+                    showToast(data.message || 'Match accepted successfully!', 'success');
                     loadMatch();
                 } else {
-                    alert(data.error || 'Failed to accept match');
+                    showToast(data.error || 'Failed to accept match', 'error');
                 }
             } catch (error) {
                 console.error('Error accepting match:', error);
-                alert('Connection error. Please try again.');
+                showToast('Connection error. Please try again.', 'error');
             }
         }
 
@@ -1959,6 +2355,8 @@
             if (!confirm('Decline this match? You will be matched with someone new in the next cycle.')) {
                 return;
             }
+            
+            showToast('Declining match...', 'info');
             
             try {
                 const response = await fetch(`${API_URL}/match/reject`, {
@@ -1972,14 +2370,14 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    alert(data.message || 'Match declined successfully');
+                    showToast(data.message || 'Match declined successfully', 'success');
                     loadMatch();
                 } else {
-                    alert(data.error || 'Failed to decline match');
+                    showToast(data.error || 'Failed to decline match', 'error');
                 }
             } catch (error) {
                 console.error('Error declining match:', error);
-                alert('Connection error. Please try again.');
+                showToast('Connection error. Please try again.', 'error');
             }
         }
 
@@ -2193,14 +2591,15 @@
                 if (response.ok) {
                     statusLabel.textContent = isActive ? 'Active' : 'Inactive';
                     statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
                     loadMatchInProfile();
                 } else {
-                    alert(data.error || 'Failed to update status');
+                    showToast(data.error || 'Failed to update status', 'error');
                     document.getElementById('mainMatchingToggle').checked = !isActive;
                 }
             } catch (error) {
                 console.error('Error toggling status:', error);
-                alert('Connection error. Please try again.');
+                showToast('Connection error. Please try again.', 'error');
                 document.getElementById('mainMatchingToggle').checked = !isActive;
             }
         }
@@ -2225,6 +2624,7 @@
                 if (response.ok) {
                     statusLabel.textContent = isActive ? 'Active' : 'Inactive';
                     statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+                    showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
                     // Also update main toggle
                     const mainToggle = document.getElementById('mainMatchingToggle');
                     const mainStatusLabel = document.getElementById('mainMatchingStatusLabel');
@@ -2235,12 +2635,12 @@
                     }
                     loadMatchInProfile();
                 } else {
-                    alert(data.error || 'Failed to update status');
+                    showToast(data.error || 'Failed to update status', 'error');
                     document.getElementById('profileMatchToggle').checked = !isActive;
                 }
             } catch (error) {
                 console.error('Error toggling status:', error);
-                alert('Connection error. Please try again.');
+                showToast('Connection error. Please try again.', 'error');
                 document.getElementById('profileMatchToggle').checked = !isActive;
             }
         }
@@ -2252,6 +2652,10 @@
                 clearInterval(matchMessagesInterval);
                 matchMessagesInterval = null;
             }
+            
+            // Clear localStorage
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
             
             authToken = null;
             currentUser = null;
