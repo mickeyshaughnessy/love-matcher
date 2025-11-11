@@ -1368,9 +1368,9 @@
         <div class="nav-brand">🔷 LoveDashMatcher</div>
         <div class="nav-links">
             <a href="#" class="nav-link" onclick="showView('landing')">Home</a>
-            <a href="#" class="nav-link" onclick="showView('chat')">Build</a>
+            <a href="#" class="nav-link" onclick="showView('chat')">Build Profile</a>
             <a href="#" class="nav-link" onclick="showView('profile')">
-                Connect
+                Connect with Match
                 <span class="nav-badge hidden" id="matchBadge">1</span>
             </a>
             <a href="#" class="nav-link" onclick="logout()">Logout</a>
@@ -1470,7 +1470,7 @@
                     </div>
                     
                     <div class="about-box">
-                        <h3>5️⃣ Connect & Build Relationships</h3>
+                        <h3>5️⃣ Connect with Your Match</h3>
                         <p>Once both of you accept, exchange full profiles and start chatting privately. Take your time getting to know someone with genuine compatibility potential. If it's not a fit, decline and get matched with someone new. No pressure, no games—just authentic connections.</p>
                     </div>
                     
@@ -1775,7 +1775,7 @@
                         </div>
                     </div>
                     
-                    <!-- Photo Upload in Build View -->
+                    <!-- Photo Upload in Build Profile View -->
                     <div class="sidebar-section">
                         <div class="sidebar-title">📸 Your Photos</div>
                         <p style="color: #6c757d; font-size: 0.85rem; margin-bottom: 12px;">
@@ -1845,7 +1845,7 @@
                 <div>
                     <div class="profile-container">
                         <div class="profile-header">
-                            <h2>Connect</h2>
+                            <h2>Connect with Match</h2>
                             <p style="color: #6c757d;">Your profile and matches</p>
                             
                             <!-- Prominent Active/Inactive Toggle -->
@@ -1887,7 +1887,7 @@
                                 </p>
                             </div>
                             <p style="color: #6c757d; font-size: 0.9rem; margin-top: 15px; text-align: center;">
-                                Update your info in the <a href="#" onclick="showView('chat'); return false;" style="color: #764ba2; font-weight: 600;">Build</a> section
+                                Update your info in the <a href="#" onclick="showView('chat'); return false;" style="color: #764ba2; font-weight: 600;">Build Profile</a> section
                             </p>
                         </div>
                         
@@ -1935,7 +1935,7 @@
             </div>
             
             <div class="footer-section">
-                <h3>Connect</h3>
+                <h3>Connect with Match</h3>
                 <p>Join thousands finding meaningful connections through AI-powered compatibility matching.</p>
                 <p style="margin-top: 10px;">Building a community of serious daters.</p>
             </div>
@@ -2265,7 +2265,7 @@
                     document.getElementById('sidebarPercentage').textContent = `${percentage}%`;
                     document.getElementById('sidebarProgressBar').style.width = `${percentage}%`;
                     
-                    // Update photos in Build sidebar
+                    // Update photos in Build Profile sidebar
                     renderPhotos(profile.photos || [], 'chatPhotoGrid', 'chatPhotoUploadBtn');
                     
                     // Update JSON viewer
@@ -2762,7 +2762,7 @@
                     document.getElementById('profileName').textContent = profile.name || 'Not set';
                     document.getElementById('profileAge').textContent = profile.age || '-';
                     document.getElementById('profileLocation').textContent = profile.location || 'Not set';
-                    document.getElementById('profileAbout').textContent = profile.about || 'Share something about yourself in the Build section...';
+                    document.getElementById('profileAbout').textContent = profile.about || 'Share something about yourself in the Build Profile section...';
                     document.getElementById('profileAbout').style.fontStyle = profile.about ? 'normal' : 'italic';
                     document.getElementById('profileAbout').style.color = profile.about ? '#2c3e50' : '#6c757d';
                     
@@ -2896,7 +2896,7 @@
             }
         }
 
-        // Photo upload functions for Build (chat) view
+        // Photo upload functions for Build Profile (chat) view
         function triggerChatPhotoUpload() {
             document.getElementById('chatPhotoUploadInput').click();
         }
@@ -2968,7 +2968,7 @@
                     showToast('Photo uploaded successfully!', 'success');
                     // Reload photos in current view
                     loadChatHistory(); // This will update sidebar photos
-                    loadProfile(); // This will update if Connect view is open
+                    loadProfile(); // This will update if Connect with Match view is open
                 } else {
                     showToast(data.error || 'Failed to upload photo', 'error');
                 }
