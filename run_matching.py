@@ -421,27 +421,22 @@ def run_matching(dry_run=False, verbose=False):
     print(f"  Free members: {free_members}")
     print(f"  Paid members: {paid_members}")
     
-    # Filter for active, eligible users without matches
+    # Filter for active users without matches (removed eligibility and payment requirements)
     # Note: matching_active defaults to True if not set
-    # Note: matching_eligible must be True (age >= 18 and payment status OK)
+    # Now includes incomplete profiles for matching
     print("\n🔍 Filtering users for matching...")
     active_users = [
         p for p in all_profiles 
         if p.get('matching_active', True) 
-        and p.get('matching_eligible', False)
         and not p.get('current_match_id')
-        and p.get('payment_status') in ['free', 'completed', 'free_pending_age']
     ]
     
     print(f"  Active users seeking matches: {len(active_users)}")
     
-    # Filter only those who are actually eligible (18+)
-    eligible_active_users = [
-        u for u in active_users
-        if u.get('matching_eligible', False) and u.get('payment_status') in ['free', 'completed']
-    ]
+    # Use all active users (no eligibility filtering for now)
+    eligible_active_users = active_users
     
-    print(f"  Eligible active users (18+, paid/free): {len(eligible_active_users)}")
+    print(f"  Users available for matching: {len(eligible_active_users)}")
     
     if len(eligible_active_users) < 2:
         print("\n⚠️  Not enough eligible active users for matching")

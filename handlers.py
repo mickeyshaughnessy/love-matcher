@@ -236,11 +236,11 @@ def ping():
 def register():
     data = request.json
     email = data.get('email')
-    password = data.get('password')
+    password = data.get('password')  # Optional now
     age = data.get('age')
     
-    if not all([email, password, age]):
-        return jsonify({'error': 'Missing required fields'}), 400
+    if not all([email, age]):
+        return jsonify({'error': 'Missing required fields (email and age)'}), 400
     
     age_int = int(age)
     matching_eligible = age_int >= 18
@@ -250,9 +250,11 @@ def register():
     if s3_get(f"profiles/{user_id}.json"):
         return jsonify({'error': 'User already exists'}), 400
     
-    # Hash password
-    salt = bcrypt.gensalt()
-    password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    # Hash password if provided (for backward compatibility)
+    password_hash = None
+    if password:
+        salt = bcrypt.gensalt()
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
     
     # Add to member list and get member number
     registration_time = datetime.utcnow().isoformat()
@@ -311,29 +313,27 @@ def register():
 def login():
     data = request.json
     email = data.get('email')
-    password = data.get('password')
+    password = data.get('password')  # Optional now
     
-    if not email or not password:
-        return jsonify({'error': 'Email and password required'}), 400
+    if not email:
+        return jsonify({'error': 'Email required'}), 400
     
     user_id = email.replace('@', '_').replace('.', '_')
     
     profile = s3_get(f"profiles/{user_id}.json")
     if not profile:
-        return jsonify({'error': 'Invalid email or password'}), 401
+        return jsonify({'error': 'Invalid email'}), 401
     
-    # Verify password
+    # Verify password only if provided and stored
     stored_hash = profile.get('password_hash')
-    if not stored_hash:
-        print(f"⚠️ Profile {user_id} missing password_hash")
-        return jsonify({'error': 'Account error - please contact support'}), 500
-    
-    try:
-        if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-            return jsonify({'error': 'Invalid email or password'}), 401
-    except Exception as e:
-        print(f"❌ Password verification error for {user_id}: {e}")
-        return jsonify({'error': 'Authentication error - please contact support'}), 500
+    if password and stored_hash:
+        try:
+            if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+                return jsonify({'error': 'Invalid password'}), 401
+        except Exception as e:
+            print(f"❌ Password verification error for {user_id}: {e}")
+            return jsonify({'error': 'Authentication error - please contact support'}), 500
+    # If no password provided or stored, allow login with just email (username-only mode)
     
     token = jwt.encode(
         {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
