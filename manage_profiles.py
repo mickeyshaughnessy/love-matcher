@@ -7,15 +7,18 @@ Inspect and manage member profiles stored in S3
 import boto3
 import json
 from datetime import datetime
-from config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET, S3_PREFIX
+import config
 
 # Initialize S3 client
 s3 = boto3.client(
     's3',
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
+    aws_access_key_id=config.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=config.AWS_SECRET_ACCESS_KEY,
+    region_name=config.AWS_REGION
 )
+
+S3_BUCKET = config.S3_BUCKET
+S3_PREFIX = config.S3_PREFIX
 
 def s3_get(key):
     """Get object from S3"""
@@ -143,6 +146,118 @@ def delete_profile(user_id, confirm=False):
     except Exception as e:
         print(f"Error deleting profile: {e}")
 
+def scan_profiles():
+    """Scan all profiles and collect detailed statistics"""
+    print("\n=== SCANNING PROFILES ===")
+    print("Loading profiles from S3...\n")
+    
+    profile_keys = s3_list_profiles()
+    
+    stats = {
+        'total_profiles': 0,
+        'matching_eligible': 0,
+        'not_eligible': 0,
+        'profile_complete': 0,
+        'profile_incomplete': 0,
+        'currently_matched': 0,
+        'unmatched': 0,
+        'conversation_count_total': 0,
+        'age_distribution': {},
+        'gender_distribution': {},
+        'dimension_counts': {},
+    }
+    
+    profiles_data = []
+    
+    for profile_key in profile_keys:
+        user_id = profile_key.replace(f"{S3_PREFIX}profiles/", "").replace(".json", "")
+        profile = s3_get(f"profiles/{user_id}.json")
+        
+        if not profile:
+            continue
+        
+        stats['total_profiles'] += 1
+        profiles_data.append(profile)
+        
+        # Matching eligibility
+        if profile.get('matching_eligible', False):
+            stats['matching_eligible'] += 1
+        else:
+            stats['not_eligible'] += 1
+        
+        # Profile completion
+        if profile.get('profile_complete', False):
+            stats['profile_complete'] += 1
+        else:
+            stats['profile_incomplete'] += 1
+        
+        # Current match status
+        if profile.get('current_match_id'):
+            stats['currently_matched'] += 1
+        else:
+            stats['unmatched'] += 1
+        
+        # Conversation count
+        stats['conversation_count_total'] += profile.get('conversation_count', 0)
+        
+        # Age distribution
+        age = profile.get('age')
+        if age and isinstance(age, int) and age < 150:  # Filter out bad data
+            age_group = f"{(age // 10) * 10}-{(age // 10) * 10 + 9}"
+            stats['age_distribution'][age_group] = stats['age_distribution'].get(age_group, 0) + 1
+        
+        # Gender distribution
+        dimensions = profile.get('dimensions', {})
+        gender = dimensions.get('gender', 'Unknown')
+        if gender:
+            stats['gender_distribution'][gender] = stats['gender_distribution'].get(gender, 0) + 1
+        
+        # Dimension completion
+        for dim_key in dimensions.keys():
+            stats['dimension_counts'][dim_key] = stats['dimension_counts'].get(dim_key, 0) + 1
+    
+    # Print statistics
+    print(f"{'='*60}")
+    print(f"PROFILE STATISTICS")
+    print(f"{'='*60}\n")
+    
+    print(f"Total Profiles: {stats['total_profiles']}\n")
+    
+    print("MATCHING STATUS:")
+    print(f"  ✓ Eligible for matching:     {stats['matching_eligible']:4d} ({stats['matching_eligible']/max(stats['total_profiles'],1)*100:5.1f}%)")
+    print(f"  ✗ Not eligible:              {stats['not_eligible']:4d} ({stats['not_eligible']/max(stats['total_profiles'],1)*100:5.1f}%)")
+    print(f"  ❤ Currently matched:         {stats['currently_matched']:4d} ({stats['currently_matched']/max(stats['total_profiles'],1)*100:5.1f}%)")
+    print(f"  ○ Unmatched:                 {stats['unmatched']:4d} ({stats['unmatched']/max(stats['total_profiles'],1)*100:5.1f}%)\n")
+    
+    print("PROFILE COMPLETION:")
+    print(f"  ✓ Complete profiles:         {stats['profile_complete']:4d} ({stats['profile_complete']/max(stats['total_profiles'],1)*100:5.1f}%)")
+    print(f"  ○ Incomplete profiles:       {stats['profile_incomplete']:4d} ({stats['profile_incomplete']/max(stats['total_profiles'],1)*100:5.1f}%)\n")
+    
+    print(f"CONVERSATIONS:")
+    print(f"  Total conversation count:    {stats['conversation_count_total']}")
+    if stats['total_profiles'] > 0:
+        print(f"  Average per profile:         {stats['conversation_count_total']/stats['total_profiles']:.1f}\n")
+    
+    if stats['age_distribution']:
+        print("AGE DISTRIBUTION:")
+        for age_group in sorted(stats['age_distribution'].keys()):
+            count = stats['age_distribution'][age_group]
+            print(f"  {age_group}: {count:3d} ({count/max(stats['total_profiles'],1)*100:5.1f}%)")
+        print()
+    
+    if stats['gender_distribution']:
+        print("GENDER DISTRIBUTION:")
+        for gender, count in sorted(stats['gender_distribution'].items()):
+            print(f"  {gender}: {count:3d} ({count/max(stats['total_profiles'],1)*100:5.1f}%)")
+        print()
+    
+    if stats['dimension_counts']:
+        print("PROFILE DIMENSIONS FILLED:")
+        for dim, count in sorted(stats['dimension_counts'].items(), key=lambda x: x[1], reverse=True):
+            print(f"  {dim}: {count:3d} ({count/max(stats['total_profiles'],1)*100:5.1f}%)")
+    
+    return stats, profiles_data
+
 def get_stats():
     """Show overall statistics"""
     print("\n=== STATISTICS ===")
@@ -170,9 +285,10 @@ def menu():
     print("\nCommands:")
     print("  1. List all members")
     print("  2. List all profile files")
-    print("  3. Show statistics")
-    print("  4. Show profile (by user_id)")
-    print("  5. Search profiles (by email or user_id)")
+    print("  3. Show basic statistics")
+    print("  4. Scan profiles (detailed stats)")
+    print("  5. Show profile (by user_id)")
+    print("  6. Search profiles (by email or user_id)")
     print("  q. Quit")
     print()
     
@@ -186,9 +302,11 @@ def menu():
         elif choice == '3':
             get_stats()
         elif choice == '4':
+            scan_profiles()
+        elif choice == '5':
             user_id = input("Enter user_id: ").strip()
             show_profile(user_id)
-        elif choice == '5':
+        elif choice == '6':
             query = input("Enter search query: ").strip()
             search_profiles(query)
         elif choice.lower() == 'q':
@@ -210,6 +328,8 @@ if __name__ == '__main__':
             list_profiles()
         elif cmd == 'stats':
             get_stats()
+        elif cmd == 'scan':
+            scan_profiles()
         elif cmd == 'show' and len(sys.argv) > 2:
             show_profile(sys.argv[2])
         elif cmd == 'search' and len(sys.argv) > 2:
@@ -218,7 +338,8 @@ if __name__ == '__main__':
             print("Usage:")
             print("  python manage_profiles.py list              # List all members")
             print("  python manage_profiles.py profiles          # List profile files")
-            print("  python manage_profiles.py stats             # Show statistics")
+            print("  python manage_profiles.py stats             # Show basic statistics")
+            print("  python manage_profiles.py scan              # Scan profiles (detailed)")
             print("  python manage_profiles.py show <user_id>    # Show profile")
             print("  python manage_profiles.py search <query>    # Search profiles")
             print("  python manage_profiles.py                   # Interactive menu")

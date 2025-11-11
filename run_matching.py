@@ -221,7 +221,7 @@ def calculate_compatibility_score_fallback(profile1, profile2):
     final_score = int((score / max_score) * 100)
     return final_score, {'reasoning': 'Rule-based fallback scoring', 'strengths': 'Basic compatibility', 'concerns': 'Limited analysis'}
 
-def find_match_for_user(user_profile, all_profiles):
+def find_match_for_user(user_profile, all_profiles, verbose=False):
     """
     Find best available match for a user
     Returns (matched_profile, score, analysis) or (None, 0, None)
@@ -229,17 +229,41 @@ def find_match_for_user(user_profile, all_profiles):
     user_id = user_profile['user_id']
     user_gender = user_profile.get('gender')
     
+    if verbose:
+        print(f"\n  🔎 Finding match for: {user_id}")
+        print(f"     Gender: {user_gender}")
+        print(f"     Dimensions filled: {len(user_profile.get('dimensions', {}))}/29")
+    
     # Get user's current match and rejected users
     current_match = user_profile.get('current_match_id')
     rejected_users = set(user_profile.get('rejected_matches', []))
     
+    if verbose and rejected_users:
+        print(f"     Previously rejected: {len(rejected_users)} users")
+    
     # If user already has a match, skip
     if current_match:
+        if verbose:
+            print(f"     ⚠️  Already has match: {current_match}")
         return None, 0, None
     
     best_match = None
     best_score = 0
     best_analysis = None
+    
+    candidates_considered = 0
+    skip_reasons = {
+        'self': 0,
+        'inactive': 0,
+        'not_eligible': 0,
+        'already_matched': 0,
+        'rejected_by_user': 0,
+        'rejected_user': 0,
+        'same_gender': 0,
+        'invalid_gender': 0,
+        'no_gender': 0,
+        'low_score': 0
+    }
     
     for candidate in all_profiles:
         candidate_id = candidate['user_id']
@@ -247,42 +271,56 @@ def find_match_for_user(user_profile, all_profiles):
         
         # Skip self
         if candidate_id == user_id:
+            skip_reasons['self'] += 1
             continue
         
         # Skip if not active
         if not candidate.get('matching_active', True):
+            skip_reasons['inactive'] += 1
             continue
         
         # Skip if not eligible
         if not candidate.get('matching_eligible', False):
+            skip_reasons['not_eligible'] += 1
             continue
         
         # Skip if already matched
         if candidate.get('current_match_id'):
+            skip_reasons['already_matched'] += 1
             continue
         
         # Skip if previously rejected
         if candidate_id in rejected_users:
+            skip_reasons['rejected_by_user'] += 1
             continue
         
         # Skip if candidate rejected this user
         if user_id in candidate.get('rejected_matches', []):
+            skip_reasons['rejected_user'] += 1
             continue
         
         # Traditional heterosexual matching - only match males with females
         if user_gender and candidate_gender:
             # Require opposite gender for matching
             if user_gender.lower() == candidate_gender.lower():
+                skip_reasons['same_gender'] += 1
                 continue
             # Ensure both are male/female (not other values)
             valid_genders = {'male', 'female', 'm', 'f'}
             if user_gender.lower() not in valid_genders or candidate_gender.lower() not in valid_genders:
+                skip_reasons['invalid_gender'] += 1
                 continue
         else:
             # If gender not specified, skip to ensure heterosexual matching
+            skip_reasons['no_gender'] += 1
             continue
         
+        candidates_considered += 1
+        
         # Calculate compatibility using LLM
+        if verbose:
+            print(f"     → Evaluating {candidate_id} (gender: {candidate_gender}, dims: {len(candidate.get('dimensions', {}))})")
+        
         score_result = calculate_compatibility_score(user_profile, candidate)
         if isinstance(score_result, tuple):
             score, analysis = score_result
@@ -294,14 +332,46 @@ def find_match_for_user(user_profile, all_profiles):
             best_score = score
             best_match = candidate
             best_analysis = analysis
+            if verbose:
+                print(f"       ✨ New best match! Score: {score}%")
+        elif verbose:
+            print(f"       Score: {score}% (not better than {best_score}%)")
+    
+    if verbose:
+        print(f"\n     📊 Matching summary for {user_id}:")
+        print(f"        Candidates considered: {candidates_considered}")
+        if skip_reasons['self'] > 0:
+            print(f"        Skipped - self: {skip_reasons['self']}")
+        if skip_reasons['inactive'] > 0:
+            print(f"        Skipped - inactive: {skip_reasons['inactive']}")
+        if skip_reasons['not_eligible'] > 0:
+            print(f"        Skipped - not eligible: {skip_reasons['not_eligible']}")
+        if skip_reasons['already_matched'] > 0:
+            print(f"        Skipped - already matched: {skip_reasons['already_matched']}")
+        if skip_reasons['rejected_by_user'] > 0:
+            print(f"        Skipped - rejected by user: {skip_reasons['rejected_by_user']}")
+        if skip_reasons['rejected_user'] > 0:
+            print(f"        Skipped - rejected user: {skip_reasons['rejected_user']}")
+        if skip_reasons['same_gender'] > 0:
+            print(f"        Skipped - same gender: {skip_reasons['same_gender']}")
+        if skip_reasons['invalid_gender'] > 0:
+            print(f"        Skipped - invalid gender: {skip_reasons['invalid_gender']}")
+        if skip_reasons['no_gender'] > 0:
+            print(f"        Skipped - no gender: {skip_reasons['no_gender']}")
+        
+        if best_match:
+            print(f"        ✅ Best match: {best_match['user_id']} with score {best_score}%")
+        else:
+            print(f"        ❌ No suitable match found")
     
     return best_match, best_score, best_analysis
 
-def run_matching(dry_run=False):
+def run_matching(dry_run=False, verbose=False):
     """Main matching algorithm - runs daily
     
     Args:
         dry_run: If True, only simulate matching without saving changes
+        verbose: If True, output detailed matching progress
     """
     print("\n" + "=" * 60)
     print(f"🎯 LoveDashMatcher Daily Matching {'(DRY RUN)' if dry_run else ''}")
@@ -401,23 +471,34 @@ def run_matching(dry_run=False):
     
     # Match users
     print("\n💑 Starting matching process...")
+    if verbose:
+        print(f"   Verbose mode enabled - showing detailed matching logic\n")
     matched_user_ids = set()
     
-    for user in eligible_active_users:
+    for idx, user in enumerate(eligible_active_users, 1):
         user_id = user['user_id']
+        
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"Processing user {idx}/{len(eligible_active_users)}: {user_id}")
+            print(f"{'='*60}")
         
         # Skip if already matched in this run
         if user_id in matched_user_ids:
+            if verbose:
+                print(f"   ⏭️  Skipping - already matched in this run")
             continue
         
         # Find best match
-        match, score, analysis = find_match_for_user(user, all_profiles)
+        match, score, analysis = find_match_for_user(user, all_profiles, verbose=verbose)
         
         if match and score >= 30:  # Minimum 30% compatibility
             match_id = match['user_id']
             
             # Skip if match already matched in this run
             if match_id in matched_user_ids:
+                if verbose:
+                    print(f"   ⏭️  Match candidate {match_id} already matched in this run")
                 continue
             
             # Create mutual match with pending acceptance status
@@ -437,6 +518,8 @@ def run_matching(dry_run=False):
             
             # Save updated profiles (unless dry run)
             if not dry_run:
+                if verbose:
+                    print(f"\n   💾 Saving match to S3...")
                 s3_put(f"profiles/{user_id}.json", user)
                 s3_put(f"profiles/{match_id}.json", match)
                 
@@ -451,6 +534,10 @@ def run_matching(dry_run=False):
                     'match_analysis': analysis if analysis else {}
                 }
                 s3_put(f"match_chats/{chat_ids[0]}_{chat_ids[1]}.json", match_chat)
+                if verbose:
+                    print(f"   ✅ Saved profiles and initialized chat")
+            elif verbose:
+                print(f"\n   🔸 DRY RUN - Not saving to S3")
             
             matched_user_ids.add(user_id)
             matched_user_ids.add(match_id)
@@ -467,6 +554,11 @@ def run_matching(dry_run=False):
             
             reasoning_preview = analysis.get('reasoning', 'N/A')[:50] + "..." if analysis else "N/A"
             print(f"  ✅ Matched {user_id} with {match_id} (score: {score}%) - {reasoning_preview}")
+        elif verbose:
+            if match:
+                print(f"\n   ❌ Match score too low: {score}% (minimum: 30%)")
+            else:
+                print(f"\n   ❌ No suitable match found for {user_id}")
     
     # Report unmatched users
     unmatched_count = len(eligible_active_users) - (len(matches_created) * 2)
@@ -508,10 +600,11 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Run daily matching for LoveDashMatcher')
     parser.add_argument('--dry-run', action='store_true', help='Simulate matching without saving changes')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed matching progress')
     args = parser.parse_args()
     
     try:
-        result = run_matching(dry_run=args.dry_run)
+        result = run_matching(dry_run=args.dry_run, verbose=args.verbose)
         if result:
             print(f"\n✅ Result: {result}")
             sys.exit(0)
