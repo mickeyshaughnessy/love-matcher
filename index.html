@@ -312,9 +312,46 @@
             margin-bottom: 10px;
         }
         
-        /* Privacy & Terms Views */
-        .privacy-view, .terms-view {
+        /* Privacy & Terms & Settings Views */
+        .privacy-view, .terms-view, .settings-view {
             display: none;
+        }
+        
+        /* Settings Styles */
+        .settings-section {
+            margin-bottom: 30px;
+        }
+        
+        .settings-section h2 {
+            color: #2c3e50;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+        
+        .settings-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .settings-item {
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+        
+        .settings-item label {
+            display: block;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            font-weight: 600;
         }
         
         .policy-container {
@@ -1360,6 +1397,295 @@
                 width: 100%;
             }
         }
+        
+        /* ============================================
+           THEMES
+           ============================================ */
+        
+        /* Borland Classic Theme (Turbo Vision) */
+        .theme-borland {
+            background: #000080 !important;
+        }
+        
+        .theme-borland * {
+            font-family: 'Courier New', monospace !important;
+        }
+        
+        .theme-borland nav {
+            background: #0000AA !important;
+            border-bottom: 2px solid #00FFFF !important;
+        }
+        
+        .theme-borland .nav-brand {
+            color: #FFFF00 !important;
+            text-shadow: 2px 2px #AA0000 !important;
+        }
+        
+        .theme-borland .nav-link {
+            color: #00FFFF !important;
+            background: #000055 !important;
+            border: 1px solid #00FFFF !important;
+            padding: 8px 16px !important;
+            margin: 0 4px !important;
+        }
+        
+        .theme-borland .nav-link:hover,
+        .theme-borland .nav-link.active {
+            background: #0000FF !important;
+            color: #FFFFFF !important;
+        }
+        
+        .theme-borland .container,
+        .theme-borland .landing-page {
+            background: #000080 !important;
+            color: #FFFFFF !important;
+        }
+        
+        .theme-borland h1, .theme-borland h2, .theme-borland h3 {
+            color: #FFFF00 !important;
+            text-shadow: 2px 2px #AA0000 !important;
+        }
+        
+        .theme-borland .hero {
+            background: linear-gradient(135deg, #000080 0%, #0000AA 100%) !important;
+            border: 3px double #00FFFF !important;
+        }
+        
+        .theme-borland .tagline {
+            color: #00FFFF !important;
+        }
+        
+        .theme-borland .btn-primary {
+            background: #00AA00 !important;
+            color: #FFFFFF !important;
+            border: 2px solid #00FF00 !important;
+            box-shadow: 3px 3px #005500 !important;
+        }
+        
+        .theme-borland .btn-primary:hover {
+            background: #00FF00 !important;
+            color: #000000 !important;
+        }
+        
+        .theme-borland .stats-bar {
+            background: #0000AA !important;
+            border: 2px solid #00FFFF !important;
+        }
+        
+        .theme-borland .stat-card {
+            background: #000055 !important;
+            border: 1px solid #00FFFF !important;
+        }
+        
+        .theme-borland .stat-number {
+            color: #FFFF00 !important;
+        }
+        
+        .theme-borland .about-box,
+        .theme-borland .step,
+        .theme-borland .settings-card,
+        .theme-borland .policy-container {
+            background: #000055 !important;
+            border: 2px solid #00FFFF !important;
+            color: #FFFFFF !important;
+        }
+        
+        .theme-borland input,
+        .theme-borland textarea,
+        .theme-borland select {
+            background: #000080 !important;
+            color: #00FFFF !important;
+            border: 2px solid #00FFFF !important;
+        }
+        
+        .theme-borland .message.ai {
+            background: #0000AA !important;
+            color: #FFFFFF !important;
+            border: 2px solid #00FFFF !important;
+        }
+        
+        .theme-borland .message.user {
+            background: #005500 !important;
+            color: #FFFFFF !important;
+            border: 2px solid #00FF00 !important;
+        }
+        
+        /* Dark Mode Theme */
+        .theme-dark {
+            background: #1a1a1a !important;
+        }
+        
+        .theme-dark * {
+            color: #e0e0e0 !important;
+        }
+        
+        .theme-dark nav {
+            background: #2d2d2d !important;
+            border-bottom: 1px solid #444 !important;
+        }
+        
+        .theme-dark .nav-brand {
+            color: #BB86FC !important;
+        }
+        
+        .theme-dark .nav-link {
+            color: #BB86FC !important;
+        }
+        
+        .theme-dark .nav-link:hover,
+        .theme-dark .nav-link.active {
+            background: #3d3d3d !important;
+            color: #FFFFFF !important;
+        }
+        
+        .theme-dark .container,
+        .theme-dark .landing-page {
+            background: #1a1a1a !important;
+        }
+        
+        .theme-dark h1, .theme-dark h2, .theme-dark h3 {
+            color: #BB86FC !important;
+        }
+        
+        .theme-dark .hero {
+            background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%) !important;
+        }
+        
+        .theme-dark .btn-primary {
+            background: linear-gradient(135deg, #BB86FC 0%, #9965F4 100%) !important;
+        }
+        
+        .theme-dark .about-box,
+        .theme-dark .step,
+        .theme-dark .settings-card,
+        .theme-dark .stat-card {
+            background: #2d2d2d !important;
+            border: 1px solid #444 !important;
+        }
+        
+        .theme-dark .stats-bar {
+            background: #2d2d2d !important;
+        }
+        
+        .theme-dark input,
+        .theme-dark textarea,
+        .theme-dark select {
+            background: #2d2d2d !important;
+            color: #e0e0e0 !important;
+            border: 1px solid #555 !important;
+        }
+        
+        .theme-dark .message.ai {
+            background: #2d2d2d !important;
+            border: 1px solid #444 !important;
+        }
+        
+        .theme-dark .message.user {
+            background: #3d3d3d !important;
+            border: 1px solid #555 !important;
+        }
+        
+        /* Nature Green Theme */
+        .theme-nature {
+            background: linear-gradient(135deg, #f0f8f0 0%, #e8f5e8 100%) !important;
+        }
+        
+        .theme-nature nav {
+            background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%) !important;
+        }
+        
+        .theme-nature .nav-brand {
+            color: #c8e6c9 !important;
+        }
+        
+        .theme-nature .nav-link {
+            color: #a5d6a7 !important;
+        }
+        
+        .theme-nature .nav-link:hover,
+        .theme-nature .nav-link.active {
+            background: rgba(255,255,255,0.2) !important;
+            color: #FFFFFF !important;
+        }
+        
+        .theme-nature h1, .theme-nature h2, .theme-nature h3 {
+            color: #2d5016 !important;
+        }
+        
+        .theme-nature .hero {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
+        }
+        
+        .theme-nature .btn-primary {
+            background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%) !important;
+        }
+        
+        .theme-nature .stats-bar {
+            background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%) !important;
+        }
+        
+        .theme-nature .stat-card {
+            background: white !important;
+            border: 2px solid #81c784 !important;
+        }
+        
+        .theme-nature .about-box,
+        .theme-nature .step,
+        .theme-nature .settings-card {
+            background: white !important;
+            border: 2px solid #a5d6a7 !important;
+        }
+        
+        /* Ocean Blue Theme */
+        .theme-ocean {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important;
+        }
+        
+        .theme-ocean nav {
+            background: linear-gradient(135deg, #0277bd 0%, #0288d1 100%) !important;
+        }
+        
+        .theme-ocean .nav-brand {
+            color: #b3e5fc !important;
+        }
+        
+        .theme-ocean .nav-link {
+            color: #81d4fa !important;
+        }
+        
+        .theme-ocean .nav-link:hover,
+        .theme-ocean .nav-link.active {
+            background: rgba(255,255,255,0.2) !important;
+            color: #FFFFFF !important;
+        }
+        
+        .theme-ocean h1, .theme-ocean h2, .theme-ocean h3 {
+            color: #01579b !important;
+        }
+        
+        .theme-ocean .hero {
+            background: linear-gradient(135deg, #03a9f4 0%, #0288d1 100%) !important;
+        }
+        
+        .theme-ocean .btn-primary {
+            background: linear-gradient(135deg, #03a9f4 0%, #0277bd 100%) !important;
+        }
+        
+        .theme-ocean .stats-bar {
+            background: linear-gradient(135deg, #4fc3f7 0%, #29b6f6 100%) !important;
+        }
+        
+        .theme-ocean .stat-card {
+            background: white !important;
+            border: 2px solid #4fc3f7 !important;
+        }
+        
+        .theme-ocean .about-box,
+        .theme-ocean .step,
+        .theme-ocean .settings-card {
+            background: white !important;
+            border: 2px solid #81d4fa !important;
+        }
     </style>
 </head>
 <body>
@@ -1373,6 +1699,7 @@
                 Connect with Match
                 <span class="nav-badge hidden" id="matchBadge">1</span>
             </a>
+            <a href="#" class="nav-link" onclick="showView('settings')">Settings</a>
             <a href="#" class="nav-link" onclick="logout()">Logout</a>
         </div>
     </nav>
@@ -1844,6 +2171,94 @@
         </div>
     </div>
 
+    <!-- Settings View -->
+    <div id="settingsView" class="settings-view" style="display: none;">
+        <div class="container" style="max-width: 1000px; margin: 50px auto; padding: 20px;">
+            <h1 style="color: #764ba2; margin-bottom: 30px;">⚙️ Settings</h1>
+            
+            <!-- Account Info -->
+            <div class="settings-section">
+                <h2>Account</h2>
+                <div class="settings-card">
+                    <div class="settings-item">
+                        <label>Email (Username)</label>
+                        <div id="settingsEmail" style="color: #2c3e50; font-weight: 600;">Loading...</div>
+                    </div>
+                    <div class="settings-item">
+                        <label>Member Number</label>
+                        <div id="settingsMemberNum" style="color: #2c3e50; font-weight: 600;">Loading...</div>
+                    </div>
+                    <div class="settings-item">
+                        <label>Account Type</label>
+                        <div id="settingsAccountType" style="color: #2c3e50; font-weight: 600;">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile Stats -->
+            <div class="settings-section">
+                <h2>Profile Stats</h2>
+                <div class="settings-card">
+                    <div class="settings-item">
+                        <label>Profile Completion</label>
+                        <div id="settingsCompletion" style="color: #764ba2; font-weight: 600; font-size: 1.2rem;">0%</div>
+                    </div>
+                    <div class="settings-item">
+                        <label>Dimensions Filled</label>
+                        <div id="settingsDimensions" style="color: #2c3e50;">0 / 29</div>
+                    </div>
+                    <div class="settings-item">
+                        <label>Conversations</label>
+                        <div id="settingsConversations" style="color: #2c3e50;">0</div>
+                    </div>
+                    <div class="settings-item">
+                        <label>Photos Uploaded</label>
+                        <div id="settingsPhotos" style="color: #2c3e50;">0 / 3</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Matching Status -->
+            <div class="settings-section">
+                <h2>Matching</h2>
+                <div class="settings-card">
+                    <div class="settings-item">
+                        <label>Matching Status</label>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <button id="settingsToggleBtn" onclick="toggleMatchingFromSettings()" class="btn-primary" style="padding: 10px 25px;">
+                                Loading...
+                            </button>
+                            <span id="settingsMatchingStatus" style="color: #6c757d; font-size: 0.9rem;"></span>
+                        </div>
+                    </div>
+                    <div class="settings-item">
+                        <label>Current Match</label>
+                        <div id="settingsCurrentMatch" style="color: #2c3e50;">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Theme Picker -->
+            <div class="settings-section">
+                <h2>Theme</h2>
+                <div class="settings-card">
+                    <div class="settings-item">
+                        <label>Choose Your Style</label>
+                        <select id="themeSelector" onchange="changeTheme(this.value)" style="padding: 12px; border-radius: 8px; border: 2px solid #e1e8ed; font-size: 1rem; width: 100%; max-width: 300px;">
+                            <option value="default">Default (Purple Gradient)</option>
+                            <option value="borland">Borland Classic (Turbo Vision)</option>
+                            <option value="dark">Dark Mode</option>
+                            <option value="nature">Nature Green</option>
+                            <option value="ocean">Ocean Blue</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="showView('profile')" class="btn-primary" style="margin-top: 30px;">Back to Profile</button>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer>
         <div class="footer-content">
@@ -1975,6 +2390,7 @@
             document.getElementById('profileView').style.display = 'none';
             document.getElementById('privacyView').style.display = 'none';
             document.getElementById('termsView').style.display = 'none';
+            document.getElementById('settingsView').style.display = 'none';
 
             // Remove active class from all nav links
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
@@ -2003,6 +2419,11 @@
                     break;
                 case 'terms':
                     document.getElementById('termsView').style.display = 'block';
+                    break;
+                case 'settings':
+                    document.getElementById('settingsView').style.display = 'block';
+                    document.querySelectorAll('.nav-link')[3].classList.add('active');
+                    loadSettings();
                     break;
             }
 
@@ -2138,7 +2559,13 @@
 
         // Load chat history
         async function loadChatHistory() {
+            if (!authToken) return;
+            
             try {
+                // Clear existing chat first
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                
                 const response = await fetch(`${API_URL}/chat/history`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
@@ -2146,24 +2573,18 @@
                 const data = await response.json();
                 
                 if (response.ok && data.messages.length > 0) {
-                    const chatMessages = document.getElementById('chatMessages');
-                    chatMessages.innerHTML = '';
-                    
                     data.messages.forEach(msg => {
                         addMessage(msg.user, 'user', msg.timestamp);
                         addMessage(msg.ai, 'ai', msg.timestamp);
                     });
                 } else {
                     // Show initial message if no history
-                    const chatMessages = document.getElementById('chatMessages');
-                    if (chatMessages.children.length === 0) {
-                        chatMessages.innerHTML = `
-                            <div class="message ai">
-                                <div>Hi! Let's build your profile together. First, tell me your name, where you're located, and a bit about yourself. Then we'll dive into what matters most to you in a relationship.</div>
-                                <div class="message-time">Just now</div>
-                            </div>
-                        `;
-                    }
+                    chatMessages.innerHTML = `
+                        <div class="message ai">
+                            <div>Hi! Let's build your profile together. First, tell me your name, where you're located, and a bit about yourself. Then we'll dive into what matters most to you in a relationship.</div>
+                            <div class="message-time">Just now</div>
+                        </div>
+                    `;
                 }
                 
                 // Update sidebar
@@ -2989,6 +3410,12 @@
                 matchMessagesInterval = null;
             }
             
+            // Clear chat history display
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.innerHTML = '';
+            }
+            
             // Clear localStorage
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
@@ -3002,6 +3429,7 @@
             document.getElementById('profileView').style.display = 'none';
             document.getElementById('privacyView').style.display = 'none';
             document.getElementById('termsView').style.display = 'none';
+            document.getElementById('settingsView').style.display = 'none';
             
             // Clear forms
             document.getElementById('signupForm').reset();
@@ -3012,6 +3440,118 @@
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        
+        // Settings functions
+        async function loadSettings() {
+            if (!authToken) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/profile`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const profile = await response.json();
+                    
+                    // Account info
+                    document.getElementById('settingsEmail').textContent = profile.email || 'N/A';
+                    document.getElementById('settingsMemberNum').textContent = `#${profile.member_number || 'N/A'}`;
+                    document.getElementById('settingsAccountType').textContent = profile.is_free_member ? 'Free Lifetime' : 'Standard';
+                    
+                    // Stats
+                    document.getElementById('settingsCompletion').textContent = `${profile.completion_percentage || 0}%`;
+                    document.getElementById('settingsDimensions').textContent = `${Object.keys(profile.dimensions || {}).length} / 29`;
+                    document.getElementById('settingsConversations').textContent = profile.conversation_count || 0;
+                    document.getElementById('settingsPhotos').textContent = `${(profile.photos || []).length} / 3`;
+                    
+                    // Matching status
+                    const isActive = profile.matching_active !== false;
+                    const toggleBtn = document.getElementById('settingsToggleBtn');
+                    const statusText = document.getElementById('settingsMatchingStatus');
+                    
+                    if (isActive) {
+                        toggleBtn.textContent = '✓ Active';
+                        toggleBtn.style.background = 'linear-gradient(135deg, #52c234 0%, #378916 100%)';
+                        statusText.textContent = 'You are currently in the matching pool';
+                    } else {
+                        toggleBtn.textContent = '⏸ Paused';
+                        toggleBtn.style.background = 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)';
+                        statusText.textContent = 'Matching is paused. You won\'t receive new matches.';
+                    }
+                    
+                    // Current match
+                    if (profile.current_match_id) {
+                        document.getElementById('settingsCurrentMatch').textContent = `Match found! View in Connect.`;
+                    } else {
+                        document.getElementById('settingsCurrentMatch').textContent = 'No current match';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                showToast('Failed to load settings', 'error');
+            }
+        }
+        
+        async function toggleMatchingFromSettings() {
+            if (!authToken) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/profile`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const profile = await response.json();
+                    const currentStatus = profile.matching_active !== false;
+                    const newStatus = !currentStatus;
+                    
+                    const toggleResponse = await fetch(`${API_URL}/match/toggle`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ active: newStatus })
+                    });
+                    
+                    if (toggleResponse.ok) {
+                        showToast(newStatus ? 'Matching activated!' : 'Matching paused', 'success');
+                        loadSettings(); // Reload to update display
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling matching:', error);
+                showToast('Failed to update matching status', 'error');
+            }
+        }
+        
+        // Theme functions
+        function changeTheme(themeName) {
+            // Save preference
+            localStorage.setItem('theme', themeName);
+            
+            // Remove existing theme classes
+            document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
+            
+            // Add new theme class
+            if (themeName !== 'default') {
+                document.body.classList.add(`theme-${themeName}`);
+            }
+            
+            showToast(`Theme changed to ${themeName}`, 'success');
+        }
+        
+        // Load saved theme on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme && savedTheme !== 'default') {
+                document.body.classList.add(`theme-${savedTheme}`);
+                const selector = document.getElementById('themeSelector');
+                if (selector) {
+                    selector.value = savedTheme;
+                }
+            }
+        });
     </script>
 </body>
 </html>
