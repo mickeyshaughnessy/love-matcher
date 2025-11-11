@@ -1866,6 +1866,30 @@
                             </p>
                         </div>
                         
+                        <!-- Photo Upload Section -->
+                        <div class="photo-upload-section">
+                            <h3>📸 Your Photos</h3>
+                            <p style="color: #6c757d; font-size: 0.95rem; margin-bottom: 15px;">
+                                Upload up to 3 photos. Your photos will only be shown to matches after both of you accept.
+                            </p>
+                            <div class="photo-grid" id="photoGrid">
+                                <div class="photo-item photo-item-empty">
+                                    <span>+</span>
+                                </div>
+                                <div class="photo-item photo-item-empty">
+                                    <span>+</span>
+                                </div>
+                                <div class="photo-item photo-item-empty">
+                                    <span>+</span>
+                                </div>
+                            </div>
+                            <input type="file" id="photoUploadInput" accept="image/*" style="display: none;" onchange="handlePhotoSelect(event)">
+                            <button class="photo-upload-btn" id="photoUploadBtn" onclick="triggerPhotoUpload()">
+                                📤 Upload Photo
+                            </button>
+                            <p class="photo-upload-note">Max 3 photos • 5MB each • JPG, PNG, or GIF</p>
+                        </div>
+                        
                         <button class="btn-primary" onclick="showView('chat')" style="width: 100%; margin-bottom: 20px;">Continue Building Profile</button>
                     </div>
                     
@@ -2723,6 +2747,9 @@
                     const jsonViewer = document.getElementById('profileJsonViewer');
                     jsonViewer.textContent = JSON.stringify(profile, null, 2);
                     
+                    // Render photos
+                    renderPhotos(profile.photos || []);
+                    
                     // Load match data in the match section
                     await loadMatchInProfile();
                 }
@@ -2849,6 +2876,130 @@
             }
         }
 
+        // Photo upload functions
+        function triggerPhotoUpload() {
+            document.getElementById('photoUploadInput').click();
+        }
+        
+        async function handlePhotoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('Photo must be less than 5MB', 'error');
+                return;
+            }
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showToast('Please upload an image file', 'error');
+                return;
+            }
+            
+            // Show loading state
+            const uploadBtn = document.getElementById('photoUploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner"></span> Uploading...';
+            
+            try {
+                // Create form data
+                const formData = new FormData();
+                formData.append('photo', file);
+                
+                const response = await fetch(`${API_URL}/profile/photos`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast('Photo uploaded successfully!', 'success');
+                    loadProfile(); // Reload profile to show new photo
+                } else {
+                    showToast(data.error || 'Failed to upload photo', 'error');
+                }
+            } catch (error) {
+                console.error('Photo upload error:', error);
+                showToast('Connection error. Please try again.', 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '📤 Upload Photo';
+                event.target.value = ''; // Reset file input
+            }
+        }
+        
+        async function deletePhoto(photoUrl) {
+            if (!confirm('Delete this photo?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/profile/photos`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ photo_url: photoUrl })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast('Photo deleted', 'success');
+                    loadProfile(); // Reload profile
+                } else {
+                    showToast(data.error || 'Failed to delete photo', 'error');
+                }
+            } catch (error) {
+                console.error('Photo delete error:', error);
+                showToast('Connection error. Please try again.', 'error');
+            }
+        }
+        
+        function renderPhotos(photos) {
+            const photoGrid = document.getElementById('photoGrid');
+            const uploadBtn = document.getElementById('photoUploadBtn');
+            
+            if (!photoGrid) return;
+            
+            photoGrid.innerHTML = '';
+            
+            // Show existing photos
+            if (photos && photos.length > 0) {
+                photos.forEach(photoUrl => {
+                    const photoItem = document.createElement('div');
+                    photoItem.className = 'photo-item';
+                    photoItem.innerHTML = `
+                        <img src="${photoUrl}" alt="Profile photo">
+                        <button class="photo-delete-btn" onclick="deletePhoto('${photoUrl}')">×</button>
+                    `;
+                    photoGrid.appendChild(photoItem);
+                });
+            }
+            
+            // Add empty slots
+            const emptySlots = 3 - (photos ? photos.length : 0);
+            for (let i = 0; i < emptySlots; i++) {
+                const emptyItem = document.createElement('div');
+                emptyItem.className = 'photo-item photo-item-empty';
+                emptyItem.innerHTML = '<span>+</span>';
+                photoGrid.appendChild(emptyItem);
+            }
+            
+            // Disable upload button if 3 photos already
+            if (photos && photos.length >= 3) {
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = '✓ 3 Photos Uploaded';
+            } else {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '📤 Upload Photo';
+            }
+        }
+        
         // Logout
         function logout() {
             // Clear any intervals
