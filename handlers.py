@@ -240,19 +240,14 @@ def parse_llm_response(response_text):
             if dim_end != -1:
                 parsed['dimension'] = response_text[dim_match+11:dim_end].strip()
         
-        # Extract value
-        val_match = response_text.find('[VALUE:')
-        if val_match != -1:
-            val_end = response_text.find(']', val_match)
-            if val_end != -1:
-                parsed['value'] = response_text[val_match+7:val_end].strip()
-        
         # Extract acknowledgment
         ack_match = response_text.find('[ACKNOWLEDGMENT:')
         if ack_match != -1:
             ack_end = response_text.find(']', ack_match)
             if ack_end != -1:
                 parsed['acknowledgment'] = response_text[ack_match+16:ack_end].strip()
+                # Use acknowledgment as value since it contains the actual response
+                parsed['value'] = parsed['acknowledgment']
         
         # Extract next question
         q_match = response_text.find('[NEXT_QUESTION:')

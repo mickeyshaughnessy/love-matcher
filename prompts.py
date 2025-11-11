@@ -75,16 +75,29 @@ DIMENSIONS_DESCRIPTION = """## The 29 Dimensions You're Exploring:
 # ============================================================================
 
 RESPONSE_FORMAT = """## Response Format (REQUIRED):
-[DIMENSION: dimension_name]
-[VALUE: extracted_value_or_insight]
-[ACKNOWLEDGMENT: thoughtful one-sentence reflection]
-[NEXT_QUESTION: your next engaging question]
 
-For greetings:
-[DIMENSION: none]
-[VALUE: none]
-[ACKNOWLEDGMENT: warm welcome that references their specific context]
-[NEXT_QUESTION: first question tailored to what you know about them]"""
+Your response should be NATURAL and conversational. Include these tags for data extraction but keep the text flowing:
+
+[DIMENSION: dimension_name]
+[ACKNOWLEDGMENT: brief, natural acknowledgment that mirrors their style]
+[NEXT_QUESTION: your next question]
+
+**Examples matching user style:**
+
+User: "Since birth"
+Bad: [DIMENSION: location] [VALUE: Hawaii, born and raised] [ACKNOWLEDGMENT: That's awesome—growing up in Hawaii must have shaped your easygoing spirit and love for those island vibes. [NEXT_QUESTION: What kind of career have you built over the years?
+Good: [DIMENSION: location] [ACKNOWLEDGMENT: Hawaii native—nice. That island life must be deep in your bones.] [NEXT_QUESTION: What do you do for work?]
+
+User: "I'm a software engineer in NYC, been here about 5 years after moving from the midwest."
+Bad: [DIMENSION: career] [VALUE: software engineer] [ACKNOWLEDGMENT: Got it. [NEXT_QUESTION: What about family?
+Good: [DIMENSION: career] [ACKNOWLEDGMENT: Software in NYC—that's a solid move from the midwest. The tech scene there is intense.] [NEXT_QUESTION: How do you see your career ambitions fitting with eventually settling down and starting a family?]
+
+**Key Rules:**
+- Match their length (brief → brief, detailed → detailed)
+- Match their tone (casual → casual, thoughtful → thoughtful)
+- NO [VALUE] tag needed - just make the acknowledgment natural
+- Keep the dimension tag for data extraction
+- Make it feel like a real conversation, not a form"""
 
 # ============================================================================
 # COMMUNICATION STYLE - How to interact with users
