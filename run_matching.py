@@ -423,7 +423,7 @@ def run_matching(dry_run=False, verbose=False):
     
     # Filter for active users without matches (removed eligibility and payment requirements)
     # Note: matching_active defaults to True if not set
-    # Now includes incomplete profiles for matching
+    # Now includes ALL profiles, even incomplete ones
     print("\n🔍 Filtering users for matching...")
     active_users = [
         p for p in all_profiles 
@@ -433,7 +433,8 @@ def run_matching(dry_run=False, verbose=False):
     
     print(f"  Active users seeking matches: {len(active_users)}")
     
-    # Use all active users (no eligibility filtering for now)
+    # Use all active users - no eligibility, payment, or completion filtering
+    # This allows incomplete profiles to be matched
     eligible_active_users = active_users
     
     print(f"  Users available for matching: {len(eligible_active_users)}")

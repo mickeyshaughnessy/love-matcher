@@ -1107,6 +1107,15 @@
             <div class="hero">
                 <h1>🔷 LoveDashMatcher</h1>
                 <p class="tagline">Find Your Perfect Match Through AI-Powered 29-Dimension Compatibility Analysis</p>
+                
+                <div style="max-width: 700px; margin: 0 auto 30px; padding: 20px; background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); border-radius: 10px;">
+                    <p style="color: #2c3e50; font-size: 1.1rem; line-height: 1.6; margin: 0;">
+                        LoveDashMatcher uses advanced AI to understand what truly matters to you in a relationship. Through natural conversations, 
+                        we build a comprehensive compatibility profile across 29 dimensions—from faith and family to lifestyle and humor. 
+                        Our algorithm then finds your most compatible matches for meaningful, lasting connections.
+                    </p>
+                </div>
+                
                 <div class="cta-buttons">
                     <button class="btn-primary" onclick="scrollToAuth()">Get Started Free</button>
                     <button class="btn-secondary" onclick="scrollToDimensions()">Learn More</button>
@@ -1197,14 +1206,17 @@
                 <div class="auth-forms">
                     <div class="auth-box">
                         <h2>Sign Up</h2>
+                        <p style="color: #6c757d; margin-bottom: 15px; font-size: 0.9rem;">
+                            <strong>Note:</strong> Password is optional. You can sign up with just your email address (username).
+                        </p>
                         <form id="signupForm">
                             <div class="form-group">
-                                <label for="signupEmail">Email Address</label>
+                                <label for="signupEmail">Email Address (Username)</label>
                                 <input type="email" id="signupEmail" required>
                             </div>
                             <div class="form-group">
-                                <label for="signupPassword">Password</label>
-                                <input type="password" id="signupPassword" required>
+                                <label for="signupPassword">Password (Optional)</label>
+                                <input type="password" id="signupPassword">
                             </div>
                             <div class="form-group">
                                 <label for="signupAge">Age</label>
@@ -1217,14 +1229,17 @@
                     
                     <div class="auth-box">
                         <h2>Login</h2>
+                        <p style="color: #6c757d; margin-bottom: 15px; font-size: 0.9rem;">
+                            <strong>Note:</strong> Password is optional. You can login with just your email address (username).
+                        </p>
                         <form id="loginForm">
                             <div class="form-group">
-                                <label for="loginEmail">Email Address</label>
+                                <label for="loginEmail">Email Address (Username)</label>
                                 <input type="email" id="loginEmail" required>
                             </div>
                             <div class="form-group">
-                                <label for="loginPassword">Password</label>
-                                <input type="password" id="loginPassword" required>
+                                <label for="loginPassword">Password (Optional)</label>
+                                <input type="password" id="loginPassword">
                             </div>
                             <button type="submit">Login</button>
                         </form>
