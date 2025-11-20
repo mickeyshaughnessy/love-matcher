@@ -216,7 +216,7 @@ def calculate_compatibility_score_fallback(profile1, profile2):
     
     # Calculate percentage
     if max_score == 0:
-        return 50, {'reasoning': 'Insufficient profile data for accurate matching', 'strengths': 'Unknown', 'concerns': 'Incomplete profiles'}
+        return 60, {'reasoning': 'Insufficient profile data for accurate matching', 'strengths': 'Unknown', 'concerns': 'Incomplete profiles'}
     
     final_score = int((score / max_score) * 100)
     return final_score, {'reasoning': 'Rule-based fallback scoring', 'strengths': 'Basic compatibility', 'concerns': 'Limited analysis'}
@@ -277,11 +277,6 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
         # Skip if not active
         if not candidate.get('matching_active', True):
             skip_reasons['inactive'] += 1
-            continue
-        
-        # Skip if not eligible
-        if not candidate.get('matching_eligible', False):
-            skip_reasons['not_eligible'] += 1
             continue
         
         # Skip if already matched
@@ -488,7 +483,7 @@ def run_matching(dry_run=False, verbose=False):
         # Find best match
         match, score, analysis = find_match_for_user(user, all_profiles, verbose=verbose)
         
-        if match and score >= 30:  # Minimum 30% compatibility
+        if match and score >= 15:  # Minimum 15% compatibility (relaxed from 30%)
             match_id = match['user_id']
             
             # Skip if match already matched in this run
@@ -552,7 +547,7 @@ def run_matching(dry_run=False, verbose=False):
             print(f"  ✅ Matched {user_id} with {match_id} (score: {score}%) - {reasoning_preview}")
         elif verbose:
             if match:
-                print(f"\n   ❌ Match score too low: {score}% (minimum: 30%)")
+                print(f"\n   ❌ Match score too low: {score}% (minimum: 15%)")
             else:
                 print(f"\n   ❌ No suitable match found for {user_id}")
     
