@@ -228,10 +228,12 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
     """
     user_id = user_profile['user_id']
     user_gender = user_profile.get('gender')
+    user_age = user_profile.get('age', 'N/A')
+    user_location = user_profile.get('dimensions', {}).get('location', 'N/A')
     
     if verbose:
         print(f"\n  🔎 Finding match for: {user_id}")
-        print(f"     Gender: {user_gender}")
+        print(f"     Gender: {user_gender} | Age: {user_age} | Location: {user_location}")
         print(f"     Dimensions filled: {len(user_profile.get('dimensions', {}))}/29")
     
     # Get user's current match and rejected users
@@ -312,9 +314,14 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
         
         candidates_considered += 1
         
+        candidate_age = candidate.get('age', 'N/A')
+        candidate_location = candidate.get('dimensions', {}).get('location', 'N/A')
+
         # Calculate compatibility using LLM
         if verbose:
-            print(f"     → Evaluating {candidate_id} (gender: {candidate_gender}, dims: {len(candidate.get('dimensions', {}))})")
+            print(f"     → Evaluating {candidate_id}")
+            print(f"       Gender: {candidate_gender} | Age: {candidate_age} | Location: {candidate_location}")
+            print(f"       Dims: {len(candidate.get('dimensions', {}))}")
         
         score_result = calculate_compatibility_score(user_profile, candidate)
         if isinstance(score_result, tuple):
