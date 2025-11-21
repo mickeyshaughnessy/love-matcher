@@ -11,8 +11,8 @@ export async function handlePayment(user) {
         const { error } = await stripe.redirectToCheckout({
             lineItems: [{ price: 'price_1QQnfiP3RiwFKPqfhXg4c7n3', quantity: 1 }],
             mode: 'payment',
-            successUrl: `${window.location.origin}/js/success.html`,
-            cancelUrl: `${window.location.origin}/js/cancel.html`,
+            successUrl: `${window.location.origin}/success.html`,
+            cancelUrl: `${window.location.origin}/cancel.html`,
             customerEmail: user?.email
         });
 
