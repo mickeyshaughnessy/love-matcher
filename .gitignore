@@ -1,1 +1,9 @@
 config.py
+__pycache__/
+*.log
+*.backup
+index
+.DS_Store
+venv/
+.env
+

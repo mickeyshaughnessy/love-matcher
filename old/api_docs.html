@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Love Matcher API Documentation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes gradientBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .header-gradient {
+            background: linear-gradient(-45deg, #1a365d, #2c5282, #2b6cb0);
+            background-size: 200% 200%;
+            animation: gradientBg 15s ease infinite;
+        }
+        .endpoint-card {
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .endpoint-card:hover {
+            transform: translateY(-2px);
+            border-color: #4299e1;
+            box-shadow: 0 4px 6px -1px rgba(66, 153, 225, 0.1);
+        }
+        code {
+            font-family: 'Fira Code', 'Roboto Mono', monospace;
+        }
+        .method-tag {
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            letter-spacing: 0.025em;
+        }
+        .method-get { background: #E3F2FD; color: #1565C0; }
+        .method-post { background: #E8F5E9; color: #2E7D32; }
+        .method-put { background: #FFF3E0; color: #E65100; }
+        .method-delete { background: #FFEBEE; color: #C62828; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="header-gradient text-white shadow-lg">
+            <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-4xl font-bold tracking-tight">Love Matcher API</h1>
+                <p class="mt-2 text-lg">REST API Documentation • Version 1.0</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+            <!-- Authentication -->
+            <div class="bg-white rounded-lg shadow-lg mb-12 p-8">
+                <h2 class="text-2xl font-semibold mb-6">Authentication</h2>
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <code class="text-sm text-gray-800 block mb-4">
+                        Authorization: Bearer &lt;jwt_token&gt;<br>
+                    </code>
+                    <p class="text-sm text-gray-600">All API calls except /register and /ping require these headers.</p>
+                </div>
+            </div>
+
+            <!-- Rate Limiting -->
+            <div class="bg-white rounded-lg shadow-lg mb-12 p-8">
+                <h2 class="text-2xl font-semibold mb-6">Rate Limiting</h2>
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <code class="text-sm text-gray-800 block">
+                        X-RateLimit-Limit: &lt;requests_per_window&gt;<br>
+                        X-RateLimit-Remaining: &lt;requests_remaining&gt;<br>
+                        X-RateLimit-Reset: &lt;window_reset_time&gt;
+                    </code>
+                </div>
+            </div>
+
+            <!-- Endpoints -->
+            <div class="space-y-12">
+                <h2 class="text-3xl font-bold mb-8">Endpoints</h2>
+
+                <!-- Registration -->
+                <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                    <h3 class="text-xl font-semibold mb-4">Registration</h3>
+                    <div class="flex items-center mb-4">
+                        <span class="method-tag method-post">POST</span>
+                        <code class="ml-4 text-gray-700">/register</code>
+                    </div>
+                    <p class="text-gray-600 mb-4">Create a new user account</p>
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-gray-600 mb-2">Request:</p>
+                        <code class="text-sm text-gray-800 block">
+{
+  "email": "string",
+  "password": "string",
+  "name": "string",
+  "age": number
+}</code>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-2">Response:</p>
+                        <code class="text-sm text-gray-800 block">
+{
+  "user_id": "string",
+  "token": "string",
+  "status": "active"
+}</code>
+                    </div>
+                </div>
+
+                <!-- Health Check -->
+                <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                    <h3 class="text-xl font-semibold mb-4">Health Check</h3>
+                    <div class="flex items-center mb-4">
+                        <span class="method-tag method-get">GET</span>
+                        <code class="ml-4 text-gray-700">/ping</code>
+                    </div>
+                    <p class="text-gray-600 mb-4">Basic health check endpoint</p>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <code class="text-sm text-gray-800">
+                            {"status": "ok"}
+                        </code>
+                    </div>
+                </div>
+
+                <!-- Profile Management -->
+                <div class="space-y-8">
+                    <h3 class="text-2xl font-semibold">Profile Management</h3>
+                    
+                    <!-- Get Profile -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-get">GET</span>
+                            <code class="ml-4 text-gray-700">/api/profiles/{user_id}</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Retrieve a user profile</p>
+                    </div>
+
+                    <!-- Update Profile -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-post">POST</span>
+                            <code class="ml-4 text-gray-700">/api/profiles</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Update current user's profile</p>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <code class="text-sm text-gray-800">
+{
+  "name": "string",
+  "age": number,
+  "preferences": {
+    "interests": ["string"],
+    "location": "string",
+    "max_age_difference": number
+  }
+}</code>
+                        </div>
+                    </div>
+
+                    <!-- Delete Profile -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-delete">DELETE</span>
+                            <code class="ml-4 text-gray-700">/api/profiles</code>
+                        </div>
+                        <p class="text-gray-600">Delete current user's profile and all associated data</p>
+                    </div>
+                </div>
+
+                <!-- Chat -->
+                <div class="space-y-8">
+                    <h3 class="text-2xl font-semibold">Chat</h3>
+                    
+                    <!-- Send Message -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-post">POST</span>
+                            <code class="ml-4 text-gray-700">/api/chat</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Send a message to another user</p>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <code class="text-sm text-gray-800">
+{
+  "to": "user_id",
+  "content": "string"
+}</code>
+                        </div>
+                    </div>
+
+                    <!-- Get Messages -->
+                    <div class="endpoint-card bg-white rounded-lg shadow p-8">
+                        <div class="flex items-center mb-4">
+                            <span class="method-tag method-get">GET</span>
+                            <code class="ml-4 text-gray-700">/api/chat?with={user_id}</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Retrieve conversation with another user</p>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <code class="text-sm text-gray-800">
+{
+  "messages": [
+    {
+      "id": "string",
+      "from": "user_id",
+      "content": "string",
+      "timestamp": "ISO-8601"
+    }
+  ],
+  "participants": {
+    "user_id": "name",
+    "other_id": "name"
+  }
+}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Responses -->
+            <div class="mt-12 bg-white rounded-lg shadow-lg p-8">
+                <h2 class="text-2xl font-semibold mb-6">Error Responses</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-2">400 Bad Request</h4>
+                        <code class="text-sm text-gray-800">
+{
+  "error": "Missing required fields"
+}</code>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-2">401 Unauthorized</h4>
+                        <code class="text-sm text-gray-800">
+{
+  "error": "Invalid auth token"
+}</code>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-2">409 Conflict</h4>
+                        <code class="text-sm text-gray-800">
+{
+  "error": "Email already registered"
+}</code>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-2">429 Too Many Requests</h4>
+                        <code class="text-sm text-gray-800">
+{
+  "error": "Rate limit exceeded"
+}</code>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-16 border-t border-gray-200">
+            <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-gray-600">
+                <p>Love Matcher API Documentation • Last updated: November 2024</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
