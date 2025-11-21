@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Success - Love Matcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://clerk.browser.love-matcher.com/npm/@clerk/clerk-js@4/dist/clerk.browser.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full text-center">
+            <div class="animate-bounce text-green-500 mb-4">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold mb-4">Payment Successful!</h1>
+            <p class="mb-8">Setting up your profile...</p>
+            <div id="status" class="text-sm text-gray-400"></div>
+        </div>
+    </div>
+    <script>
+        const API_URL = 'http://localhost:42069/api';
+        const status = document.getElementById('status');
+
+        async function completeRegistration() {
+            try {
+                // Get session ID from URL
+                const params = new URLSearchParams(window.location.search);
+                const sessionId = params.get('session_id');
+                
+                // Get user from Clerk
+                const clerk = await window.Clerk.load({
+                    publishableKey: 'CLERK_PUBLISHABLE_KEY_PLACEHOLDER'
+                });
+                const user = await clerk.user;
+                
+                if (!user || !sessionId) {
+                    throw new Error('Missing user or session data');
+                }
+
+                status.textContent = 'Verifying payment...';
+
+                // Verify payment with backend
+                const response = await fetch(`${API_URL}/payment/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await user.getToken()}`
+                    },
+                    body: JSON.stringify({ 
+                        sessionId,
+                        userId: user.id,
+                        email: user.emailAddress 
+                    })
+                });
+
+                if (!response.ok) throw new Error('Payment verification failed');
+                
+                status.textContent = 'Redirecting to profile setup...';
+                
+                // Redirect to profile setup
+                setTimeout(() => {
+                    window.location.href = '/profile/setup';
+                }, 2000);
+
+            } catch (err) {
+                console.error('Registration error:', err);
+                status.textContent = 'Error: ' + err.message;
+                status.classList.add('text-red-500');
+            }
+        }
+
+        window.addEventListener('load', completeRegistration);
+    </script>
+</body>
+</html>
