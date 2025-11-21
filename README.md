@@ -1,8 +1,8 @@
-# LoveDashMatcher
+# Love-Matcher
 
 ## One Perfect Match at a Time
 
-LoveDashMatcher is a relationship matchmaking service that analyzes 29 dimensions of compatibility to find your ideal partner. Unlike traditional dating apps with endless swiping, we provide **one carefully selected match at a time** for meaningful connections.
+Love-Matcher is a relationship matchmaking service that analyzes 29 dimensions of compatibility to find your ideal partner. Unlike traditional dating apps with endless swiping, we provide **one carefully selected match at a time** for meaningful connections.
 
 ---
 

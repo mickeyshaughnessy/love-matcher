@@ -45,7 +45,7 @@ register_routes(app, s3_client, S3_BUCKET, S3_PREFIX, OPENROUTER_CONFIG)
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("🔷 LoveDashMatcher API Server Starting")
+    print("🔷 Love-Matcher API Server Starting")
     print("=" * 60)
     print(f"S3 Bucket: {S3_BUCKET}")
     print(f"S3 Prefix: {S3_PREFIX}")

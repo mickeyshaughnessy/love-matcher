@@ -25,7 +25,7 @@
 - **Kept**: Members, Spots Remaining, 29 Dimensions
 
 #### Why Different Section
-- **Renamed**: "How It Works" → "Why LoveDashMatcher Is Different"
+- **Renamed**: "How It Works" → "Why Love-Matcher Is Different"
 - **Revised Content**:
   - One Match at a Time (not endless swiping)
   - Deep Compatibility (29 dimensions)

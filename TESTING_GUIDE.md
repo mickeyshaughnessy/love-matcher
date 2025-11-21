@@ -1,4 +1,4 @@
-# LoveDashMatcher Testing Guide
+# Love-Matcher Testing Guide
 
 ## Quick Testing Checklist
 
@@ -9,7 +9,7 @@ python3 api_server.py
 ```
 Expected output:
 ```
-🔷 LoveDashMatcher API Server Starting
+🔷 Love-Matcher API Server Starting
 S3 Bucket: mithrilmedia
 S3 Prefix: lovedashmatcher/
 LLM Model: meta-llama/llama-3.2-3b-instruct:free
@@ -90,7 +90,7 @@ python3 run_matching.py --dry-run
 
 Expected output:
 ```
-🎯 LoveDashMatcher Daily Matching (DRY RUN)
+🎯 Love-Matcher Daily Matching (DRY RUN)
 Run time: 2025-11-07T...
 📂 Loading profiles from S3...
 ✓ Found 2 total profile files in S3

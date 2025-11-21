@@ -52,7 +52,7 @@ MAX_PHOTOS_PER_USER = 3
 3. **`upload_photo_to_s3(file, user_id)`**
    - Generates unique filename with timestamp
    - Uploads to S3 bucket
-   - Path: `lovedashmatcher/photos/{user_id}/photo_{timestamp}.{ext}`
+   - Path: `Love-Matcher/photos/{user_id}/photo_{timestamp}.{ext}`
    - Returns S3 URL
 
 4. **`delete_photo_from_s3(photo_url)`**
@@ -172,7 +172,7 @@ if mutual_acceptance:
 
 ### Photo Storage
 - **S3 Bucket**: mithrilmedia
-- **Prefix**: lovedashmatcher/
+- **Prefix**: Love-Matcher/
 - **Path Structure**: `photos/{user_id}/photo_{timestamp}.{ext}`
 - **ACL**: Private (not publicly accessible without signed URLs)
 - **Validation**:
@@ -207,7 +207,7 @@ if mutual_acceptance:
         "s3:GetObject",
         "s3:DeleteObject"
       ],
-      "Resource": "arn:aws:s3:::mithrilmedia/lovedashmatcher/photos/*"
+      "Resource": "arn:aws:s3:::mithrilmedia/Love-Matcher/photos/*"
     }
   ]
 }
@@ -319,7 +319,7 @@ git push origin main
 ssh -i ~/.ssh/mickey_2024.pem ubuntu@ec2-100-26-236-1.compute-1.amazonaws.com
 cd ~/love-matcher
 git pull
-sudo systemctl restart lovedashmatcher
+sudo systemctl restart Love-Matcher
 ```
 
 ### 6. Verify

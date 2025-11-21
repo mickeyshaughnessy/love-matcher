@@ -1,4 +1,4 @@
-# LoveDashMatcher Crontab Configuration
+# Love-Matcher Crontab Configuration
 # Run daily matching to create new matches based on LLM compatibility scoring
 
 # INSTALLATION:

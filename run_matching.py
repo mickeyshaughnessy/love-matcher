@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Daily matching script for LoveDashMatcher
+Daily matching script for Love-Matcher
 Run via crontab to assign matches to active profiles
 """
 
@@ -74,8 +74,8 @@ def call_openrouter_completion(prompt, temperature=0.3, max_tokens=500):
         headers = {
             'Authorization': f"Bearer {config.OPENROUTER_API_KEY}",
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://lovedashmatcher.com',
-            'X-Title': 'LoveDashMatcher-Matching'
+            'HTTP-Referer': 'https://love-matcher.com',
+            'X-Title': 'Love-Matcher-Matching'
         }
         
         payload = {
@@ -376,7 +376,7 @@ def run_matching(dry_run=False, verbose=False):
         verbose: If True, output detailed matching progress
     """
     print("\n" + "=" * 60)
-    print(f"🎯 LoveDashMatcher Daily Matching {'(DRY RUN)' if dry_run else ''}")
+    print(f"🎯 Love-Matcher Daily Matching {'(DRY RUN)' if dry_run else ''}")
     print(f"Run time: {datetime.utcnow().isoformat()}")
     print("=" * 60 + "\n")
     
@@ -596,7 +596,7 @@ def run_matching(dry_run=False, verbose=False):
 if __name__ == '__main__':
     import argparse
     
-    parser = argparse.ArgumentParser(description='Run daily matching for LoveDashMatcher')
+    parser = argparse.ArgumentParser(description='Run daily matching for Love-Matcher')
     parser.add_argument('--dry-run', action='store_true', help='Simulate matching without saving changes')
     parser.add_argument('--verbose', '-v', action='store_true', help='Show detailed matching progress')
     args = parser.parse_args()

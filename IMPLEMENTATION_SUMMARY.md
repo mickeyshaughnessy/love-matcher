@@ -2,7 +2,7 @@
 
 ## What Was Built
 
-A complete AI-powered matching system for LoveDashMatcher with:
+A complete AI-powered matching system for Love-Matcher with:
 - **LLM-based compatibility scoring** using OpenRouter
 - **Male-female heterosexual matching** with gender validation
 - **Accept/decline workflow** with privacy protection

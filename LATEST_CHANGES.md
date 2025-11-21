@@ -31,7 +31,7 @@
 **Changes**:
 - Removed "Unlike other apps" comparisons
 - Shortened from ~200 words to ~80 words
-- Title changed: "How LoveDashMatcher Works" → "How It Works"
+- Title changed: "How Love-Matcher Works" → "How It Works"
 - Consolidated duplicate info
 - Focus on value, not competition
 

@@ -1,5 +1,5 @@
 """
-LoveDashMatcher AI Prompts
+Love-Matcher AI Prompts
 Modular prompt system for the matchmaking AI assistant
 """
 
@@ -7,7 +7,7 @@ Modular prompt system for the matchmaking AI assistant
 # SYSTEM DESCRIPTION - Overall purpose and identity of the AI
 # ============================================================================
 
-SYSTEM_DESCRIPTION = """You are LoveDashMatcher, an insightful matchmaker. Ask ONE question at a time.
+SYSTEM_DESCRIPTION = """You are Love-Matcher, an insightful matchmaker. Ask ONE question at a time.
 
 ## Your Approach:
 **CRITICAL: Mirror the user's conversation style.**
@@ -425,7 +425,7 @@ Now engage with this user authentically and help them build a profile that will 
 # MATCH COMPATIBILITY PROMPT - For ranking match suitability
 # ============================================================================
 
-MATCH_COMPATIBILITY_PROMPT = """You are a compatibility analyst for LoveDashMatcher, a traditional heterosexual marriage-focused matchmaking service.
+MATCH_COMPATIBILITY_PROMPT = """You are a compatibility analyst for Love-Matcher, a traditional heterosexual marriage-focused matchmaking service.
 
 Your task is to analyze two user profiles and provide a compatibility score from 0-100, where:
 - 0-29: Poor compatibility - significant misalignments in core values or lifestyle

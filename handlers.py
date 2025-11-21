@@ -147,7 +147,7 @@ def call_openrouter_llm(messages):
             'Authorization': f"Bearer {api_key}",
             'Content-Type': 'application/json',
             'HTTP-Referer': 'https://lovedashmatcher.com',
-            'X-Title': 'LoveDashMatcher'
+            'X-Title': 'Love-Matcher'
         }
         
         payload = {
@@ -352,9 +352,9 @@ def register():
     
     # Add appropriate message based on status
     if not matching_eligible:
-        response_data['message'] = "Welcome! You can explore LoveDashMatcher and build your profile. Matching will be available when you turn 18."
+        response_data['message'] = "Welcome! You can explore Love-Matcher and build your profile. Matching will be available when you turn 18."
     elif is_free:
-        response_data['message'] = f"Welcome! You're member #{member_number} with free lifetime access to LoveDashMatcher!"
+        response_data['message'] = f"Welcome! You're member #{member_number} with free lifetime access to Love-Matcher!"
     else:
         response_data['message'] = f"Welcome! You're member #{member_number}. Payment required for matching services."
     

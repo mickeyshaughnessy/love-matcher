@@ -55,7 +55,7 @@ git push origin main
 
 ### Step 5: Deploy to AWS
 ```bash
-ssh -i ~/.ssh/mickey_2024.pem ubuntu@ec2-100-26-236-1.compute-1.amazonaws.com "cd ~/love-matcher && git pull && sudo systemctl restart lovedashmatcher"
+ssh -i ~/.ssh/mickey_2024.pem ubuntu@ec2-100-26-236-1.compute-1.amazonaws.com "cd ~/love-matcher && git pull && sudo systemctl restart love-matcher"
 ```
 
 ### Step 6: Verify
@@ -139,7 +139,7 @@ ssh -i ~/.ssh/mickey_2024.pem ubuntu@ec2-100-26-236-1.compute-1.amazonaws.com
 cd ~/love-matcher
 git log --oneline -5
 git checkout [previous-commit-hash]
-sudo systemctl restart lovedashmatcher
+sudo systemctl restart love-matcher
 ```
 
 ---
@@ -151,7 +151,7 @@ sudo systemctl restart lovedashmatcher
 **Monitoring**:
 - Check logs: `tail -f ~/love-matcher/server.log`
 - Check API: `curl localhost:5009/ping`
-- Check process: `sudo systemctl status lovedashmatcher`
+- Check process: `sudo systemctl status love-matcher`
 
 ---
 

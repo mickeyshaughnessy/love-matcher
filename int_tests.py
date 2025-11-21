@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LoveDashMatcher API Integration Tests
+Love-Matcher API Integration Tests
 
 Simple integration test suite using Python requests and assertions
 to test all API endpoints against localhost:5009
@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 
 
-class LoveDashMatcherAPITester:
+class LoveMatcherAPITester:
     def __init__(self, base_url="http://localhost:5009"):
         self.base_url = base_url
         self.token = None
@@ -349,7 +349,7 @@ class LoveDashMatcherAPITester:
     
     def run_all_tests(self):
         """Run all integration tests"""
-        print("🚀 Starting LoveDashMatcher API Integration Tests")
+        print("🚀 Starting Love-Matcher API Integration Tests")
         print("=" * 60)
         
         try:
@@ -399,7 +399,7 @@ class LoveDashMatcherAPITester:
 
 def main():
     """Main function to run the tests"""
-    tester = LoveDashMatcherAPITester()
+    tester = LoveMatcherAPITester()
     tester.run_all_tests()
 
 

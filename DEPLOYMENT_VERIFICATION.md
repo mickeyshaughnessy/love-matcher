@@ -36,7 +36,7 @@
 - **HTTP Status**: 200 OK
 - **Last Modified**: Fri, 07 Nov 2025 16:03:12 GMT
 - **Server**: Apache/2.4.58 (Ubuntu)
-- **Title**: "LoveDashMatcher - AI-Powered Matchmaking"
+- **Title**: "Love-Matcher - AI-Powered Matchmaking"
 
 ### New Features Verified in HTML
 - ✅ `function acceptMatch()` - Present

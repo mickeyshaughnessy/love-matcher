@@ -1,7 +1,7 @@
 # Matching System Implementation
 
 ## Overview
-This document describes the complete matching system implementation for LoveDashMatcher, including LLM-powered compatibility scoring, match acceptance workflow, and private chat functionality.
+This document describes the complete matching system implementation for Love-Matcher, including LLM-powered compatibility scoring, match acceptance workflow, and private chat functionality.
 
 ## Key Features Implemented
 

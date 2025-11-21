@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solana Token Redeemer for Lovedashmatcher</title>
+    <title>Solana Token Redeemer for Love-Matcher</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <h1>Redeem Tokens for Lovedashmatcher Membership</h1>
+    <h1>Redeem Tokens for Love-Matcher Membership</h1>
     <p>This will transfer ALL your tokens of the specified mint to the destination wallet in exchange for membership.</p>
     <p>Ensure you have enough SOL for fees.</p>
 
@@ -31,7 +31,7 @@
         const MINT_ADDRESS = "5jriAd8yM9fRzuisg54Ch1k8sAmmbqRUfWKu87tRpump";
         const DEST_OWNER_ADDRESS = "HU22vPJUU36SrKzLfmq77ci3mzSQWwWUkkmbNjT8GEN4";
         const DECIMALS = 6;
-        const MEMBERS_KEY = "lovedashmatcher_members";
+        const MEMBERS_KEY = "love_matcher_members";
 
         const connection = new solanaWeb3.Connection(RPC_ENDPOINT);
         const mint = new solanaWeb3.PublicKey(MINT_ADDRESS);
