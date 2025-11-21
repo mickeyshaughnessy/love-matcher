@@ -9,8 +9,8 @@
     --black-bg: #0a0a0a;
     --black-card: #111111;
     --wood-gradient: linear-gradient(to right, #2c1915, #3e2b24);
-    --text-white: #f0f0f0;
-    --text-gray: #e0e0e0; /* Lightened from #cccccc */
+    --text-white: #ffffff;
+    --text-gray: #eeeeee; /* Lightened from #e0e0e0 */
     
     /* Default Font */
     --font-main: 'Inter', sans-serif;
@@ -1100,7 +1100,7 @@ footer {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     padding-top: 30px;
     text-align: center;
-    color: #666;
+    color: var(--text-gray);
 }
 
 /* Utility Classes */
@@ -1207,8 +1207,8 @@ footer {
     --gold-primary: #BB86FC;
     --gold-gradient: linear-gradient(135deg, #BB86FC 0%, #3700B3 100%);
     --gold-dark: #3700B3;
-    --text-white: #E1E1E1;
-    --text-gray: #B0B0B0;
+    --text-white: #ffffff;
+    --text-gray: #d0d0d0;
     --wood-gradient: #2d2d2d;
     --font-main: 'Inter', sans-serif;
     --font-heading: 'Inter', sans-serif;

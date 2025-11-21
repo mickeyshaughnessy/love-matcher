@@ -491,14 +491,14 @@ async function loadMatch() {
             const dimensionsCount = data.dimensions_count || 0;
             
             matchContainer.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #2c3e50;">
+                <div style="text-align: center; padding: 40px; color: var(--text-white);">
                     <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
-                    <h3 style="color: #2c3e50; margin-bottom: 15px;">${data.message || 'No match yet'}</h3>
+                    <h3 style="color: var(--text-white); margin-bottom: 15px;">${data.message || 'No match yet'}</h3>
                     ${!profileComplete ? `
-                        <p style="color: #34495e; margin-bottom: 20px;">You have ${dimensionsCount}/29 dimensions filled.</p>
+                        <p style="color: var(--text-gray); margin-bottom: 20px;">You have ${dimensionsCount}/29 dimensions filled.</p>
                         <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
                     ` : `
-                        <p style="color: #34495e;">Your profile is complete! We'll notify you when we find a great match.</p>
+                        <p style="color: var(--text-gray);">Your profile is complete! We'll notify you when we find a great match.</p>
                     `}
                 </div>
             `;
@@ -532,9 +532,9 @@ function createMatchCard(match, isActive) {
         }).join('');
         
         profileDataHtml = `
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
-                <h4 style="color: #764ba2; margin-bottom: 15px;">📋 Match Profile (${profileKeys.length} dimensions)</h4>
-                <div style="max-height: 300px; overflow-y: auto; font-size: 0.9rem;">
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                <h4 style="color: var(--gold-primary); margin-bottom: 15px;">📋 Match Profile (${profileKeys.length} dimensions)</h4>
+                <div style="max-height: 300px; overflow-y: auto; font-size: 0.9rem; color: var(--text-gray);">
                     ${profileItems}
                 </div>
             </div>
@@ -543,12 +543,12 @@ function createMatchCard(match, isActive) {
         // Show limited preview before acceptance
         const preview = match.preview;
         profileDataHtml = `
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
-                <h4 style="color: #764ba2; margin-bottom: 15px;">👤 Match Preview</h4>
-                <p><strong>Age:</strong> ${preview.age || 'N/A'}</p>
-                <p><strong>Location:</strong> ${preview.location || 'N/A'}</p>
-                <p><strong>Profile Completion:</strong> ${preview.completion_percentage || 0}%</p>
-                <p style="color: #6c757d; font-style: italic; margin-top: 10px;">
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                <h4 style="color: var(--gold-primary); margin-bottom: 15px;">👤 Match Preview</h4>
+                <p style="color: var(--text-white);"><strong>Age:</strong> ${preview.age || 'N/A'}</p>
+                <p style="color: var(--text-white);"><strong>Location:</strong> ${preview.location || 'N/A'}</p>
+                <p style="color: var(--text-white);"><strong>Profile Completion:</strong> ${preview.completion_percentage || 0}%</p>
+                <p style="color: var(--text-gray); font-style: italic; margin-top: 10px;">
                     Accept the match to see full profile details and start chatting!
                 </p>
             </div>
@@ -609,20 +609,20 @@ function createMatchCard(match, isActive) {
         <div class="match-card">
             <div class="match-score">
                 <div class="compatibility-circle">${score}%</div>
-                <div style="color: #6c757d;">Compatibility</div>
+                <div style="color: var(--text-gray);">Compatibility</div>
             </div>
             <div class="match-info">
                 <h3>Your Match</h3>
-                <p style="color: #6c757d;">Age: ${match.age || 'N/A'}</p>
-                <p style="color: #6c757d; margin-top: 10px;">Matched on ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}</p>
+                <p style="color: var(--text-gray);">Age: ${match.age || 'N/A'}</p>
+                <p style="color: var(--text-gray); margin-top: 10px;">Matched on ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}</p>
                 ${userAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ You accepted</p>' : ''}
                 ${matchAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ Match accepted</p>' : ''}
             </div>
             <div style="background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); padding: 15px; border-radius: 8px; margin-top: 15px;">
-                <h4 style="color: #764ba2; margin-bottom: 10px;">🔍 Compatibility Analysis</h4>
-                <p style="color: #2c3e50; margin-bottom: 8px;"><strong>Reasoning:</strong> ${reasoning}</p>
-                <p style="color: #2c3e50; margin-bottom: 8px;"><strong>Strengths:</strong> ${strengths}</p>
-                <p style="color: #2c3e50;"><strong>Considerations:</strong> ${concerns}</p>
+                <h4 style="color: var(--gold-primary); margin-bottom: 10px;">🔍 Compatibility Analysis</h4>
+                <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Reasoning:</strong> ${reasoning}</p>
+                <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Strengths:</strong> ${strengths}</p>
+                <p style="color: var(--text-white);"><strong>Considerations:</strong> ${concerns}</p>
             </div>
             ${profileDataHtml}
             ${actionsHtml}
