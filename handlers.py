@@ -282,9 +282,10 @@ def register():
     email = data.get('email')
     password = data.get('password')  # Optional now
     age = data.get('age')
+    gender = data.get('gender')
     
-    if not all([email, age]):
-        return jsonify({'error': 'Missing required fields (email and age)'}), 400
+    if not all([email, age, gender]):
+        return jsonify({'error': 'Missing required fields (email, age, and gender)'}), 400
     
     age_int = int(age)
     matching_eligible = age_int >= 18
@@ -317,6 +318,7 @@ def register():
         'email': email,
         'password_hash': password_hash,
         'age': age_int,
+        'gender': gender,
         'member_number': member_number,
         'created_at': registration_time,
         'payment_status': payment_status,
