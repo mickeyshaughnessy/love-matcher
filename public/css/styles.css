@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');
 
 :root {
     --gold-primary: #d4af37;
@@ -9,7 +10,11 @@
     --black-card: #111111;
     --wood-gradient: linear-gradient(to right, #2c1915, #3e2b24);
     --text-white: #f0f0f0;
-    --text-gray: #cccccc;
+    --text-gray: #e0e0e0; /* Lightened from #cccccc */
+    
+    /* Default Font */
+    --font-main: 'Inter', sans-serif;
+    --font-heading: 'Playfair Display', serif;
 }
 
 * {
@@ -19,15 +24,17 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    font-family: var(--font-main);
     background: var(--black-bg);
     color: var(--text-white);
     min-height: 100vh;
+    line-height: 1.6;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     color: var(--gold-primary);
+    line-height: 1.3;
 }
 
 /* Navigation Bar */
@@ -35,7 +42,7 @@ nav {
     background: rgba(17, 17, 17, 0.95);
     backdrop-filter: blur(10px);
     padding: 15px 30px;
-    box-shadow: 0 2px 10px rgba(212, 175, 55, 0.1);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -56,7 +63,7 @@ nav.active {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
 }
 
 .nav-links {
@@ -152,7 +159,7 @@ nav.active {
     font-size: 1.3rem;
     color: var(--text-gray);
     margin-bottom: 30px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-main);
     font-weight: 300;
     letter-spacing: 1px;
 }
@@ -231,7 +238,7 @@ nav.active {
 
 .stat-number {
     font-size: 2.5rem;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     font-weight: bold;
     background: var(--gold-gradient);
     -webkit-background-clip: text;
@@ -289,7 +296,7 @@ nav.active {
     align-items: center;
     justify-content: center;
     font-size: 1.8rem;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     font-weight: bold;
     margin: 0 auto 20px;
 }
@@ -580,7 +587,6 @@ nav.active {
     overflow-y: auto;
     padding: 20px;
     background: var(--black-card);
-    /* Subtle pattern or texture could go here */
 }
 
 .message {
@@ -765,7 +771,7 @@ nav.active {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     letter-spacing: 0.5px;
 }
 
@@ -837,14 +843,14 @@ nav.active {
     color: var(--gold-primary);
     font-size: 2rem;
     font-weight: bold;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
 }
 
 .match-info h3 {
     color: var(--text-white);
     margin-bottom: 10px;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     font-size: 1.5rem;
 }
 
@@ -945,7 +951,7 @@ nav.active {
     font-size: 1.8rem;
     font-weight: bold;
     color: var(--gold-primary);
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
 }
 
 .dimension-chip {
@@ -999,7 +1005,7 @@ nav.active {
     color: var(--gold-primary);
     margin-bottom: 20px;
     font-size: 1.8rem;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
 }
 
 .form-group label {
@@ -1046,19 +1052,42 @@ nav.active {
 /* Footer */
 footer {
     background: #111;
-    border-top: 4px solid var(--gold-primary);
-    padding: 40px 20px 20px;
-    margin-top: 60px;
+    /* Thinner, cleaner border */
+    border-top: 1px solid var(--gold-primary);
+    padding: 60px 20px 30px;
+    margin-top: 80px;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 40px;
+    margin-bottom: 40px;
 }
 
 .footer-section h3 {
     color: var(--gold-primary);
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     font-size: 1.2rem;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
+}
+
+.footer-section p {
+    color: var(--text-gray);
+    line-height: 1.6;
+}
+
+.footer-section a {
+    display: block;
+    color: var(--text-gray);
+    text-decoration: none;
+    margin-bottom: 10px;
+    transition: color 0.2s;
 }
 
 .footer-section a:hover {
@@ -1066,7 +1095,11 @@ footer {
 }
 
 .footer-bottom {
+    max-width: 1200px;
+    margin: 0 auto;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 30px;
+    text-align: center;
     color: #666;
 }
 
@@ -1080,28 +1113,206 @@ footer {
     .hero h1 {
         font-size: 2.5rem;
     }
-    /* ... keep previous mobile styles but adapted for colors if needed ... */
+    
+    .chat-container {
+        grid-template-columns: 1fr;
+        height: calc(100vh - 120px);
+    }
+    
+    .chat-sidebar {
+        display: none; /* Hide sidebar on mobile for now */
+    }
+    
+    .profile-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .nav-links {
+        display: none; /* Basic hamburger menu to be added later */
+    }
 }
 
-/* Keep the other themes as they were or slightly adjusted to override the new defaults if selected */
+/* ==========================================================================
+   THEMES - RESTORED & FIXED
+   ========================================================================== */
 
-/* Old Default (Purple) - now "Classic" */
-.theme-default-purple {
-    /* ... (restoring previous default styles if needed, but we can just leave them out for now as the user wanted a replacement) */
-}
-
-/* Retaining other themes to work on top of the new base */
-
-.theme-borland {
-    background: #000080 !important;
-    color: #fff !important;
-}
-/* ... (rest of borland theme) ... */
-
-/* Dark Mode Theme (can just be an alias for default now, or specifically different?) 
-   Let's keep it as a distinct 'Material Dark' look vs 'Luxury Dark' 
+/* 
+   Note: The base theme (Luxury Gold) is defined in :root.
+   Other themes override these variables or apply specific styles.
 */
-.theme-dark {
-    background: #121212 !important;
+
+/* Borland Classic Theme (Turbo Vision) */
+.theme-borland {
+    --black-bg: #000080;
+    --black-card: #0000a8;
+    --gold-primary: #FFFF00;
+    --gold-gradient: #00AA00;
+    --gold-dark: #00AA00;
+    --text-white: #FFFFFF;
+    --text-gray: #00FFFF;
+    --wood-gradient: #000080;
+    --font-main: 'Courier Prime', 'Courier New', monospace;
+    --font-heading: 'Courier Prime', 'Courier New', monospace;
 }
-/* ... */
+
+.theme-borland body {
+    font-family: var(--font-main);
+    background: var(--black-bg);
+}
+
+.theme-borland * {
+    border-radius: 0 !important;
+}
+
+.theme-borland nav {
+    background: #0000AA;
+    border-bottom: 2px double #00FFFF;
+}
+
+.theme-borland .nav-link.active {
+    background: #00AA00;
+    color: #FFFFFF;
+}
+
+.theme-borland .hero, 
+.theme-borland .stat-card,
+.theme-borland .about-box,
+.theme-borland .settings-card,
+.theme-borland .profile-container {
+    border: 2px double #00FFFF;
+    box-shadow: 10px 10px 0 rgba(0,0,0,0.5);
+}
+
+.theme-borland .btn-primary,
+.theme-borland button {
+    background: #00AA00;
+    color: #FFFFFF;
+    border: 2px solid #00FF00;
+    text-shadow: 1px 1px #000;
+}
+
+.theme-borland input,
+.theme-borland select,
+.theme-borland textarea {
+    background: #000080;
+    color: #FFFF00;
+    border: 1px solid #00FFFF;
+    font-family: var(--font-main);
+}
+
+/* Dark Mode (Material) */
+.theme-dark {
+    --black-bg: #121212;
+    --black-card: #1E1E1E;
+    --gold-primary: #BB86FC;
+    --gold-gradient: linear-gradient(135deg, #BB86FC 0%, #3700B3 100%);
+    --gold-dark: #3700B3;
+    --text-white: #E1E1E1;
+    --text-gray: #B0B0B0;
+    --wood-gradient: #2d2d2d;
+    --font-main: 'Inter', sans-serif;
+    --font-heading: 'Inter', sans-serif;
+}
+
+.theme-dark .hero,
+.theme-dark .stat-card,
+.theme-dark .about-box {
+    border: 1px solid #333;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.theme-dark nav {
+    border-bottom: 1px solid #333;
+}
+
+/* Nature Green Theme */
+.theme-nature {
+    --black-bg: #f1f8e9;
+    --black-card: #ffffff;
+    --gold-primary: #2e7d32;
+    --gold-gradient: linear-gradient(135deg, #66bb6a 0%, #2e7d32 100%);
+    --gold-dark: #1b5e20;
+    --text-white: #1b5e20;
+    --text-gray: #558b2f;
+    --wood-gradient: #a5d6a7;
+    --font-main: 'Inter', sans-serif;
+    --font-heading: 'Playfair Display', serif;
+}
+
+.theme-nature body {
+    color: #33691e;
+}
+
+.theme-nature h1, .theme-nature h2, .theme-nature h3 {
+    color: #1b5e20;
+}
+
+.theme-nature .hero,
+.theme-nature .stat-card,
+.theme-nature .about-box {
+    border: 1px solid #c8e6c9;
+    box-shadow: 0 5px 15px rgba(46, 125, 50, 0.1);
+}
+
+.theme-nature .btn-primary {
+    color: white;
+}
+
+.theme-nature nav {
+    background: #ffffff;
+    border-bottom: 1px solid #c8e6c9;
+}
+
+.theme-nature .nav-link {
+    color: #558b2f;
+}
+
+.theme-nature .nav-link.active {
+    color: white;
+}
+
+/* Ocean Blue Theme */
+.theme-ocean {
+    --black-bg: #e1f5fe;
+    --black-card: #ffffff;
+    --gold-primary: #0277bd;
+    --gold-gradient: linear-gradient(135deg, #4fc3f7 0%, #0277bd 100%);
+    --gold-dark: #01579b;
+    --text-white: #01579b;
+    --text-gray: #0288d1;
+    --wood-gradient: #b3e5fc;
+    --font-main: 'Inter', sans-serif;
+    --font-heading: 'Inter', sans-serif;
+}
+
+.theme-ocean body {
+    color: #01579b;
+}
+
+.theme-ocean h1, .theme-ocean h2, .theme-ocean h3 {
+    color: #01579b;
+}
+
+.theme-ocean .hero,
+.theme-ocean .stat-card,
+.theme-ocean .about-box {
+    border: 1px solid #b3e5fc;
+    box-shadow: 0 5px 15px rgba(3, 169, 244, 0.1);
+}
+
+.theme-ocean .btn-primary {
+    color: white;
+}
+
+.theme-ocean nav {
+    background: #ffffff;
+    border-bottom: 1px solid #b3e5fc;
+}
+
+.theme-ocean .nav-link {
+    color: #0288d1;
+}
+
+.theme-ocean .nav-link.active {
+    color: white;
+}
