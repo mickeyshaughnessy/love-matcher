@@ -560,7 +560,7 @@ function createMatchCard(match, isActive) {
         // Show accept/decline buttons
         actionsHtml = `
             <div class="match-actions" style="margin-top: 20px;">
-                <p style="color: #6c757d; margin-bottom: 15px; text-align: center;">
+                <p style="color: var(--text-gray); margin-bottom: 15px; text-align: center;">
                     Review this match and decide if you'd like to connect
                 </p>
                 <div style="display: flex; gap: 15px; justify-content: center;">
@@ -588,12 +588,12 @@ function createMatchCard(match, isActive) {
         // Both accepted - show chat interface
         actionsHtml = `
             <div class="match-chat-container" style="margin-top: 20px;">
-                <h3 style="margin-bottom: 15px; color: #764ba2;">💬 Private Chat</h3>
+                <h3 style="margin-bottom: 15px; color: var(--gold-primary);">💬 Private Chat</h3>
                 <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
                     <p style="color: #155724; font-weight: 600;">🎉 Match Accepted! You can now chat privately.</p>
                 </div>
                 <div class="match-chat-messages" id="matchChatMessages">
-                    <div style="text-align: center; color: #6c757d; padding: 20px;">
+                    <div style="text-align: center; color: var(--text-gray); padding: 20px;">
                         Start a conversation!
                     </div>
                 </div>
@@ -618,7 +618,7 @@ function createMatchCard(match, isActive) {
                 ${userAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ You accepted</p>' : ''}
                 ${matchAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ Match accepted</p>' : ''}
             </div>
-            <div style="background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <div style="background: linear-gradient(135deg, #667eea10 0%, rgba(212, 175, 55, 0.1) 100%); padding: 15px; border-radius: 8px; margin-top: 15px;">
                 <h4 style="color: var(--gold-primary); margin-bottom: 10px;">🔍 Compatibility Analysis</h4>
                 <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Reasoning:</strong> ${reasoning}</p>
                 <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Strengths:</strong> ${strengths}</p>
@@ -859,7 +859,7 @@ async function loadProfile() {
             document.getElementById('profileLocation').textContent = profile.location || 'Not set';
             document.getElementById('profileAbout').textContent = profile.about || 'Share something about yourself in the Build Profile section...';
             document.getElementById('profileAbout').style.fontStyle = profile.about ? 'normal' : 'italic';
-            document.getElementById('profileAbout').style.color = profile.about ? '#2c3e50' : '#6c757d';
+            document.getElementById('profileAbout').style.color = profile.about ? 'var(--text-white)' : 'var(--text-gray)';
             
             // Update JSON viewer
             const jsonViewer = document.getElementById('profileJsonViewer');
@@ -890,7 +890,7 @@ async function loadMatchInProfile() {
             matchSection.innerHTML = `
                 <div class="matches-header">
                     <h2>Your Match</h2>
-                    <p style="color: #6c757d; margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
+                    <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
                     
                     <div class="toggle-container">
                         <span class="toggle-label">Matching Status:</span>
@@ -908,7 +908,7 @@ async function loadMatchInProfile() {
             matchSection.innerHTML = `
                 <div class="matches-header">
                     <h2>Your Match</h2>
-                    <p style="color: #6c757d; margin-top: 10px;">No match yet. Complete your profile to get matched!</p>
+                    <p style="color: var(--text-gray); margin-top: 10px;">No match yet. Complete your profile to get matched!</p>
                 </div>
             `;
         }

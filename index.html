@@ -255,7 +255,7 @@
                     <!-- Photo Upload in Build Profile View -->
                     <div class="sidebar-section">
                         <div class="sidebar-title"><i class="ph ph-camera"></i> Your Photos</div>
-                        <p style="color: #6c757d; font-size: 0.85rem; margin-bottom: 12px;">
+                        <p style="color: var(--text-gray); font-size: 0.85rem; margin-bottom: 12px;">
                             Upload up to 3 photos (shown to matches after mutual acceptance)
                         </p>
                         <div class="photo-grid" id="chatPhotoGrid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
@@ -265,7 +265,7 @@
                         <button class="photo-upload-btn" id="chatPhotoUploadBtn" onclick="triggerChatPhotoUpload()" style="padding: 8px; font-size: 0.9rem;">
                             <i class="ph ph-upload-simple"></i> Upload Photo
                         </button>
-                        <p style="color: #6c757d; font-size: 0.75rem; margin-top: 8px; text-align: center;">Max 5MB • JPG, PNG, GIF</p>
+                        <p style="color: var(--text-gray); font-size: 0.75rem; margin-top: 8px; text-align: center;">Max 5MB • JPG, PNG, GIF</p>
                     </div>
 
                     <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
@@ -285,7 +285,7 @@
         <div id="matchView" class="matches-view">
             <div class="matches-header">
                 <h2>Your Match</h2>
-                <p style="color: #6c757d; margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
+                <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
                 
                 <!-- Active/Inactive Toggle -->
                 <div class="toggle-container">
@@ -314,7 +314,7 @@
                     <div class="profile-container">
                         <div class="profile-header">
                             <h2>Connect with Match</h2>
-                            <p style="color: #6c757d;">Your profile and matches</p>
+                            <p style="color: var(--text-gray);">Your profile and matches</p>
                             
                             <!-- Prominent Active/Inactive Toggle -->
                             <div class="toggle-container" style="margin-top: 20px;">
@@ -354,7 +354,7 @@
                                     Share something about yourself in the Build section...
                                 </p>
                             </div>
-                            <p style="color: #6c757d; font-size: 0.9rem; margin-top: 15px; text-align: center;">
+                            <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 15px; text-align: center;">
                                 Update your info in the <a href="#" onclick="showView('chat'); return false;" style="color: #d4af37; font-weight: 600;">Build Profile</a> section
                             </p>
                         </div>
@@ -376,7 +376,7 @@
     <!-- Settings View -->
     <div id="settingsView" class="settings-view" style="display: none;">
         <div class="container" style="max-width: 1000px; margin: 50px auto; padding: 20px;">
-            <h1 style="color: #764ba2; margin-bottom: 30px;"><i class="ph ph-gear"></i> Settings</h1>
+            <h1 style="color: var(--gold-primary); margin-bottom: 30px;"><i class="ph ph-gear"></i> Settings</h1>
             
             <!-- Account Info -->
             <div class="settings-section">
@@ -384,15 +384,15 @@
                 <div class="settings-card">
                     <div class="settings-item">
                         <label>Email (Username)</label>
-                        <div id="settingsEmail" style="color: #2c3e50; font-weight: 600;">Loading...</div>
+                        <div id="settingsEmail" style="color: var(--text-white); font-weight: 600;">Loading...</div>
                     </div>
                     <div class="settings-item">
                         <label>Member Number</label>
-                        <div id="settingsMemberNum" style="color: #2c3e50; font-weight: 600;">Loading...</div>
+                        <div id="settingsMemberNum" style="color: var(--text-white); font-weight: 600;">Loading...</div>
                     </div>
                     <div class="settings-item">
                         <label>Account Type</label>
-                        <div id="settingsAccountType" style="color: #2c3e50; font-weight: 600;">Loading...</div>
+                        <div id="settingsAccountType" style="color: var(--text-white); font-weight: 600;">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -403,19 +403,19 @@
                 <div class="settings-card">
                     <div class="settings-item">
                         <label>Profile Completion</label>
-                        <div id="settingsCompletion" style="color: #764ba2; font-weight: 600; font-size: 1.2rem;">0%</div>
+                        <div id="settingsCompletion" style="color: var(--gold-primary); font-weight: 600; font-size: 1.2rem;">0%</div>
                     </div>
                     <div class="settings-item">
                         <label>Dimensions Filled</label>
-                        <div id="settingsDimensions" style="color: #2c3e50;">0 / 29</div>
+                        <div id="settingsDimensions" style="color: var(--text-white);">0 / 29</div>
                     </div>
                     <div class="settings-item">
                         <label>Conversations</label>
-                        <div id="settingsConversations" style="color: #2c3e50;">0</div>
+                        <div id="settingsConversations" style="color: var(--text-white);">0</div>
                     </div>
                     <div class="settings-item">
                         <label>Photos Uploaded</label>
-                        <div id="settingsPhotos" style="color: #2c3e50;">0 / 3</div>
+                        <div id="settingsPhotos" style="color: var(--text-white);">0 / 3</div>
                     </div>
                 </div>
             </div>
@@ -430,12 +430,12 @@
                             <button id="settingsToggleBtn" onclick="toggleMatchingFromSettings()" class="btn-primary" style="padding: 10px 25px;">
                                 Loading...
                             </button>
-                            <span id="settingsMatchingStatus" style="color: #6c757d; font-size: 0.9rem;"></span>
+                            <span id="settingsMatchingStatus" style="color: var(--text-gray); font-size: 0.9rem;"></span>
                         </div>
                     </div>
                     <div class="settings-item">
                         <label>Current Match</label>
-                        <div id="settingsCurrentMatch" style="color: #2c3e50;">Loading...</div>
+                        <div id="settingsCurrentMatch" style="color: var(--text-white);">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -446,7 +446,7 @@
                 <div class="settings-card">
                     <div class="settings-item">
                         <label>Choose Your Style</label>
-                        <select id="themeSelector" onchange="changeTheme(this.value)" style="padding: 12px; border-radius: 8px; border: 2px solid #e1e8ed; font-size: 1rem; width: 100%; max-width: 300px;">
+                        <select id="themeSelector" onchange="changeTheme(this.value)" style="padding: 12px; border-radius: 8px; border: 1px solid var(--gold-primary); font-size: 1rem; width: 100%; max-width: 300px; background: var(--black-card); color: var(--text-white);">
                             <option value="default">Luxury Gold (Default)</option>
                             <option value="borland">Borland Classic (Turbo Vision)</option>
                             <option value="dark">Dark Mode</option>
@@ -465,7 +465,7 @@
     <footer>
         <div class="footer-content">
             <div class="footer-section">
-                <h3><i class="ph-fill ph-heart" style="color: #764ba2;"></i> Love-Matcher</h3>
+                <h3><i class="ph-fill ph-heart" style="color: var(--gold-primary);"></i> Love-Matcher</h3>
                 <p>AI-powered matchmaking using 29-dimension compatibility analysis for meaningful, lasting relationships.</p>
             </div>
             
@@ -480,7 +480,7 @@
             <div class="footer-section">
                 <h3>Support</h3>
                 <a href="mailto:mickeyshaughnessy@gmail.com">Contact Support</a>
-                <p style="color: #6c757d; margin-top: 10px;">✉️ mickeyshaughnessy@gmail.com</p>
+                <p style="color: var(--text-gray); margin-top: 10px;">✉️ mickeyshaughnessy@gmail.com</p>
             </div>
             
         </div>
