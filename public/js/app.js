@@ -959,6 +959,66 @@ async function loadMatchInProfile() {
                 ${createMatchCard(match, isActive)}
             `;
         } else {
+            // No match yet - show self-preview for debugging
+            const isActive = data.matching_active !== false;
+            const dimensionsCount = data.dimensions_count || 0;
+            
+            // Fetch own profile to display as self-preview
+            try {
+                const profileResponse = await fetch(`${API_URL}/profile`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const profile = await profileResponse.json();
+                
+                if (profileResponse.ok) {
+                    // Create a mock match object from own profile for debugging
+                    const selfMatch = {
+                        match_score: 100,
+                        user_accepted: false,
+                        match_accepted: false,
+                        mutual_acceptance: false,
+                        age: profile.age,
+                        matched_at: new Date().toISOString(),
+                        match_analysis: {
+                            reasoning: '[DEBUG] This is how you appear to potential matches',
+                            strengths: 'Self-preview for debugging purposes',
+                            concerns: 'None - this is your own profile'
+                        },
+                        preview: {
+                            age: profile.age,
+                            location: profile.location || 'Not set',
+                            completion_percentage: Math.round((dimensionsCount / 29) * 100)
+                        },
+                        full_profile: profile.dimensions || {}
+                    };
+                    
+                    matchSection.innerHTML = `
+                        <div class="matches-header">
+                            <h2>Your Match</h2>
+                            <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
+                            
+                            <div class="toggle-container">
+                                <span class="toggle-label">Matching Status:</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="profileMatchToggle" ${isActive ? 'checked' : ''} onchange="toggleMatchingStatusFromProfile()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span id="profileMatchStatusLabel" class="status-text ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
+                            </div>
+                        </div>
+                        <div style="background: rgba(255, 193, 7, 0.1); border: 2px dashed #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="color: #ffc107; margin-bottom: 10px;">🔧 Debug Mode: Self-Preview</h4>
+                            <p style="color: var(--text-gray);">You have no match yet. Below is how you would appear in the "Your Match" section.</p>
+                        </div>
+                        ${createMatchCard(selfMatch, isActive)}
+                    `;
+                    return;
+                }
+            } catch (err) {
+                console.error('Error loading self-preview:', err);
+            }
+            
+            // Fallback if self-preview fails
             matchSection.innerHTML = `
                 <div class="matches-header">
                     <h2>Your Match</h2>
