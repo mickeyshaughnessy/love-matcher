@@ -358,6 +358,16 @@ async function updateChatSidebar() {
             document.getElementById('sidebarPercentage').textContent = `${percentage}%`;
             document.getElementById('sidebarProgressBar').style.width = `${percentage}%`;
             
+            // Update matching toggle state
+            const isActive = profile.matching_active !== false;
+            const buildToggle = document.getElementById('buildMatchingToggle');
+            const buildStatusLabel = document.getElementById('buildMatchingStatusLabel');
+            if (buildToggle) {
+                buildToggle.checked = isActive;
+                buildStatusLabel.textContent = isActive ? 'Active' : 'Inactive';
+                buildStatusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+            }
+            
             // Update photos in Build Profile sidebar
             if (typeof renderPhotos === 'function') {
                 renderPhotos(profile.photos || [], 'chatPhotoGrid', 'chatPhotoUploadBtn');
@@ -653,6 +663,7 @@ async function toggleMatchingStatus() {
             statusLabel.textContent = isActive ? 'Active' : 'Inactive';
             statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
             showToast(`Matching ${isActive ? 'activated' : 'deactivated'} successfully`, 'success');
+            syncAllToggles(isActive);
             // Reload match view to show appropriate UI
             loadMatch();
         } else {
@@ -917,6 +928,63 @@ async function loadMatchInProfile() {
     }
 }
 
+// Toggle matching status from Build Profile view
+async function toggleBuildMatchingStatus() {
+    const isActive = document.getElementById('buildMatchingToggle').checked;
+    const statusLabel = document.getElementById('buildMatchingStatusLabel');
+    
+    try {
+        const response = await fetch(`${API_URL}/match/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ active: isActive })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            statusLabel.textContent = isActive ? 'Active' : 'Inactive';
+            statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
+            showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
+            
+            // Sync other toggles
+            syncAllToggles(isActive);
+        } else {
+            showToast(data.error || 'Failed to update status', 'error');
+            document.getElementById('buildMatchingToggle').checked = !isActive;
+        }
+    } catch (error) {
+        console.error('Error toggling status:', error);
+        showToast('Connection error. Please try again.', 'error');
+        document.getElementById('buildMatchingToggle').checked = !isActive;
+    }
+}
+
+// Sync all matching toggles across views
+function syncAllToggles(isActive) {
+    const toggles = [
+        { toggle: 'buildMatchingToggle', label: 'buildMatchingStatusLabel' },
+        { toggle: 'mainMatchingToggle', label: 'mainMatchingStatusLabel' },
+        { toggle: 'matchingActiveToggle', label: 'matchingStatusLabel' },
+        { toggle: 'profileMatchToggle', label: 'profileMatchStatusLabel' }
+    ];
+    
+    toggles.forEach(({ toggle, label }) => {
+        const toggleEl = document.getElementById(toggle);
+        const labelEl = document.getElementById(label);
+        if (toggleEl) {
+            toggleEl.checked = isActive;
+        }
+        if (labelEl) {
+            labelEl.textContent = isActive ? 'Active' : 'Inactive';
+            labelEl.className = isActive ? 'status-text active' : 'status-text inactive';
+        }
+    });
+}
+
 // Toggle main matching status from profile view
 async function toggleMainMatchingStatus() {
     const isActive = document.getElementById('mainMatchingToggle').checked;
@@ -938,6 +1006,7 @@ async function toggleMainMatchingStatus() {
             statusLabel.textContent = isActive ? 'Active' : 'Inactive';
             statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
             showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
+            syncAllToggles(isActive);
             loadMatchInProfile();
         } else {
             showToast(data.error || 'Failed to update status', 'error');
@@ -972,14 +1041,8 @@ async function toggleMatchingStatusFromProfile() {
             statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
             showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
             
-            // Sync main toggle
-            const mainToggle = document.getElementById('mainMatchingToggle');
-            const mainStatusLabel = document.getElementById('mainMatchingStatusLabel');
-            if (mainToggle) {
-                mainToggle.checked = isActive;
-                mainStatusLabel.textContent = isActive ? 'Active' : 'Inactive';
-                mainStatusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            }
+            // Sync all toggles
+            syncAllToggles(isActive);
         } else {
             showToast(data.error || 'Failed to update status', 'error');
             document.getElementById('profileMatchToggle').checked = !isActive;

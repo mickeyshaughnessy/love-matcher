@@ -239,6 +239,18 @@
                 </div>
 
                 <div class="chat-sidebar">
+                    <!-- Matching Status Toggle -->
+                    <div class="sidebar-section">
+                        <div class="sidebar-title"><i class="ph ph-heart"></i> Matching Status</div>
+                        <div class="toggle-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="buildMatchingToggle" onchange="toggleBuildMatchingStatus()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="buildMatchingStatusLabel" class="status-text active">Active</span>
+                        </div>
+                    </div>
+                    
                     <div class="sidebar-section">
                         <div class="sidebar-title"><i class="ph ph-target"></i> Profile Progress</div>
                         <div class="profile-progress">
