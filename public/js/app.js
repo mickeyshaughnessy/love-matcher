@@ -969,7 +969,8 @@ function syncAllToggles(isActive) {
         { toggle: 'buildMatchingToggle', label: 'buildMatchingStatusLabel' },
         { toggle: 'mainMatchingToggle', label: 'mainMatchingStatusLabel' },
         { toggle: 'matchingActiveToggle', label: 'matchingStatusLabel' },
-        { toggle: 'profileMatchToggle', label: 'profileMatchStatusLabel' }
+        { toggle: 'profileMatchToggle', label: 'profileMatchStatusLabel' },
+        { toggle: 'settingsMatchingToggle', label: 'settingsMatchingStatus' }
     ];
     
     toggles.forEach(({ toggle, label }) => {
@@ -1082,13 +1083,11 @@ async function loadSettings() {
             // Matching
             const isActive = profile.matching_active !== false;
             const statusSpan = document.getElementById('settingsMatchingStatus');
-            const toggleBtn = document.getElementById('settingsToggleBtn');
+            const toggle = document.getElementById('settingsMatchingToggle');
             
+            toggle.checked = isActive;
             statusSpan.textContent = isActive ? 'Active' : 'Inactive';
-            statusSpan.style.color = isActive ? '#28a745' : '#dc3545';
-            
-            toggleBtn.textContent = isActive ? 'Pause Matching' : 'Resume Matching';
-            toggleBtn.className = isActive ? 'btn-secondary' : 'btn-primary';
+            statusSpan.className = 'status-text ' + (isActive ? 'active' : 'inactive');
             
             document.getElementById('settingsCurrentMatch').textContent = profile.current_match_id ? '1 Match' : 'None';
             
@@ -1104,13 +1103,11 @@ async function loadSettings() {
 
 // Toggle Matching from Settings
 async function toggleMatchingFromSettings() {
+    const toggle = document.getElementById('settingsMatchingToggle');
     const statusSpan = document.getElementById('settingsMatchingStatus');
-    const currentStatus = statusSpan.textContent === 'Active';
-    const newStatus = !currentStatus;
+    const newStatus = toggle.checked;
     
-    const toggleBtn = document.getElementById('settingsToggleBtn');
-    toggleBtn.innerHTML = '<span class="spinner"></span>Updating...';
-    toggleBtn.disabled = true;
+    toggle.disabled = true;
     
     try {
         const response = await fetch(`${API_URL}/match/toggle`, {
@@ -1126,23 +1123,22 @@ async function toggleMatchingFromSettings() {
         
         if (response.ok) {
             statusSpan.textContent = newStatus ? 'Active' : 'Inactive';
-            statusSpan.style.color = newStatus ? '#28a745' : '#dc3545';
+            statusSpan.className = 'status-text ' + (newStatus ? 'active' : 'inactive');
             
-            toggleBtn.textContent = newStatus ? 'Pause Matching' : 'Resume Matching';
-            toggleBtn.className = newStatus ? 'btn-secondary' : 'btn-primary';
+            // Sync other toggles
+            syncAllToggles(newStatus);
             
             showToast(`Matching ${newStatus ? 'activated' : 'paused'}`, 'success');
         } else {
+            toggle.checked = !newStatus;
             showToast(data.error || 'Failed to update status', 'error');
         }
     } catch (error) {
         console.error('Error toggling status:', error);
+        toggle.checked = !newStatus;
         showToast('Connection error', 'error');
     } finally {
-        toggleBtn.disabled = false;
-        if (toggleBtn.innerHTML.includes('spinner')) {
-            toggleBtn.textContent = !currentStatus ? 'Pause Matching' : 'Resume Matching';
-        }
+        toggle.disabled = false;
     }
 }
 
