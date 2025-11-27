@@ -574,6 +574,24 @@ function createMatchCard(match, isActive) {
     const strengths = analysis.strengths || 'Analyzing compatibility...';
     const concerns = analysis.concerns || 'None identified';
     
+    // Build photo gallery HTML for mutual acceptance
+    let photosHtml = '';
+    if (mutualAcceptance && match.photos && match.photos.length > 0) {
+        const photoItems = match.photos.map(url => `
+            <div style="flex: 1; min-width: 100px; max-width: 150px;">
+                <img src="${url}" alt="Match Photo" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${url}', '_blank')">
+            </div>
+        `).join('');
+        photosHtml = `
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                <h4 style="color: var(--gold-primary); margin-bottom: 15px;">📸 Photos</h4>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                    ${photoItems}
+                </div>
+            </div>
+        `;
+    }
+    
     let profileDataHtml = '';
     if (mutualAcceptance && match.full_profile) {
         // Show full profile JSON after mutual acceptance
@@ -677,6 +695,7 @@ function createMatchCard(match, isActive) {
                 <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Strengths:</strong> ${strengths}</p>
                 <p style="color: var(--text-white);"><strong>Considerations:</strong> ${concerns}</p>
             </div>
+            ${photosHtml}
             ${profileDataHtml}
             ${actionsHtml}
         </div>
@@ -945,15 +964,6 @@ async function loadMatchInProfile() {
                 <div class="matches-header">
                     <h2>Your Match</h2>
                     <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
-                    
-                    <div class="toggle-container">
-                        <span class="toggle-label">Matching Status:</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="profileMatchToggle" ${isActive ? 'checked' : ''} onchange="toggleMatchingStatusFromProfile()">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span id="profileMatchStatusLabel" class="status-text ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
-                    </div>
                 </div>
                 
                 ${createMatchCard(match, isActive)}
@@ -996,15 +1006,6 @@ async function loadMatchInProfile() {
                         <div class="matches-header">
                             <h2>Your Match</h2>
                             <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
-                            
-                            <div class="toggle-container">
-                                <span class="toggle-label">Matching Status:</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="profileMatchToggle" ${isActive ? 'checked' : ''} onchange="toggleMatchingStatusFromProfile()">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                                <span id="profileMatchStatusLabel" class="status-text ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
-                            </div>
                         </div>
                         <div style="background: rgba(255, 193, 7, 0.1); border: 2px dashed #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                             <h4 style="color: #ffc107; margin-bottom: 10px;">🔧 Debug Mode: Self-Preview</h4>
