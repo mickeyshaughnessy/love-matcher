@@ -31,6 +31,90 @@ function stopCamera() {
     }
 }
 
+async function captureAndSavePhoto(videoId, btnElement) {
+    const video = document.getElementById(videoId);
+    if (!video || !video.srcObject) {
+        showToast('Camera not active', 'error');
+        return;
+    }
+
+    // Check if user already has 3 photos
+    if (currentUser && currentUser.photos && currentUser.photos.length >= 3) {
+        showToast('You already have 3 photos. Delete one first.', 'error');
+        return;
+    }
+
+    const originalText = btnElement.innerHTML;
+    btnElement.disabled = true;
+    btnElement.innerHTML = '<span class="spinner"></span>Saving...';
+
+    try {
+        // Create canvas to capture
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        
+        // Flip context if video is mirrored (which it is by CSS)
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to blob
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        
+        if (!blob) {
+            throw new Error('Failed to capture photo');
+        }
+
+        // Create file from blob
+        const file = new File([blob], "webcam-capture.jpg", { type: "image/jpeg" });
+        
+        // Upload
+        const formData = new FormData();
+        formData.append('photo', file);
+        
+        const response = await fetch(`${API_URL}/profile/photos`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('Photo captured and saved!', 'success');
+            // Update photo grids
+            if (typeof renderPhotos === 'function') {
+                renderPhotos(data.photos, 'chatPhotoGrid', 'chatPhotoUploadBtn');
+            }
+            // Update user object
+            if (currentUser) {
+                currentUser.photos = data.photos;
+            }
+            // Update stats
+            document.getElementById('settingsPhotos').textContent = (data.photos.length) + ' / 3';
+            
+            // Reload match view to show new photo in match card
+            if (document.getElementById('matchView').style.display === 'block' || 
+                document.getElementById('profileView').style.display === 'block') {
+                loadMatchInProfile();
+            }
+        } else {
+            showToast(data.error || 'Upload failed', 'error');
+        }
+    } catch (error) {
+        console.error('Capture error:', error);
+        showToast('Failed to save photo', 'error');
+    } finally {
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalText;
+    }
+}
+
 // Toast notification system
 function showToast(message, type = 'info') {
     const toastHTML = `
