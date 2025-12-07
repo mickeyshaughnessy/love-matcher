@@ -242,13 +242,13 @@ function showView(viewName) {
             break;
         case 'chat':
             document.getElementById('chatView').style.display = 'block';
-            document.querySelectorAll('.nav-link')[1].classList.add('active');
+            document.querySelectorAll('.nav-link')[0].classList.add('active');
             loadChatHistory();
             startCamera('buildCamera');
             break;
         case 'profile':
             document.getElementById('profileView').style.display = 'block';
-            document.querySelectorAll('.nav-link')[2].classList.add('active');
+            document.querySelectorAll('.nav-link')[1].classList.add('active');
             loadProfile();
             startCamera('connectCamera');
             break;
@@ -260,7 +260,7 @@ function showView(viewName) {
             break;
         case 'settings':
             document.getElementById('settingsView').style.display = 'block';
-            document.querySelectorAll('.nav-link')[3].classList.add('active');
+            document.querySelectorAll('.nav-link')[2].classList.add('active');
             loadSettings();
             break;
     }

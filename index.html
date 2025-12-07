@@ -37,7 +37,6 @@
             <i class="ph-fill ph-heart"></i> Love-Matcher
         </a>
         <div class="nav-links">
-            <a href="#" class="nav-link" onclick="showView('landing')"><i class="ph ph-house"></i> Home</a>
             <a href="#" class="nav-link" onclick="showView('chat')"><i class="ph ph-hammer"></i> Build Profile</a>
             <a href="#" class="nav-link" onclick="showView('profile')">
                 <i class="ph ph-heart-straight"></i> Connect
@@ -63,13 +62,46 @@
                     </p>
                 </div>
                 
-                <div class="cta-buttons">
-                    <button class="btn-primary" onclick="scrollToAuth()">
-                        Get Started <i class="ph-bold ph-arrow-right"></i>
-                    </button>
-                    <button class="btn-secondary" onclick="scrollToAbout()">
-                        Learn More
-                    </button>
+                <div class="auth-forms" id="authSection" style="margin-top: 30px;">
+                    <div class="auth-box">
+                        <h2>Sign Up</h2>
+                        <form id="signupForm">
+                            <div class="form-group">
+                                <label for="signupEmail">Email Address</label>
+                                <input type="email" id="signupEmail" required>
+                                <div id="signupEmailError" class="input-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signupGender">Gender</label>
+                                <select id="signupGender" required style="width: 100%; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 1rem; background-color: white; color: black;">
+                                    <option value="" disabled selected>Select your gender</option>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                </select>
+                                <div id="signupGenderError" class="input-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signupAge">Age</label>
+                                <input type="number" id="signupAge" min="18" required>
+                                <div id="signupAgeError" class="input-error"></div>
+                            </div>
+                            <button type="submit">Create Account</button>
+                        </form>
+                        <div id="signupMessage"></div>
+                    </div>
+                    
+                    <div class="auth-box">
+                        <h2>Login</h2>
+                        <form id="loginForm">
+                            <div class="form-group">
+                                <label for="loginEmail">Email Address</label>
+                                <input type="email" id="loginEmail" required>
+                                <div id="loginEmailError" class="input-error"></div>
+                            </div>
+                            <button type="submit">Login</button>
+                        </form>
+                        <div id="loginMessage"></div>
+                    </div>
                 </div>
             </div>
 
@@ -150,50 +182,7 @@
                 </div>
             </div>
 
-            <!-- Auth Section -->
-            <div class="auth-section" id="authSection">
-                <div class="auth-forms">
-                    <div class="auth-box">
-                        <h2>Sign Up</h2>
-                        <form id="signupForm">
-                            <div class="form-group">
-                                <label for="signupEmail">Email Address</label>
-                                <input type="email" id="signupEmail" required>
-                                <div id="signupEmailError" class="input-error"></div>
-                            </div>
-                            <div class="form-group">
-                                <label for="signupGender">Gender</label>
-                                <select id="signupGender" required style="width: 100%; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 1rem; background-color: white; color: black;">
-                                    <option value="" disabled selected>Select your gender</option>
-                                    <option value="M">Male</option>
-                                    <option value="F">Female</option>
-                                </select>
-                                <div id="signupGenderError" class="input-error"></div>
-                            </div>
-                            <div class="form-group">
-                                <label for="signupAge">Age</label>
-                                <input type="number" id="signupAge" min="18" required>
-                                <div id="signupAgeError" class="input-error"></div>
-                            </div>
-                            <button type="submit">Create Account</button>
-                        </form>
-                        <div id="signupMessage"></div>
-                    </div>
-                    
-                    <div class="auth-box">
-                        <h2>Login</h2>
-                        <form id="loginForm">
-                            <div class="form-group">
-                                <label for="loginEmail">Email Address</label>
-                                <input type="email" id="loginEmail" required>
-                                <div id="loginEmailError" class="input-error"></div>
-                            </div>
-                            <button type="submit">Login</button>
-                        </form>
-                        <div id="loginMessage"></div>
-                    </div>
-                </div>
-            </div>
+
         </div>
 
         <!-- Privacy Policy View -->
