@@ -54,19 +54,18 @@
             <!-- Hero Section -->
             <div class="hero">
                 <h1><i class="ph-fill ph-heart"></i> Love-Matcher</h1>
-                <p class="tagline">One Perfect Match at a Time • Deep Compatibility • Real Connections</p>
+                <p class="tagline">Deep Compatibility • Real Connections</p>
                 
-                <div style="max-width: 700px; margin: 0 auto 30px; padding: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 2px;">
-                    <p style="color: var(--text-white); font-size: 1.1rem; line-height: 1.6; margin: 0;">
-                        Skip the endless swiping and superficial matches. Love-Matcher analyzes 29 dimensions of compatibility 
-                        to find someone who truly aligns with your values, goals, and lifestyle. You get <strong>one carefully selected match at a time</strong>—someone 
-                        worth getting to know, not just another profile to scroll past.
+                <div style="max-width: 600px; margin: 0 auto 30px; padding: 15px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 2px;">
+                    <p style="color: var(--text-white); font-size: 1.1rem; line-height: 1.5; margin: 0;">
+                        Love-Matcher analyzes 29 dimensions of compatibility to find someone who truly aligns with you. 
+                        <strong>One carefully selected match at a time.</strong>
                     </p>
                 </div>
                 
                 <div class="cta-buttons">
                     <button class="btn-primary" onclick="scrollToAuth()">
-                        Get Started Free <i class="ph-bold ph-arrow-right"></i>
+                        Get Started <i class="ph-bold ph-arrow-right"></i>
                     </button>
                     <button class="btn-secondary" onclick="scrollToAbout()">
                         Learn More
@@ -263,6 +262,15 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Digital Mirror -->
+                    <div class="sidebar-section">
+                        <div class="sidebar-title"><i class="ph ph-camera-rotate"></i> Digital Mirror</div>
+                        <div class="camera-container" style="background: #000; border-radius: 2px; overflow: hidden; position: relative; border: 1px solid var(--gold-primary); aspect-ratio: 4/3;">
+                            <video id="buildCamera" autoplay playsinline muted class="digital-mirror" style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                            <div class="camera-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: white; padding: 8px; text-align: center; font-size: 0.8rem;">You</div>
+                        </div>
+                    </div>
                     
                     <!-- Photo Upload in Build Profile View -->
                     <div class="sidebar-section">
@@ -318,6 +326,15 @@
         <div id="profileView" class="profile-view">
             <div class="profile-layout">
                 <div>
+                    <!-- Digital Mirror -->
+                    <div style="background: var(--black-card); padding: 20px; border-radius: 2px; border: 1px solid rgba(212, 175, 55, 0.2); margin-bottom: 20px; text-align: center;">
+                        <h3 style="color: var(--gold-primary); margin-bottom: 15px; font-size: 1.2rem;"><i class="ph ph-camera-rotate"></i> Digital Mirror</h3>
+                        <div class="camera-container" style="background: #000; border-radius: 2px; overflow: hidden; position: relative; border: 1px solid var(--gold-primary); aspect-ratio: 4/3; max-width: 400px; margin: 0 auto;">
+                            <video id="connectCamera" autoplay playsinline muted class="digital-mirror" style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                            <div class="camera-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: white; padding: 8px; text-align: center; font-size: 0.8rem;">You</div>
+                        </div>
+                    </div>
+
                     <!-- Match Section -->
                     <div id="matchSection" style="margin-bottom: 20px;">
                         <!-- Match content will be loaded here -->

@@ -2,6 +2,34 @@ const API_URL = 'https://rse-api.com:5009';
 let authToken = null;
 let currentUser = null;
 let matchMessagesInterval = null;
+let currentStream = null;
+
+// Camera Functions
+async function startCamera(videoId) {
+    // Only request if in browser environment that supports it
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const videoEl = document.getElementById(videoId);
+        if (videoEl) {
+            videoEl.srcObject = stream;
+            currentStream = stream;
+        } else {
+            // If element missing, stop stream immediately
+            stream.getTracks().forEach(track => track.stop());
+        }
+    } catch (err) {
+        console.warn("Camera access denied or error:", err);
+    }
+}
+
+function stopCamera() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+}
 
 // Toast notification system
 function showToast(message, type = 'info') {
@@ -104,6 +132,9 @@ function showView(viewName) {
         matchMessagesInterval = null;
     }
     
+    // Stop camera from previous view
+    stopCamera();
+    
     // Hide all views
     document.getElementById('landingPage').style.display = 'none';
     document.getElementById('chatView').style.display = 'none';
@@ -129,11 +160,13 @@ function showView(viewName) {
             document.getElementById('chatView').style.display = 'block';
             document.querySelectorAll('.nav-link')[1].classList.add('active');
             loadChatHistory();
+            startCamera('buildCamera');
             break;
         case 'profile':
             document.getElementById('profileView').style.display = 'block';
             document.querySelectorAll('.nav-link')[2].classList.add('active');
             loadProfile();
+            startCamera('connectCamera');
             break;
         case 'privacy':
             document.getElementById('privacyView').style.display = 'block';
@@ -489,7 +522,7 @@ async function loadMatch() {
         
         if (response.ok && data.match) {
             const match = data.match;
-            matchContainer.innerHTML = createMatchCard(match, isActive);
+            matchContainer.innerHTML = createMatchCard(match, isActive, currentUser ? currentUser.photos : []);
             
             // Load match messages if both users accepted (mutual acceptance)
             if (match.mutual_acceptance) {
@@ -562,7 +595,7 @@ async function loadMatch() {
 }
 
 // Create match card
-function createMatchCard(match, isActive) {
+function createMatchCard(match, isActive, userPhotos = []) {
     const score = match.match_score || 0;
     const userAccepted = match.user_accepted || false;
     const matchAccepted = match.match_accepted || false;
@@ -573,6 +606,25 @@ function createMatchCard(match, isActive) {
     const reasoning = analysis.reasoning || 'AI-powered compatibility analysis';
     const strengths = analysis.strengths || 'Analyzing compatibility...';
     const concerns = analysis.concerns || 'None identified';
+    
+    // User's own photos (Digital Mirror concept in match card)
+    let userPhotosHtml = '';
+    if (userPhotos && userPhotos.length > 0) {
+        const photoItems = userPhotos.map(url => `
+            <div style="width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid var(--gold-primary); margin: 0 4px;">
+                <img src="${url}" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+        `).join('');
+        
+        userPhotosHtml = `
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(212, 175, 55, 0.1); display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 0.8rem; color: var(--text-gray); margin-right: 10px;">You:</span>
+                <div style="display: flex;">
+                    ${photoItems}
+                </div>
+            </div>
+        `;
+    }
     
     // Build photo gallery HTML for mutual acceptance
     let photosHtml = '';
@@ -698,6 +750,7 @@ function createMatchCard(match, isActive) {
             ${photosHtml}
             ${profileDataHtml}
             ${actionsHtml}
+            ${userPhotosHtml}
         </div>
     `;
 }
@@ -908,6 +961,9 @@ async function loadProfile() {
         const profile = await response.json();
         
         if (response.ok) {
+            // Update global current user with fresh data
+            currentUser = profile;
+
             // Update stats
             const dimensionsCount = Object.keys(profile.dimensions || {}).length;
             const percentage = Math.round((dimensionsCount / 29) * 100);
@@ -966,7 +1022,7 @@ async function loadMatchInProfile() {
                     <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
                 </div>
                 
-                ${createMatchCard(match, isActive)}
+                ${createMatchCard(match, isActive, currentUser ? currentUser.photos : [])}
             `;
         } else {
             // No match yet - show self-preview for debugging
