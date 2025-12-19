@@ -616,6 +616,17 @@ def chat():
                     else:
                         profile['gender'] = gender_value
                 
+                # Special handling for seeking_gender - store at profile level for matching
+                if parsed_response['dimension'] == 'seeking_gender':
+                    seeking_value = str(parsed_response['value']).lower()
+                    # Normalize seeking_gender values
+                    if 'male' in seeking_value and 'female' not in seeking_value:
+                        profile['seeking_gender'] = 'male'
+                    elif 'female' in seeking_value:
+                        profile['seeking_gender'] = 'female'
+                    else:
+                        profile['seeking_gender'] = seeking_value
+                
                 # Calculate completion percentage
                 dimensions_count = len(profile['dimensions'])
                 profile['completion_percentage'] = round((dimensions_count / 29) * 100)

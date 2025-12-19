@@ -26,6 +26,7 @@ DIMENSIONS_DESCRIPTION = """## The 29 Dimensions You're Exploring:
 
 **Foundation (Core Identity)**
 - gender: Their gender identity (male or female)
+- seeking_gender: Who they are looking to be matched with (male or female)
 - age: Their current life stage and readiness
 - location: Where they are and where they dream of being
 - education: How they've cultivated their mind
@@ -240,7 +241,7 @@ def build_profile_context(profile):
     
     # Organize dimensions by category for better understanding
     dimension_categories = {
-        'Foundation': ['gender', 'age', 'location', 'education', 'career', 'finances'],
+        'Foundation': ['gender', 'seeking_gender', 'age', 'location', 'education', 'career', 'finances'],
         'Family': ['family_origin', 'children'],
         'Values': ['religion', 'politics', 'vision'],
         'Relationships': ['communication', 'conflict', 'affection', 'humor'],
@@ -251,7 +252,7 @@ def build_profile_context(profile):
     }
     
     all_dimensions = [
-        'gender', 'age', 'location', 'education', 'career', 'finances', 'family_origin',
+        'gender', 'seeking_gender', 'age', 'location', 'education', 'career', 'finances', 'family_origin',
         'children', 'religion', 'politics', 'communication', 'conflict', 'health',
         'mental_health', 'social_energy', 'domestic', 'cleanliness', 'food',
         'travel', 'hobbies', 'culture', 'humor', 'affection', 'independence',
@@ -262,9 +263,11 @@ def build_profile_context(profile):
     if dimensions_filled:
         context_parts.append("\n=== DIMENSIONS GATHERED (Use these to personalize your questions!) ===")
         
-        # Special note if gender is not yet collected
+        # Special note if gender or seeking_gender is not yet collected
         if 'gender' not in dimensions_filled:
             context_parts.append("\n⚠️ IMPORTANT: Gender not specified yet - ask this early for proper matching!")
+        if 'seeking_gender' not in dimensions_filled:
+            context_parts.append("\n⚠️ IMPORTANT: Seeking gender not specified yet - ask who they want to be matched with (male or female)!")
         
         for category, dims in dimension_categories.items():
             category_dims = {k: v for k, v in dimensions_filled.items() if k in dims}
@@ -296,9 +299,11 @@ def build_profile_context(profile):
         
         if 'gender' not in dimensions_filled:
             context_parts.append("  - ⚠️ PRIORITY: Ask about gender early (male/female) - required for matching")
+        if 'seeking_gender' not in dimensions_filled:
+            context_parts.append("  - ⚠️ PRIORITY: Ask who they want to be matched with (male/female) - required for matching")
         
         if dimensions_count == 0:
-            context_parts.append("  - Start with a warm welcome, ask about gender and location/current life stage")
+            context_parts.append("  - Start with a warm welcome, ask about gender, who they're looking for, and location/current life stage")
         elif dimensions_count < 5:
             context_parts.append("  - Continue building foundation (location, education, career, finances)")
         elif 'religion' not in dimensions_filled and 'politics' not in dimensions_filled:

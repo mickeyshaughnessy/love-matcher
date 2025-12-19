@@ -228,12 +228,13 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
     """
     user_id = user_profile['user_id']
     user_gender = user_profile.get('gender')
+    user_seeking = user_profile.get('seeking_gender')
     user_age = user_profile.get('age', 'N/A')
     user_location = user_profile.get('dimensions', {}).get('location', 'N/A')
     
     if verbose:
         print(f"\n  🔎 Finding match for: {user_id}")
-        print(f"     Gender: {user_gender} | Age: {user_age} | Location: {user_location}")
+        print(f"     Gender: {user_gender} | Seeking: {user_seeking} | Age: {user_age} | Location: {user_location}")
         print(f"     Dimensions filled: {len(user_profile.get('dimensions', {}))}/29")
     
     # Get user's current match and rejected users
@@ -263,12 +264,15 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
         'rejected_user': 0,
         'invalid_gender': 0,
         'no_gender': 0,
+        'no_seeking_gender': 0,
+        'seeking_mismatch': 0,
         'low_score': 0
     }
     
     for candidate in all_profiles:
         candidate_id = candidate['user_id']
         candidate_gender = candidate.get('gender')
+        candidate_seeking = candidate.get('seeking_gender')
         
         # Skip self
         if candidate_id == user_id:
@@ -301,10 +305,35 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
             skip_reasons['no_gender'] += 1
             continue
         
+        # Seeking gender must be specified for matching
+        if not user_seeking or not candidate_seeking:
+            skip_reasons['no_seeking_gender'] += 1
+            continue
+        
         # Ensure both have valid gender values
         valid_genders = {'male', 'female', 'm', 'f'}
         if user_gender.lower() not in valid_genders or candidate_gender.lower() not in valid_genders:
             skip_reasons['invalid_gender'] += 1
+            continue
+        
+        # Check mutual seeking compatibility:
+        # User must be seeking candidate's gender AND candidate must be seeking user's gender
+        def normalize_gender(g):
+            g = g.lower()
+            if g in ('m', 'male'):
+                return 'male'
+            elif g in ('f', 'female'):
+                return 'female'
+            return g
+        
+        user_gender_norm = normalize_gender(user_gender)
+        user_seeking_norm = normalize_gender(user_seeking)
+        candidate_gender_norm = normalize_gender(candidate_gender)
+        candidate_seeking_norm = normalize_gender(candidate_seeking)
+        
+        # User wants candidate's gender AND candidate wants user's gender
+        if user_seeking_norm != candidate_gender_norm or candidate_seeking_norm != user_gender_norm:
+            skip_reasons['seeking_mismatch'] += 1
             continue
         
         candidates_considered += 1
@@ -353,6 +382,10 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
             print(f"        Skipped - invalid gender: {skip_reasons['invalid_gender']}")
         if skip_reasons['no_gender'] > 0:
             print(f"        Skipped - no gender: {skip_reasons['no_gender']}")
+        if skip_reasons['no_seeking_gender'] > 0:
+            print(f"        Skipped - no seeking_gender: {skip_reasons['no_seeking_gender']}")
+        if skip_reasons['seeking_mismatch'] > 0:
+            print(f"        Skipped - seeking mismatch: {skip_reasons['seeking_mismatch']}")
         
         if best_match:
             print(f"        ✅ Best match: {best_match['user_id']} with score {best_score}%")
