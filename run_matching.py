@@ -261,7 +261,6 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
         'already_matched': 0,
         'rejected_by_user': 0,
         'rejected_user': 0,
-        'same_gender': 0,
         'invalid_gender': 0,
         'no_gender': 0,
         'low_score': 0
@@ -296,20 +295,16 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
             skip_reasons['rejected_user'] += 1
             continue
         
-        # Traditional heterosexual matching - only match males with females
-        if user_gender and candidate_gender:
-            # Require opposite gender for matching
-            if user_gender.lower() == candidate_gender.lower():
-                skip_reasons['same_gender'] += 1
-                continue
-            # Ensure both are male/female (not other values)
-            valid_genders = {'male', 'female', 'm', 'f'}
-            if user_gender.lower() not in valid_genders or candidate_gender.lower() not in valid_genders:
-                skip_reasons['invalid_gender'] += 1
-                continue
-        else:
-            # If gender not specified, skip to ensure heterosexual matching
+        # Gender validation - both homosexual and heterosexual matches permitted for adults 18+
+        # Gender must be specified for matching
+        if not user_gender or not candidate_gender:
             skip_reasons['no_gender'] += 1
+            continue
+        
+        # Ensure both have valid gender values
+        valid_genders = {'male', 'female', 'm', 'f'}
+        if user_gender.lower() not in valid_genders or candidate_gender.lower() not in valid_genders:
+            skip_reasons['invalid_gender'] += 1
             continue
         
         candidates_considered += 1
@@ -354,8 +349,6 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
             print(f"        Skipped - rejected by user: {skip_reasons['rejected_by_user']}")
         if skip_reasons['rejected_user'] > 0:
             print(f"        Skipped - rejected user: {skip_reasons['rejected_user']}")
-        if skip_reasons['same_gender'] > 0:
-            print(f"        Skipped - same gender: {skip_reasons['same_gender']}")
         if skip_reasons['invalid_gender'] > 0:
             print(f"        Skipped - invalid gender: {skip_reasons['invalid_gender']}")
         if skip_reasons['no_gender'] > 0:

@@ -25,7 +25,7 @@ Ask your question naturally based on their style."""
 DIMENSIONS_DESCRIPTION = """## The 29 Dimensions You're Exploring:
 
 **Foundation (Core Identity)**
-- gender: Their gender identity (male or female for traditional heterosexual matching)
+- gender: Their gender identity (male or female)
 - age: Their current life stage and readiness
 - location: Where they are and where they dream of being
 - education: How they've cultivated their mind
@@ -126,7 +126,7 @@ Adapt your length and style to match theirs. Make them feel heard at their commu
 
 POLICIES = """## Policies to Uphold:
 - 18+ for matching pool (younger users can explore and build profiles)
-- Traditional heterosexual marriage focus
+- Marriage-focused matchmaking for adults 18+
 - Single/unmarried users only
 - Absolute confidentiality
 - No guarantees about matches - but genuine optimism
@@ -425,7 +425,7 @@ Now engage with this user authentically and help them build a profile that will 
 # MATCH COMPATIBILITY PROMPT - For ranking match suitability
 # ============================================================================
 
-MATCH_COMPATIBILITY_PROMPT = """You are a compatibility analyst for Love-Matcher, a traditional heterosexual marriage-focused matchmaking service.
+MATCH_COMPATIBILITY_PROMPT = """You are a compatibility analyst for Love-Matcher, a marriage-focused matchmaking service for adults 18+.
 
 Your task is to analyze two user profiles and provide a compatibility score from 0-100, where:
 - 0-29: Poor compatibility - significant misalignments in core values or lifestyle
