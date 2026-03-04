@@ -26,6 +26,27 @@ ALLOWED_PHOTO_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB
 MAX_PHOTOS_PER_USER = 3
 
+# In-memory TTL cache
+_s3_cache: dict = {}
+_s3_cache_ts: dict = {}
+
+_TTL_PROFILE = 60      # seconds
+_TTL_MEMBER_LIST = 300
+_TTL_CHAT = 10
+_TTL_MATCH = 600
+
+
+def _ttl_for(key: str) -> float:
+    if 'profiles/' in key:
+        return _TTL_PROFILE
+    if key == MEMBER_LIST_KEY:
+        return _TTL_MEMBER_LIST
+    if 'chat/' in key:
+        return _TTL_CHAT
+    if 'matches/' in key:
+        return _TTL_MATCH
+    return _TTL_PROFILE
+
 # JWT decorator for email-password authentication
 def token_required(f):
     @wraps(f)
@@ -47,9 +68,15 @@ def token_required(f):
 
 # Helper functions
 def s3_get(key):
+    cached = _s3_cache.get(key)
+    if cached is not None and time.time() - _s3_cache_ts.get(key, 0) < _ttl_for(key):
+        return cached
     try:
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{key}")
-        return json.loads(response['Body'].read())
+        data = json.loads(response['Body'].read())
+        _s3_cache[key] = data
+        _s3_cache_ts[key] = time.time()
+        return data
     except:
         return None
 
@@ -60,6 +87,8 @@ def s3_put(key, data):
         Body=json.dumps(data),
         ContentType='application/json'
     )
+    _s3_cache[key] = data
+    _s3_cache_ts[key] = time.time()
 
 def get_member_count():
     """Get current member count from S3"""
@@ -136,28 +165,31 @@ def delete_photo_from_s3(photo_url):
         print(f"Error deleting photo from S3: {e}")
         return False
 
-def call_openrouter_llm(messages):
-    """Call OpenRouter API with configured model"""
+def call_openrouter_llm(messages, use_fallback=False):
+    """Call OpenRouter API with configured model and fallback support"""
     try:
         api_key = getattr(config, 'OPENROUTER_API_KEY', None)
         if not api_key:
             raise ValueError('OpenRouter API key not found in config.py')
 
+        # Use fallback model if requested, otherwise use primary free model
+        model = config.OPENROUTER_FALLBACK_MODEL if use_fallback else openrouter_config['model']
+
         headers = {
             'Authorization': f"Bearer {api_key}",
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://lovedashmatcher.com',
+            'HTTP-Referer': 'https://love-matcher.com',
             'X-Title': 'Love-Matcher'
         }
         
         payload = {
-            'model': openrouter_config['model'],
+            'model': model,
             'messages': messages,
             'temperature': openrouter_config['temperature'],
             'max_tokens': openrouter_config['max_tokens']
         }
         
-        print(f"🤖 Calling OpenRouter with model: {openrouter_config['model']}")
+        print(f"🤖 Calling OpenRouter with model: {model}")
         
         response = requests.post(
             openrouter_config['api_url'],
@@ -173,6 +205,11 @@ def call_openrouter_llm(messages):
         except ValueError:
             result = None
         
+        # Handle rate limiting - fallback to paid model
+        if response.status_code == 429 and not use_fallback:
+            print(f"⚠️ Rate limited on {model}, falling back to {config.OPENROUTER_FALLBACK_MODEL}")
+            return call_openrouter_llm(messages, use_fallback=True)
+        
         if response.status_code >= 400:
             error_message = None
             if isinstance(result, dict):
@@ -184,6 +221,10 @@ def call_openrouter_llm(messages):
             if not error_message:
                 error_message = response.text.strip() or f"HTTP {response.status_code} error"
             print(f"❌ OpenRouter returned error: {error_message}")
+            # Try fallback if not already using it
+            if not use_fallback:
+                print(f"Retrying with fallback model...")
+                return call_openrouter_llm(messages, use_fallback=True)
             return {
                 'error': error_message,
                 'status_code': response.status_code,
