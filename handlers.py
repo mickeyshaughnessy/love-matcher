@@ -131,38 +131,53 @@ def get_file_extension(filename):
     """Get file extension"""
     return filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
 
+def _do_spaces_url(key: str) -> str:
+    """Build a DO Spaces object URL from a full S3 key."""
+    # endpoint_url is e.g. https://sfo3.digitaloceanspaces.com
+    host = s3_client.meta.endpoint_url.replace('https://', '').replace('http://', '')
+    return f"https://{S3_BUCKET}.{host}/{key}"
+
+
 def upload_photo_to_s3(file, user_id):
-    """Upload photo to S3 and return URL"""
+    """Upload photo to DO Spaces and return its public URL."""
     try:
-        # Generate unique filename
         timestamp = int(time.time())
         extension = get_file_extension(file.filename)
         filename = f"photos/{user_id}/photo_{timestamp}.{extension}"
-        
-        # Upload to S3
+        key = f"{S3_PREFIX}{filename}"
+
         s3_client.put_object(
             Bucket=S3_BUCKET,
-            Key=f"{S3_PREFIX}{filename}",
+            Key=key,
             Body=file.read(),
             ContentType=file.content_type,
-            ACL='private'  # Keep photos private
+            ACL='public-read'
         )
-        
-        # Return S3 URL
-        return f"https://{S3_BUCKET}.s3.amazonaws.com/{S3_PREFIX}{filename}"
+
+        url = _do_spaces_url(key)
+        _s3_cache[key] = None  # evict stale cache entry if any
+        return url
     except Exception as e:
-        print(f"Error uploading photo to S3: {e}")
+        print(f"Error uploading photo to DO Spaces: {e}")
         return None
 
+
 def delete_photo_from_s3(photo_url):
-    """Delete photo from S3 given its URL"""
+    """Delete photo from DO Spaces given its URL."""
     try:
-        # Extract key from URL
-        key = photo_url.split(f"{S3_BUCKET}.s3.amazonaws.com/")[1]
+        if 'digitaloceanspaces.com' in photo_url:
+            # https://{bucket}.{region}.digitaloceanspaces.com/{key}
+            key = photo_url.split('.digitaloceanspaces.com/', 1)[1]
+        else:
+            # Legacy AWS URL format stored before this fix
+            key = photo_url.split('.amazonaws.com/', 1)[1]
         s3_client.delete_object(Bucket=S3_BUCKET, Key=key)
+        cache_key = key.replace(S3_PREFIX, '', 1)
+        _s3_cache.pop(cache_key, None)
+        _s3_cache_ts.pop(cache_key, None)
         return True
     except Exception as e:
-        print(f"Error deleting photo from S3: {e}")
+        print(f"Error deleting photo from DO Spaces: {e}")
         return False
 
 def call_openrouter_llm(messages, use_fallback=False):
