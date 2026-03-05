@@ -186,13 +186,26 @@ function checkAutoLogin() {
 
 // Load membership statistics
 async function loadMemberStats() {
+    // Show cached value immediately while fetching
+    const cached = localStorage.getItem('lm_stats');
+    if (cached) {
+        try {
+            const d = JSON.parse(cached);
+            if (document.getElementById('totalMembers'))
+                document.getElementById('totalMembers').textContent = d.total_members.toLocaleString();
+            if (document.getElementById('spotsRemaining'))
+                document.getElementById('spotsRemaining').textContent = d.spots_remaining.toLocaleString();
+        } catch (e) {}
+    }
     try {
         const response = await fetch(`${API_URL}/stats`);
         const data = await response.json();
         
         if (response.ok) {
             document.getElementById('totalMembers').textContent = data.total_members.toLocaleString();
-            document.getElementById('spotsRemaining').textContent = data.spots_remaining.toLocaleString();
+            if (document.getElementById('spotsRemaining'))
+                document.getElementById('spotsRemaining').textContent = data.spots_remaining.toLocaleString();
+            localStorage.setItem('lm_stats', JSON.stringify(data));
         }
     } catch (error) {
         console.error('Error loading stats:', error);
