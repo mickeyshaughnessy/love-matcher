@@ -2,7 +2,7 @@
    Love-Matcher App
    ============================================================ */
 
-const API_URL = 'https://rse-api.com:5009';
+const API_URL = 'https://love-matcher.com';
 let authToken = null;
 let currentUser = null;
 let matchPollInterval = null;
