@@ -3,519 +3,670 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Love-Matcher - AI-Powered Matchmaking</title>
-    
-    <!-- Meta Tags for SEO and Social Sharing -->
-    <meta name="description" content="Find your perfect match through AI-powered 29-dimension compatibility analysis. Join Love-Matcher for meaningful, lasting connections.">
-    <meta name="keywords" content="dating, matchmaking, AI dating, compatibility, relationships, love, online dating">
-    <meta name="author" content="Love-Matcher">
-    
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="Love-Matcher - AI-Powered Matchmaking">
-    <meta property="og:description" content="Find your perfect match through AI-powered 29-dimension compatibility analysis.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://rse-api.com">
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>">
-    
-    <!-- Google Fonts: Inter & Playfair Display -->
+    <title>Love-Matcher — Thoughtful Matchmaking</title>
+    <meta name="description" content="A thoughtful, AI-powered matchmaking service. One carefully chosen match at a time.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♡</text></svg>">
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&family=Courier+Prime&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
-    <!-- Custom Styles -->
+
     <link rel="stylesheet" href="public/css/styles.css">
 </head>
 <body>
-    <!-- Navigation Bar (Hidden until logged in) -->
-    <nav id="mainNav">
-        <a href="#" class="nav-brand" onclick="showView('landing')" style="text-decoration: none;">
-            <i class="ph-fill ph-heart"></i> Love-Matcher
+
+<!-- Navigation (shown after login) -->
+<nav id="mainNav">
+    <a href="#" class="nav-brand" onclick="showView('dashboard'); return false;">
+        ♡ Love-Matcher
+    </a>
+    <div class="nav-links">
+        <a href="#" class="nav-link" id="navDashboard" onclick="showView('dashboard'); return false;">
+            <i class="ph ph-house"></i> <span class="nav-text">Home</span>
         </a>
-        <div class="nav-links">
-            <a href="#" class="nav-link" onclick="showView('chat')"><i class="ph ph-hammer"></i> Build Profile</a>
-            <a href="#" class="nav-link" onclick="showView('profile')">
-                <i class="ph ph-heart-straight"></i> Connect
-                <span class="nav-badge hidden" id="matchBadge">1</span>
-            </a>
-            <a href="#" class="nav-link" onclick="showView('settings')"><i class="ph ph-gear"></i> Settings</a>
-            <a href="#" class="nav-link" onclick="logout()"><i class="ph ph-sign-out"></i> Logout</a>
+        <a href="#" class="nav-link" id="navChat" onclick="showView('chat'); return false;">
+            <i class="ph ph-chat-circle"></i> <span class="nav-text">Conversation</span>
+        </a>
+        <a href="#" class="nav-link" id="navMatch" onclick="showView('match'); return false;">
+            <i class="ph ph-heart"></i> <span class="nav-text">Your Match</span>
+            <span class="nav-badge hidden" id="matchBadge">1</span>
+        </a>
+        <a href="#" class="nav-link" id="navProfile" onclick="showView('profile'); return false;">
+            <i class="ph ph-user"></i> <span class="nav-text">Profile</span>
+        </a>
+        <a href="#" class="nav-link" onclick="logout(); return false;">
+            <i class="ph ph-sign-out"></i>
+        </a>
+    </div>
+</nav>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ============================================================
+     LANDING PAGE
+     ============================================================ -->
+<div id="landingPage">
+    <div class="landing-hero">
+        <h1>Finding someone who truly <em>fits</em></h1>
+        <p class="tagline">Love-Matcher uses deep conversation and AI to understand who you are — then introduces you to one carefully chosen person.</p>
+        <div class="hero-cta">
+            <button class="btn btn-rose btn-lg" onclick="switchTab('signup')">Begin Your Journey</button>
+            <button class="btn btn-secondary btn-lg" onclick="scrollToAuth()">Sign In</button>
         </div>
-    </nav>
+    </div>
 
-    <div class="container">
-        <!-- Landing Page -->
-        <div id="landingPage" class="landing-page">
-            <!-- Hero Section -->
-            <div class="hero">
-                <h1><i class="ph-fill ph-heart"></i> Love-Matcher</h1>
-                <p class="tagline">Deep Compatibility • Real Connections</p>
-                
-                <div style="max-width: 600px; margin: 0 auto 30px; padding: 15px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 2px;">
-                    <p style="color: var(--text-white); font-size: 1.1rem; line-height: 1.5; margin: 0;">
-                        Love-Matcher analyzes 29 dimensions of compatibility to find someone who truly aligns with you. 
-                        <strong>One carefully selected match at a time.</strong>
-                    </p>
+    <div class="landing-features">
+        <div class="container">
+            <h2 class="text-center" style="font-size:1.75rem; margin-bottom:8px;">A different kind of matchmaking</h2>
+            <p class="text-center text-muted" style="margin-bottom:0;">No swiping. No algorithms. No marketplace.</p>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="ph ph-chat-circle-text"></i></div>
+                    <h3>Conversation First</h3>
+                    <p>We get to know you through natural conversation, not checkbox forms. Your story, in your words.</p>
                 </div>
-                
-                <div class="auth-forms" id="authSection" style="margin-top: 30px;">
-                    <div class="auth-box">
-                        <h2>Sign Up</h2>
-                        <form id="signupForm">
-                            <div class="form-group">
-                                <label for="signupEmail">Email Address</label>
-                                <input type="email" id="signupEmail" required>
-                                <div id="signupEmailError" class="input-error"></div>
-                            </div>
-                            <div class="form-group">
-                                <label for="signupGender">Gender</label>
-                                <select id="signupGender" required style="width: 100%; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 1rem; background-color: white; color: black;">
-                                    <option value="" disabled selected>Select your gender</option>
-                                    <option value="M">Male</option>
-                                    <option value="F">Female</option>
-                                </select>
-                                <div id="signupGenderError" class="input-error"></div>
-                            </div>
-                            <div class="form-group">
-                                <label for="signupAge">Age</label>
-                                <input type="number" id="signupAge" min="18" required>
-                                <div id="signupAgeError" class="input-error"></div>
-                            </div>
-                            <button type="submit">Create Account</button>
-                        </form>
-                        <div id="signupMessage"></div>
-                    </div>
-                    
-                    <div class="auth-box">
-                        <h2>Login</h2>
-                        <form id="loginForm">
-                            <div class="form-group">
-                                <label for="loginEmail">Email Address</label>
-                                <input type="email" id="loginEmail" required>
-                                <div id="loginEmailError" class="input-error"></div>
-                            </div>
-                            <button type="submit">Login</button>
-                        </form>
-                        <div id="loginMessage"></div>
-                    </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="ph ph-person"></i></div>
+                    <h3>One Match at a Time</h3>
+                    <p>No overwhelming lists. You receive one thoughtfully selected introduction when the time is right.</p>
                 </div>
-            </div>
-
-            <!-- Stats Bar -->
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-number" id="totalMembers">0</div>
-                    <div class="stat-label">Members Joined</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="spotsRemaining">10,000</div>
-                    <div class="stat-label">Free Spots Remaining</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">1</div>
-                    <div class="stat-label">Match at a Time</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">29</div>
-                    <div class="stat-label">Compatibility Dimensions</div>
-                </div>
-            </div>
-
-            <!-- Why Different -->
-            <div class="how-it-works">
-                <h2>Why Love-Matcher Is Different</h2>
-                <div class="steps">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <h3>One Match at a Time</h3>
-                        <p>No endless swiping or option paralysis. Focus on one carefully selected, highly compatible person at a time for meaningful connections.</p>
-                    </div>
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <h3>Deep Compatibility</h3>
-                        <p>We analyze 29 dimensions of compatibility—from life goals and values to lifestyle and communication style—not just looks and hobbies.</p>
-                    </div>
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <h3>Privacy Protected</h3>
-                        <p>Your photos and full profile stay private until both of you accept. Meet people who are genuinely interested in you, not just browsing.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- About Section -->
-            <div class="about-section" id="aboutSection">
-                <h2>How It Works</h2>
-                <p style="text-align: center; color: var(--text-gray); font-size: 1.1rem; margin-bottom: 40px; max-width: 800px; margin-left: auto; margin-right: auto;">
-                    Deep compatibility analysis across 29 dimensions. One match at a time.
-                </p>
-                
-                <div class="about-content">
-                    <div class="about-box">
-                        <h3><i class="ph-fill ph-user-plus" style="font-size: 1.5em;"></i> Build Your Profile</h3>
-                        <p>Share your values, goals, and what matters most through natural conversation. We analyze 29 dimensions including life stage, family values, communication style, and lifestyle preferences.</p>
-                    </div>
-                    
-                    <div class="about-box">
-                        <h3><i class="ph-fill ph-heart-straight" style="font-size: 1.5em;"></i> Get One Match</h3>
-                        <p>Receive <strong>one carefully selected match</strong> based on deep compatibility. Focus on quality connections instead of endless options.</p>
-                    </div>
-                    
-                    <div class="about-box">
-                        <h3><i class="ph-fill ph-shield-check" style="font-size: 1.5em;"></i> Privacy Protected</h3>
-                        <p>Your name and photos stay private until <strong>both accept</strong>. No browsing, no ghosting—just mutual interest.</p>
-                    </div>
-                    
-                    <div class="about-box">
-                        <h3><i class="ph-fill ph-chat-circle-text" style="font-size: 1.5em;"></i> Connect & Chat</h3>
-                        <p>After mutual acceptance, exchange full profiles and start chatting. Take your time getting to know each other.</p>
-                    </div>
-                    
-                    <div class="about-box">
-                        <h3><i class="ph-fill ph-diamond" style="font-size: 1.5em;"></i> Free Lifetime Access</h3>
-                        <p>First 10,000 members get free lifetime access. No hidden fees, no premium tiers.</p>
-                    </div>
-                </div>
-            </div>
-
-
-        </div>
-
-        <!-- Privacy Policy View -->
-        <div id="privacyView" class="privacy-view">
-            <div class="policy-container">
-                <h1>Privacy Policy</h1>
-                <p class="last-updated">Last Updated: November 11, 2025</p>
-                <!-- Content truncated for brevity in this rewrite, linking to policy -->
-                <p>See full privacy policy in documentation.</p>
-                <button class="btn-primary" onclick="showView('landing')" style="margin-top: 30px;">Back to Home</button>
-            </div>
-        </div>
-
-        <!-- Terms of Service View -->
-        <div id="termsView" class="terms-view">
-            <div class="policy-container">
-                <h1>Terms of Service</h1>
-                <p class="last-updated">Last Updated: November 11, 2025</p>
-                <!-- Content truncated for brevity in this rewrite, linking to terms -->
-                <p>See full terms of service in documentation.</p>
-                <button class="btn-primary" onclick="showView('landing')" style="margin-top: 30px;">Back to Home</button>
-            </div>
-        </div>
-
-        <!-- Chat View -->
-        <div id="chatView" class="chat-view">
-            <div class="chat-container">
-                <div class="chat-main">
-                    <div class="chat-header">
-                        <h3><i class="ph ph-hammer"></i> Build Your Profile</h3>
-                    </div>
-                    <div class="chat-messages" id="chatMessages">
-                        <div class="message ai">
-                            <div>Hi! Let's build your profile together. First, tell me your name, where you're located, and a bit about yourself. Then we'll dive into what matters most to you in a relationship.</div>
-                            <div class="message-time">Just now</div>
-                        </div>
-                    </div>
-                    <div class="chat-input-area">
-                        <input type="text" id="chatInput" placeholder="Type your message...">
-                        <button onclick="sendMessage()">Send</button>
-                    </div>
-                </div>
-
-                <div class="chat-sidebar">
-                    <!-- Matching Status Toggle -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-title"><i class="ph ph-heart"></i> Matching Status</div>
-                        <div class="toggle-container">
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="buildMatchingToggle" onchange="toggleBuildMatchingStatus()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <span id="buildMatchingStatusLabel" class="status-text active">Active</span>
-                        </div>
-                    </div>
-                    
-                    <div class="sidebar-section">
-                        <div class="sidebar-title"><i class="ph ph-target"></i> Profile Progress</div>
-                        <div class="profile-progress">
-                            <div class="progress-label">
-                                <span><span id="sidebarDimensionCount">0</span>/29 Dimensions</span>
-                                <span id="sidebarPercentage">0%</span>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div class="progress-bar" id="sidebarProgressBar" style="width: 0%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Digital Mirror -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-title"><i class="ph ph-camera-rotate"></i> Digital Mirror</div>
-                        <div class="camera-container" style="background: #000; border-radius: 2px; overflow: hidden; position: relative; border: 1px solid var(--gold-primary); aspect-ratio: 4/3;">
-                            <video id="buildCamera" autoplay playsinline muted class="digital-mirror" style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-                            <div class="camera-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: white; padding: 8px; text-align: center; font-size: 0.8rem;">You</div>
-                        </div>
-                        <button class="btn-secondary" onclick="captureAndSavePhoto('buildCamera', this)" style="width: 100%; margin-top: 8px; font-size: 0.85rem; padding: 8px;">
-                            <i class="ph ph-aperture"></i> Capture to Profile
-                        </button>
-                    </div>
-                    
-                    <!-- Photo Upload in Build Profile View -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-title"><i class="ph ph-camera"></i> Your Photos</div>
-                        <p style="color: var(--text-gray); font-size: 0.85rem; margin-bottom: 12px;">
-                            Upload up to 3 photos (shown to matches after mutual acceptance)
-                        </p>
-                        <div class="photo-grid" id="chatPhotoGrid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-                            <!-- Photos rendered by JS -->
-                        </div>
-                        <input type="file" id="chatPhotoUploadInput" accept="image/*" style="display: none;" onchange="handleChatPhotoSelect(event)">
-                        <button class="photo-upload-btn" id="chatPhotoUploadBtn" onclick="triggerChatPhotoUpload()" style="padding: 8px; font-size: 0.9rem;">
-                            <i class="ph ph-upload-simple"></i> Upload Photo
-                        </button>
-                        <p style="color: var(--text-gray); font-size: 0.75rem; margin-top: 8px; text-align: center;">Max 5MB • JPG, PNG, GIF</p>
-                    </div>
-
-                    <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
-                        <div class="sidebar-title"><i class="ph ph-file-code"></i> Raw Profile JSON</div>
-                        <div id="jsonViewer" class="json-viewer">
-                            {
-  "dimensions": {},
-  "status": "building profile..."
-}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Match View -->
-        <div id="matchView" class="matches-view">
-            <div class="matches-header">
-                <h2>Your Match</h2>
-                <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
-                
-                <!-- Active/Inactive Toggle -->
-                <div class="toggle-container">
-                    <span class="toggle-label">Matching Status:</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="matchingActiveToggle" onchange="toggleMatchingStatus()">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span id="matchingStatusLabel" class="status-text active">Active</span>
-                </div>
-            </div>
-            <div id="matchContainer" style="max-width: 800px; margin: 0 auto;">
-                <!-- Match content will be loaded here -->
-            </div>
-        </div>
-
-        <!-- Profile View (Combined with Match) -->
-        <div id="profileView" class="profile-view">
-            <div class="profile-layout">
-                <div>
-                    <!-- Digital Mirror -->
-                    <div style="background: var(--black-card); padding: 20px; border-radius: 2px; border: 1px solid rgba(212, 175, 55, 0.2); margin-bottom: 20px; text-align: center;">
-                        <h3 style="color: var(--gold-primary); margin-bottom: 15px; font-size: 1.2rem;"><i class="ph ph-camera-rotate"></i> Digital Mirror</h3>
-                        <div class="camera-container" style="background: #000; border-radius: 2px; overflow: hidden; position: relative; border: 1px solid var(--gold-primary); aspect-ratio: 4/3; max-width: 400px; margin: 0 auto;">
-                            <video id="connectCamera" autoplay playsinline muted class="digital-mirror" style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-                            <div class="camera-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: white; padding: 8px; text-align: center; font-size: 0.8rem;">You</div>
-                        </div>
-                        <button class="btn-secondary" onclick="captureAndSavePhoto('connectCamera', this)" style="width: 100%; max-width: 400px; margin-top: 8px; font-size: 0.9rem; padding: 8px;">
-                            <i class="ph ph-aperture"></i> Capture to Profile
-                        </button>
-                    </div>
-
-                    <!-- Match Section -->
-                    <div id="matchSection" style="margin-bottom: 20px;">
-                        <!-- Match content will be loaded here -->
-                    </div>
-
-                    <div class="profile-container">
-                        <div class="profile-header">
-                            <h2>Connect with Match</h2>
-                            <p style="color: var(--text-gray);">Your profile and matches</p>
-                            
-                            <!-- Prominent Active/Inactive Toggle -->
-                            <div class="toggle-container" style="margin-top: 20px;">
-                                <span class="toggle-label">Matching Status:</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="mainMatchingToggle" onchange="toggleMainMatchingStatus()">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                                <span id="mainMatchingStatusLabel" class="status-text active">Active</span>
-                            </div>
-                        </div>
-                        
-                        <div class="profile-stats">
-                            <div class="profile-stat">
-                                <div class="profile-stat-value" id="profileDimCount">0</div>
-                                <div class="profile-stat-label">Dimensions Filled</div>
-                            </div>
-                            <div class="profile-stat">
-                                <div class="profile-stat-value" id="profileCompletion">0%</div>
-                                <div class="profile-stat-label">Completion</div>
-                            </div>
-                            <div class="profile-stat">
-                                <div class="profile-stat-value" id="profileConvos">0</div>
-                                <div class="profile-stat-label">Conversations</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Basic Info Section -->
-                        <div style="margin: 25px 0; padding: 20px; background: rgba(255, 255, 255, 0.02); border-radius: 2px; border-left: 4px solid #d4af37;">
-                            <h3 style="color: #d4af37; margin-bottom: 15px; font-size: 1.2rem;"><i class="ph ph-user"></i> Basic Info</h3>
-                            <div id="basicInfoDisplay" style="color: #f0f0f0;">
-                                <p style="margin-bottom: 10px;"><strong>Name:</strong> <span id="profileName">Not set</span></p>
-                                <p style="margin-bottom: 10px;"><strong>Age:</strong> <span id="profileAge">-</span></p>
-                                <p style="margin-bottom: 10px;"><strong>Location:</strong> <span id="profileLocation">Not set</span></p>
-                                <p style="margin-bottom: 15px;"><strong>About:</strong></p>
-                                <p id="profileAbout" style="color: #cccccc; font-style: italic; line-height: 1.6; padding: 10px; background: #111; border-radius: 2px;">
-                                    Share something about yourself in the Build section...
-                                </p>
-                            </div>
-                            <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 15px; text-align: center;">
-                                Update your info in the <a href="#" onclick="showView('chat'); return false;" style="color: #d4af37; font-weight: 600;">Build Profile</a> section
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="json-panel">
-                    <h3><i class="ph ph-file-code"></i> Raw Profile JSON</h3>
-                    <div id="profileJsonViewer" class="json-scroll">
-                        {
-  "loading": "profile data..."
-}
-                    </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="ph ph-shield-check"></i></div>
+                    <h3>Chaperoned Connection</h3>
+                    <p>Our AI gently facilitates your early conversations, creating space for genuine connection.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Settings View -->
-    <div id="settingsView" class="settings-view" style="display: none;">
-        <div class="container" style="max-width: 1000px; margin: 50px auto; padding: 20px;">
-            <h1 style="color: var(--gold-primary); margin-bottom: 30px;"><i class="ph ph-gear"></i> Settings</h1>
-            
-            <!-- Account Info -->
-            <div class="settings-section">
-                <h2>Account</h2>
-                <div class="settings-card">
-                    <div class="settings-item">
-                        <label>Email (Username)</label>
-                        <div id="settingsEmail" style="color: var(--text-white); font-weight: 600;">Loading...</div>
-                    </div>
-                    <div class="settings-item">
-                        <label>Member Number</label>
-                        <div id="settingsMemberNum" style="color: var(--text-white); font-weight: 600;">Loading...</div>
-                    </div>
-                    <div class="settings-item">
-                        <label>Account Type</label>
-                        <div id="settingsAccountType" style="color: var(--text-white); font-weight: 600;">Loading...</div>
-                    </div>
+    <div class="landing-how">
+        <div class="container">
+            <h2>How it works</h2>
+            <p class="sub">Simple, intentional, unhurried.</p>
+            <div class="steps-list">
+                <div class="step-item">
+                    <div class="step-num">01</div>
+                    <h3>Tell your story</h3>
+                    <p>Have a series of conversations with our AI. It learns what matters to you.</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">02</div>
+                    <h3>We find your match</h3>
+                    <p>When someone scores highly compatible, we introduce you — privately.</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">03</div>
+                    <h3>Meet with context</h3>
+                    <p>Start talking with a compatibility report in hand, and our AI to help.</p>
                 </div>
             </div>
-            
-            <!-- Profile Stats -->
-            <div class="settings-section">
-                <h2>Profile Stats</h2>
-                <div class="settings-card">
-                    <div class="settings-item">
-                        <label>Profile Completion</label>
-                        <div id="settingsCompletion" style="color: var(--gold-primary); font-weight: 600; font-size: 1.2rem;">0%</div>
-                    </div>
-                    <div class="settings-item">
-                        <label>Dimensions Filled</label>
-                        <div id="settingsDimensions" style="color: var(--text-white);">0 / 29</div>
-                    </div>
-                    <div class="settings-item">
-                        <label>Conversations</label>
-                        <div id="settingsConversations" style="color: var(--text-white);">0</div>
-                    </div>
-                    <div class="settings-item">
-                        <label>Photos Uploaded</label>
-                        <div id="settingsPhotos" style="color: var(--text-white);">0 / 3</div>
-                    </div>
-                </div>
+        </div>
+    </div>
+
+    <div class="landing-auth" id="authSection">
+        <div class="auth-container">
+            <h2 class="text-center" style="font-size:1.75rem; margin-bottom:32px;">Join Love-Matcher</h2>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
+                <button class="auth-tab" id="tabLogin" onclick="switchTab('login')">Sign In</button>
             </div>
-            
-            <!-- Matching Status -->
-            <div class="settings-section">
-                <h2>Matching</h2>
-                <div class="settings-card">
-                    <div class="settings-item">
-                        <label>Matching Status</label>
-                        <div class="toggle-container">
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="settingsMatchingToggle" onchange="toggleMatchingFromSettings()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <span id="settingsMatchingStatus" class="status-text active">Active</span>
+
+            <div class="auth-panel active" id="panelSignup">
+                <form id="signupForm">
+                    <div class="auth-grid">
+                        <div class="form-group">
+                            <label for="signupEmail">Email Address</label>
+                            <input type="email" id="signupEmail" placeholder="you@example.com" required>
+                            <div class="input-error" id="signupEmailError"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupAge">Age</label>
+                            <input type="number" id="signupAge" placeholder="25" min="18" max="120" required>
+                            <div class="input-error" id="signupAgeError"></div>
                         </div>
                     </div>
-                    <div class="settings-item">
-                        <label>Current Match</label>
-                        <div id="settingsCurrentMatch" style="color: var(--text-white);">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Theme Picker -->
-            <div class="settings-section">
-                <h2>Theme</h2>
-                <div class="settings-card">
-                    <div class="settings-item">
-                        <label>Choose Your Style</label>
-                        <select id="themeSelector" onchange="changeTheme(this.value)" style="padding: 12px; border-radius: 8px; border: 1px solid var(--gold-primary); font-size: 1rem; width: 100%; max-width: 300px; background: var(--black-card); color: var(--text-white);">
-                            <option value="default">Luxury Gold (Default)</option>
-                            <option value="borland">Borland Classic (Turbo Vision)</option>
-                            <option value="dark">Dark Mode</option>
-                            <option value="nature">Nature Green</option>
-                            <option value="ocean">Ocean Blue</option>
+                    <div class="form-group">
+                        <label for="signupGender">I identify as</label>
+                        <select id="signupGender" required>
+                            <option value="" disabled selected>Select…</option>
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
                         </select>
+                        <div class="input-error" id="signupGenderError"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%; padding:13px;">Create Account — It's Free</button>
+                    <div id="signupMessage"></div>
+                </form>
+            </div>
+
+            <div class="auth-panel" id="panelLogin">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email Address</label>
+                        <input type="email" id="loginEmail" placeholder="you@example.com" required>
+                        <div class="input-error" id="loginEmailError"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%; padding:13px;">Sign In</button>
+                    <div id="loginMessage"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer on landing -->
+    <footer>
+        <div class="footer-grid container">
+            <div>
+                <div class="footer-brand">♡ Love-Matcher</div>
+                <p class="footer-desc">A thoughtful AI matchmaking service. One carefully chosen introduction at a time.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Company</h4>
+                <a href="#" onclick="showView('privacy'); return false;">Privacy Policy</a>
+                <a href="#" onclick="showView('terms'); return false;">Terms of Service</a>
+                <a href="mailto:mickeyshaughnessy@gmail.com">Contact</a>
+            </div>
+            <div class="footer-col">
+                <h4>Account</h4>
+                <a href="#" onclick="scrollToAuth(); return false;">Sign In</a>
+                <a href="#" onclick="switchTab('signup'); return false;">Create Account</a>
+            </div>
+        </div>
+        <div class="footer-bottom container">
+            <span>&copy; 2025 Love-Matcher</span>
+        </div>
+    </footer>
+</div>
+
+<!-- ============================================================
+     DASHBOARD VIEW
+     ============================================================ -->
+<div id="dashboardView" style="display:none; min-height:calc(100vh - 64px);">
+    <div class="container" style="padding-top:48px; padding-bottom:80px;">
+        <div class="dashboard-header" id="dashboardHeader">
+            <h1>Good to see you</h1>
+            <p class="text-muted">Here's where things stand</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div>
+                <!-- Completeness card -->
+                <div class="completeness-card">
+                    <div class="completeness-header">
+                        <div>
+                            <h3 style="font-size:1.1rem; margin-bottom:4px;">Profile Completeness</h3>
+                            <p class="text-muted" style="font-size:0.875rem;" id="completenessSubtext">Complete your profile to unlock matching</p>
+                        </div>
+                        <div class="completeness-score" id="completenessScore">0%</div>
+                    </div>
+                    <div class="completeness-bar">
+                        <div class="completeness-fill" id="completenessFill" style="width:0%"></div>
+                    </div>
+                    <div id="completenessAction" style="margin-top:16px;">
+                        <button class="btn btn-primary btn-sm" onclick="showView('chat')">Continue Conversation <i class="ph ph-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Conversation topics checklist -->
+                <div class="topics-card">
+                    <div class="topics-header">
+                        <h3>Conversation Topics</h3>
+                        <p>Topics the AI will explore with you</p>
+                    </div>
+                    <div id="topicsList">
+                        <!-- Rendered by JS -->
                     </div>
                 </div>
             </div>
-            
-            <button onclick="showView('profile')" class="btn-primary" style="margin-top: 30px;">Back to Profile</button>
+
+            <div class="dashboard-sidebar">
+                <!-- Match status -->
+                <div class="card card-padded" id="dashMatchCard">
+                    <p class="profile-section-title">Your Match</p>
+                    <div id="dashMatchContent">
+                        <div class="match-gate-notice">
+                            <p>Complete your profile conversations to unlock matching.</p>
+                            <button class="btn btn-sm btn-primary" onclick="showView('chat')">Start Conversation</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="card card-padded">
+                    <p class="profile-section-title">Your Stats</p>
+                    <div class="sidebar-stat">
+                        <span class="sidebar-stat-num" id="dashConvos">0</span>
+                        <span class="sidebar-stat-label">conversations</span>
+                    </div>
+                    <div class="sidebar-stat">
+                        <span class="sidebar-stat-num" id="dashDims">0</span>
+                        <span class="sidebar-stat-label">topics covered</span>
+                    </div>
+                    <div class="sidebar-stat">
+                        <span class="sidebar-stat-num" id="dashPhotos">0</span>
+                        <span class="sidebar-stat-label">photos uploaded</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Footer -->
     <footer>
-        <div class="footer-content">
-            <div class="footer-section">
-                <h3><i class="ph-fill ph-heart" style="color: var(--gold-primary);"></i> Love-Matcher</h3>
-                <p>AI-powered matchmaking using 29-dimension compatibility analysis for meaningful, lasting relationships.</p>
+        <div class="footer-grid container">
+            <div>
+                <div class="footer-brand">♡ Love-Matcher</div>
+                <p class="footer-desc">A thoughtful AI matchmaking service.</p>
             </div>
-            
-            <div class="footer-section">
-                <h3>Quick Links</h3>
-                <a href="#" onclick="scrollToAuth(); return false;">Sign Up</a>
-                <a href="#" onclick="scrollToAbout(); return false;">About</a>
+            <div class="footer-col">
+                <h4>Pages</h4>
                 <a href="#" onclick="showView('privacy'); return false;">Privacy Policy</a>
                 <a href="#" onclick="showView('terms'); return false;">Terms of Service</a>
             </div>
-            
-            <div class="footer-section">
-                <h3>Support</h3>
-                <a href="mailto:mickeyshaughnessy@gmail.com">Contact Support</a>
-                <p style="color: var(--text-gray); margin-top: 10px;">✉️ mickeyshaughnessy@gmail.com</p>
+            <div class="footer-col">
+                <h4>Account</h4>
+                <a href="#" onclick="showView('settings'); return false;">Settings</a>
+                <a href="#" onclick="logout(); return false;">Sign Out</a>
+                <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Delete Account</a>
             </div>
-            
         </div>
-        
-        <div class="footer-bottom">
-            <p>&copy; 2025 Love-Matcher. All rights reserved. | Made with ❤️ by AI</p>
+        <div class="footer-bottom container">
+            <span>&copy; 2025 Love-Matcher</span>
+            <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Cancel Account</a>
         </div>
     </footer>
+</div>
 
-    <!-- App Logic -->
-    <script src="public/js/app.js"></script>
+<!-- ============================================================
+     CHAT / CONVERSATION VIEW
+     ============================================================ -->
+<div id="chatView" style="display:none;">
+    <div class="chat-layout">
+        <!-- Topics panel -->
+        <div class="chat-topics-panel">
+            <div class="chat-topics-header">
+                <h3>Topics</h3>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                    <div class="chat-progress-bar" style="flex:1">
+                        <div class="chat-progress-fill" id="chatProgressFill" style="width:0%"></div>
+                    </div>
+                    <span style="font-size:0.775rem; color:var(--slate-muted); white-space:nowrap;" id="chatProgressLabel">0 / 29</span>
+                </div>
+            </div>
+            <div id="chatTopicsList">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+
+        <!-- Chat area -->
+        <div class="chat-main">
+            <div class="chat-header-bar">
+                <div>
+                    <h2>Your Conversation</h2>
+                    <div class="sub">Chat with our matchmaking AI to build your profile</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">
+                    <i class="ph ph-arrow-left"></i> Dashboard
+                </button>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages rendered by JS -->
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-row">
+                    <textarea
+                        id="chatInput"
+                        placeholder="Share your thoughts…"
+                        rows="1"
+                        oninput="autoResizeTextarea(this)"
+                    ></textarea>
+                    <button class="btn btn-primary" id="chatSendBtn" onclick="sendMessage()">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MATCH VIEW
+     ============================================================ -->
+<div id="matchView" style="display:none; min-height:calc(100vh - 64px);">
+    <div class="container">
+        <div class="match-page-header">
+            <h1>Your Match</h1>
+            <p class="text-muted">Based on your conversations and AI compatibility analysis</p>
+        </div>
+        <div id="matchContainer">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-grid container">
+            <div>
+                <div class="footer-brand">♡ Love-Matcher</div>
+                <p class="footer-desc">A thoughtful AI matchmaking service.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Pages</h4>
+                <a href="#" onclick="showView('privacy'); return false;">Privacy Policy</a>
+                <a href="#" onclick="showView('terms'); return false;">Terms of Service</a>
+            </div>
+            <div class="footer-col">
+                <h4>Account</h4>
+                <a href="#" onclick="showView('settings'); return false;">Settings</a>
+                <a href="#" onclick="logout(); return false;">Sign Out</a>
+                <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Delete Account</a>
+            </div>
+        </div>
+        <div class="footer-bottom container">
+            <span>&copy; 2025 Love-Matcher</span>
+            <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Cancel Account</a>
+        </div>
+    </footer>
+</div>
+
+<!-- ============================================================
+     PROFILE VIEW
+     ============================================================ -->
+<div id="profileView" style="display:none; min-height:calc(100vh - 64px);">
+    <div class="container" style="padding-top:48px; padding-bottom:80px;">
+        <h1 style="font-size:1.75rem; margin-bottom:32px;">Your Profile</h1>
+        <div class="profile-layout">
+            <!-- Left: basic info -->
+            <div>
+                <div class="card card-padded" style="margin-bottom:20px;">
+                    <p class="profile-section-title">Basic Info</p>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Name</span>
+                        <span class="profile-info-value" id="profileName">—</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Age</span>
+                        <span class="profile-info-value" id="profileAge">—</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Location</span>
+                        <span class="profile-info-value" id="profileLocation">—</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Gender</span>
+                        <span class="profile-info-value" id="profileGender">—</span>
+                    </div>
+                    <div class="profile-info-row" style="flex-direction:column; gap:8px;">
+                        <span class="profile-info-label">About</span>
+                        <span class="profile-info-value" id="profileAbout" style="font-size:0.9rem; line-height:1.7; color:var(--slate-light);">Share something about yourself in conversation…</span>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="card card-padded" style="margin-bottom:20px;">
+                    <p class="profile-section-title">Profile Progress</p>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Topics covered</span>
+                        <span class="profile-info-value" id="profileDims">0 / 29</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Conversations</span>
+                        <span class="profile-info-value" id="profileConvos">0</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">Member since</span>
+                        <span class="profile-info-value" id="profileMemberSince">—</span>
+                    </div>
+                    <div class="mt-4">
+                        <button class="btn btn-secondary btn-sm" onclick="showView('chat')">Continue Conversation</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: photos -->
+            <div>
+                <div class="card card-padded">
+                    <p class="profile-section-title">Photos</p>
+                    <p class="text-muted" style="font-size:0.825rem; margin-bottom:16px;">Up to 3 photos, shown to your match after mutual acceptance.</p>
+                    <div class="photo-grid" id="profilePhotoGrid">
+                        <!-- Rendered by JS -->
+                    </div>
+                    <input type="file" id="photoUploadInput" accept="image/*" style="display:none;" onchange="handlePhotoSelect(event)">
+                    <button class="photo-upload-btn" id="photoUploadBtn" onclick="document.getElementById('photoUploadInput').click()">
+                        <i class="ph ph-upload-simple"></i> Upload Photo
+                    </button>
+                    <p class="text-muted" style="font-size:0.775rem; text-align:center; margin-top:8px;">Max 5MB · JPG, PNG, GIF</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-grid container">
+            <div>
+                <div class="footer-brand">♡ Love-Matcher</div>
+                <p class="footer-desc">A thoughtful AI matchmaking service.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Pages</h4>
+                <a href="#" onclick="showView('privacy'); return false;">Privacy Policy</a>
+                <a href="#" onclick="showView('terms'); return false;">Terms of Service</a>
+            </div>
+            <div class="footer-col">
+                <h4>Account</h4>
+                <a href="#" onclick="showView('settings'); return false;">Settings</a>
+                <a href="#" onclick="logout(); return false;">Sign Out</a>
+                <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Delete Account</a>
+            </div>
+        </div>
+        <div class="footer-bottom container">
+            <span>&copy; 2025 Love-Matcher</span>
+            <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Cancel Account</a>
+        </div>
+    </footer>
+</div>
+
+<!-- ============================================================
+     SETTINGS VIEW
+     ============================================================ -->
+<div id="settingsView" style="display:none; min-height:calc(100vh - 64px);">
+    <div class="container" style="padding-top:48px; padding-bottom:80px;">
+        <div class="settings-layout">
+            <div class="settings-header">
+                <h1>Settings</h1>
+            </div>
+
+            <!-- Account -->
+            <div class="settings-section">
+                <div class="settings-section-title">Account</div>
+                <div class="card card-padded">
+                    <div class="settings-row">
+                        <span class="settings-row-label">Email</span>
+                        <span class="settings-row-value" id="settingsEmail">—</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-row-label">Member Number</span>
+                        <span class="settings-row-value" id="settingsMemberNum">—</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-row-label">Account Type</span>
+                        <span class="settings-row-value" id="settingsAccountType">Free</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matching -->
+            <div class="settings-section">
+                <div class="settings-section-title">Matching</div>
+                <div class="card card-padded">
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-row-label">Matching Active</div>
+                            <div class="settings-row-value" style="margin-top:2px;">Pause to temporarily leave the matching pool</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="settingsMatchingToggle" onchange="toggleMatchingFromSettings()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="status-pill active" id="settingsMatchingStatus">Active</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-row-label">Current Match</span>
+                        <span class="settings-row-value" id="settingsCurrentMatch">None</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Stats -->
+            <div class="settings-section">
+                <div class="settings-section-title">Profile</div>
+                <div class="card card-padded">
+                    <div class="settings-row">
+                        <span class="settings-row-label">Completion</span>
+                        <span class="settings-row-value" id="settingsCompletion">0%</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-row-label">Topics Covered</span>
+                        <span class="settings-row-value" id="settingsDimensions">0 / 29</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-row-label">Conversations</span>
+                        <span class="settings-row-value" id="settingsConversations">0</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-row-label">Photos</span>
+                        <span class="settings-row-value" id="settingsPhotos">0 / 3</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger zone -->
+            <div class="settings-section">
+                <div class="settings-section-title">Account Actions</div>
+                <div class="card card-padded">
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-row-label">Delete Account</div>
+                            <div class="settings-row-value" style="margin-top:2px;">Permanently remove your account and all data</div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="showCancelModal()">Delete</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="showView('dashboard')">
+                <i class="ph ph-arrow-left"></i> Back to Home
+            </button>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-grid container">
+            <div>
+                <div class="footer-brand">♡ Love-Matcher</div>
+                <p class="footer-desc">A thoughtful AI matchmaking service.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Pages</h4>
+                <a href="#" onclick="showView('privacy'); return false;">Privacy Policy</a>
+                <a href="#" onclick="showView('terms'); return false;">Terms of Service</a>
+            </div>
+            <div class="footer-col">
+                <h4>Account</h4>
+                <a href="#" onclick="logout(); return false;">Sign Out</a>
+                <a href="#" class="footer-cancel-link" onclick="showCancelModal(); return false;">Delete Account</a>
+            </div>
+        </div>
+        <div class="footer-bottom container">
+            <span>&copy; 2025 Love-Matcher</span>
+        </div>
+    </footer>
+</div>
+
+<!-- ============================================================
+     PRIVACY VIEW
+     ============================================================ -->
+<div id="privacyView" style="display:none;">
+    <div class="container" style="padding-top:48px; padding-bottom:80px;">
+        <div class="policy-container">
+            <h1>Privacy Policy</h1>
+            <p class="last-updated">Last Updated: November 11, 2025</p>
+
+            <h2>Information We Collect</h2>
+            <p>We collect information you provide through conversations with our AI matchmaker, including personal details, values, preferences, and lifestyle information used for compatibility matching. We also collect your email address and basic demographic information provided at registration.</p>
+
+            <h2>How We Use Your Information</h2>
+            <p>Your information is used solely to facilitate introductions between compatible members. We use AI analysis to assess compatibility and suggest one match at a time. We do not sell your personal data to third parties.</p>
+
+            <h2>Data Storage</h2>
+            <p>Your profile data is stored securely. Photos are stored on our cloud storage provider. Conversation history is retained to improve your matching experience.</p>
+
+            <h2>Your Rights</h2>
+            <p>You may delete your account and all associated data at any time using the "Cancel Account" option in settings or the footer of any page. Upon deletion, your profile, conversations, and photos are permanently removed.</p>
+
+            <h2>Contact</h2>
+            <p>Questions? Email <a href="mailto:mickeyshaughnessy@gmail.com">mickeyshaughnessy@gmail.com</a></p>
+
+            <div class="mt-8">
+                <button class="btn btn-secondary" onclick="history.back() || showView('landing')">Back</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     TERMS VIEW
+     ============================================================ -->
+<div id="termsView" style="display:none;">
+    <div class="container" style="padding-top:48px; padding-bottom:80px;">
+        <div class="policy-container">
+            <h1>Terms of Service</h1>
+            <p class="last-updated">Last Updated: November 11, 2025</p>
+
+            <h2>Eligibility</h2>
+            <p>You must be 18 years of age or older to use Love-Matcher. By creating an account you confirm that you are single and not in a committed relationship.</p>
+
+            <h2>One Match at a Time</h2>
+            <p>Love-Matcher operates on a one-match-at-a-time model. You will receive a single introduction at a time. You may decline and return to the pool at any time.</p>
+
+            <h2>Conduct</h2>
+            <p>You agree to engage honestly and respectfully. Providing false information in your profile is grounds for account termination. Harassment of other members is strictly prohibited.</p>
+
+            <h2>Service</h2>
+            <p>Love-Matcher is currently free for all members. We make no guarantees about match timing or outcomes. The service is provided as-is.</p>
+
+            <h2>Termination</h2>
+            <p>You may delete your account at any time. We reserve the right to terminate accounts that violate these terms.</p>
+
+            <div class="mt-8">
+                <button class="btn btn-secondary" onclick="history.back() || showView('landing')">Back</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     CANCEL ACCOUNT MODAL
+     ============================================================ -->
+<div id="cancelModal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>Delete Your Account</h2>
+        <p>Are you sure? This will permanently delete your profile, conversation history, and all data. This cannot be undone.</p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="hideCancelModal()">Cancel</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn" onclick="deleteAccount()">Yes, Delete My Account</button>
+        </div>
+    </div>
+</div>
+
+<script src="public/js/app.js"></script>
 </body>
 </html>

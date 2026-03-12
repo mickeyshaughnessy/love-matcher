@@ -1,1542 +1,1117 @@
+/* ============================================================
+   Love-Matcher App
+   ============================================================ */
+
 const API_URL = 'https://rse-api.com:5009';
 let authToken = null;
 let currentUser = null;
-let matchMessagesInterval = null;
-let currentStream = null;
+let matchPollInterval = null;
 
-// Camera Functions
-async function startCamera(videoId) {
-    // Only request if in browser environment that supports it
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+// Conversation topic categories shown in the sidebar checklist
+const TOPIC_GROUPS = [
+    { key: 'identity',    label: 'Who You Are',        dims: ['gender', 'seeking_gender', 'age', 'location', 'education', 'career'] },
+    { key: 'values',      label: 'Values & Worldview',  dims: ['religion', 'politics', 'vision', 'finances'] },
+    { key: 'family',      label: 'Family & Future',     dims: ['family_origin', 'children'] },
+    { key: 'connection',  label: 'How You Connect',     dims: ['communication', 'conflict', 'affection', 'humor'] },
+    { key: 'daily_life',  label: 'Daily Life',          dims: ['domestic', 'cleanliness', 'food', 'time', 'technology'] },
+    { key: 'wellbeing',   label: 'Well-being',          dims: ['health', 'mental_health', 'social_energy', 'substances'] },
+    { key: 'interests',   label: 'Interests',           dims: ['hobbies', 'travel', 'culture', 'pets'] },
+    { key: 'partnership', label: 'Partnership Style',   dims: ['independence', 'decisions'] },
+];
 
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const videoEl = document.getElementById(videoId);
-        if (videoEl) {
-            videoEl.srcObject = stream;
-            currentStream = stream;
-        } else {
-            // If element missing, stop stream immediately
-            stream.getTracks().forEach(track => track.stop());
-        }
-    } catch (err) {
-        console.warn("Camera access denied or error:", err);
-    }
-}
+const ALL_DIMS = TOPIC_GROUPS.flatMap(g => g.dims);
 
-function stopCamera() {
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-    }
-}
-
-async function captureAndSavePhoto(videoId, btnElement) {
-    const video = document.getElementById(videoId);
-    if (!video || !video.srcObject) {
-        showToast('Camera not active', 'error');
-        return;
-    }
-
-    // Check if user already has 3 photos
-    if (currentUser && currentUser.photos && currentUser.photos.length >= 3) {
-        showToast('You already have 3 photos. Delete one first.', 'error');
-        return;
-    }
-
-    const originalText = btnElement.innerHTML;
-    btnElement.disabled = true;
-    btnElement.innerHTML = '<span class="spinner"></span>Saving...';
-
-    try {
-        // Create canvas to capture
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        // Flip context if video is mirrored (which it is by CSS)
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Convert to blob
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-        
-        if (!blob) {
-            throw new Error('Failed to capture photo');
-        }
-
-        // Create file from blob
-        const file = new File([blob], "webcam-capture.jpg", { type: "image/jpeg" });
-        
-        // Upload
-        const formData = new FormData();
-        formData.append('photo', file);
-        
-        const response = await fetch(`${API_URL}/profile/photos`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showToast('Photo captured and saved!', 'success');
-            // Update photo grids
-            if (typeof renderPhotos === 'function') {
-                renderPhotos(data.photos, 'chatPhotoGrid', 'chatPhotoUploadBtn');
-            }
-            // Update user object
-            if (currentUser) {
-                currentUser.photos = data.photos;
-            }
-            // Update stats
-            document.getElementById('settingsPhotos').textContent = (data.photos.length) + ' / 3';
-            
-            // Reload match view to show new photo in match card
-            if (document.getElementById('matchView').style.display === 'block' || 
-                document.getElementById('profileView').style.display === 'block') {
-                loadMatchInProfile();
-            }
-        } else {
-            showToast(data.error || 'Upload failed', 'error');
-        }
-    } catch (error) {
-        console.error('Capture error:', error);
-        showToast('Failed to save photo', 'error');
-    } finally {
-        btnElement.disabled = false;
-        btnElement.innerHTML = originalText;
-    }
-}
-
-// Toast notification system
-function showToast(message, type = 'info') {
-    const toastHTML = `
-        <div class="toast ${type}">
-            <div class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</div>
-            <div class="toast-message">${message}</div>
-            <div class="toast-close" onclick="this.parentElement.remove()">×</div>
-        </div>
-    `;
-    
-    const toast = document.createElement('div');
-    toast.innerHTML = toastHTML;
-    document.body.appendChild(toast.firstElementChild);
-    
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-        const toastEl = document.querySelector('.toast:last-of-type');
-        if (toastEl) toastEl.remove();
-    }, 3000);
-}
-
-// Inline Validation Helpers
-function showInputError(elementId, message) {
-    const errorDiv = document.getElementById(elementId);
-    if (errorDiv) {
-        errorDiv.textContent = message;
-    }
-}
-
-function clearInputErrors() {
-    document.querySelectorAll('.input-error').forEach(el => el.textContent = '');
-}
-
-// Show typing indicator
-function showTypingIndicator() {
-    const messagesDiv = document.getElementById('chatMessages');
-    const indicator = document.createElement('div');
-    indicator.className = 'typing-indicator';
-    indicator.id = 'typingIndicator';
-    indicator.innerHTML = '<span></span><span></span><span></span>';
-    messagesDiv.appendChild(indicator);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Remove typing indicator
-function removeTypingIndicator() {
-    const indicator = document.getElementById('typingIndicator');
-    if (indicator) indicator.remove();
-}
-
-// Initialize
+/* ============================================================
+   INIT
+   ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-    loadMemberStats();
     checkAutoLogin();
+    setupChatInputKeydown();
 });
 
-// Check for saved session and auto-login
 function checkAutoLogin() {
-    const savedToken = localStorage.getItem('authToken');
-    const savedUser = localStorage.getItem('currentUser');
-    
-    if (savedToken && savedUser) {
-        authToken = savedToken;
-        currentUser = JSON.parse(savedUser);
-        document.getElementById('mainNav').classList.add('active');
-        showView('chat');
+    const token = localStorage.getItem('authToken');
+    const user  = localStorage.getItem('currentUser');
+    if (token && user) {
+        authToken = token;
+        currentUser = JSON.parse(user);
+        showLoggedInNav();
+        showView('dashboard');
     }
 }
 
-// Load membership statistics
-async function loadMemberStats() {
-    // Show cached value immediately while fetching
-    const cached = localStorage.getItem('lm_stats');
-    if (cached) {
-        try {
-            const d = JSON.parse(cached);
-            if (document.getElementById('totalMembers'))
-                document.getElementById('totalMembers').textContent = d.total_members.toLocaleString();
-            if (document.getElementById('spotsRemaining'))
-                document.getElementById('spotsRemaining').textContent = d.spots_remaining.toLocaleString();
-        } catch (e) {}
-    }
-    try {
-        const response = await fetch(`${API_URL}/stats`);
-        const data = await response.json();
-        
-        if (response.ok) {
-            document.getElementById('totalMembers').textContent = data.total_members.toLocaleString();
-            if (document.getElementById('spotsRemaining'))
-                document.getElementById('spotsRemaining').textContent = data.spots_remaining.toLocaleString();
-            localStorage.setItem('lm_stats', JSON.stringify(data));
-        }
-    } catch (error) {
-        console.error('Error loading stats:', error);
-    }
+function showLoggedInNav() {
+    document.getElementById('mainNav').classList.add('active');
 }
 
-// Scroll functions
-function scrollToAuth() {
-    document.getElementById('authSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
+/* ============================================================
+   VIEW MANAGEMENT
+   ============================================================ */
+const VIEWS = ['landingPage', 'dashboardView', 'chatView', 'matchView',
+               'profileView', 'settingsView', 'privacyView', 'termsView'];
 
-function scrollToAbout() {
-    document.getElementById('aboutSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// View management
-function showView(viewName) {
-    // Clear any existing message polling
-    if (matchMessagesInterval) {
-        clearInterval(matchMessagesInterval);
-        matchMessagesInterval = null;
-    }
-    
-    // Stop camera from previous view
-    stopCamera();
-    
-    // Hide all views
-    document.getElementById('landingPage').style.display = 'none';
-    document.getElementById('chatView').style.display = 'none';
-    document.getElementById('matchView').style.display = 'none';
-    document.getElementById('profileView').style.display = 'none';
-    document.getElementById('privacyView').style.display = 'none';
-    document.getElementById('termsView').style.display = 'none';
-    document.getElementById('settingsView').style.display = 'none';
-
-    // Remove active class from all nav links
-    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-
-    // Show selected view
-    switch(viewName) {
-        case 'landing':
-            document.getElementById('landingPage').style.display = 'block';
-            // Hide nav when on landing page (unless logged in)
-            if (!authToken) {
-                document.getElementById('mainNav').classList.remove('active');
-            }
-            break;
-        case 'chat':
-            document.getElementById('chatView').style.display = 'block';
-            document.querySelectorAll('.nav-link')[0].classList.add('active');
-            loadChatHistory();
-            startCamera('buildCamera');
-            break;
-        case 'profile':
-            document.getElementById('profileView').style.display = 'block';
-            document.querySelectorAll('.nav-link')[1].classList.add('active');
-            loadProfile();
-            startCamera('connectCamera');
-            break;
-        case 'privacy':
-            document.getElementById('privacyView').style.display = 'block';
-            break;
-        case 'terms':
-            document.getElementById('termsView').style.display = 'block';
-            break;
-        case 'settings':
-            document.getElementById('settingsView').style.display = 'block';
-            document.querySelectorAll('.nav-link')[2].classList.add('active');
-            loadSettings();
-            break;
+function showView(name) {
+    // Clear any polling
+    if (matchPollInterval) {
+        clearInterval(matchPollInterval);
+        matchPollInterval = null;
     }
 
-    // Scroll to top
+    // Hide all
+    VIEWS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    // Remove nav active states
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+
+    const map = {
+        landing:   { el: 'landingPage',   nav: null },
+        dashboard: { el: 'dashboardView', nav: 'navDashboard' },
+        chat:      { el: 'chatView',      nav: 'navChat' },
+        match:     { el: 'matchView',     nav: 'navMatch' },
+        profile:   { el: 'profileView',   nav: 'navProfile' },
+        settings:  { el: 'settingsView',  nav: null },
+        privacy:   { el: 'privacyView',   nav: null },
+        terms:     { el: 'termsView',     nav: null },
+    };
+
+    const entry = map[name];
+    if (!entry) return;
+
+    const el = document.getElementById(entry.el);
+    if (el) el.style.display = 'block';
+    if (entry.nav) {
+        const navEl = document.getElementById(entry.nav);
+        if (navEl) navEl.classList.add('active');
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Load data for the view
+    if (name === 'dashboard') loadDashboard();
+    if (name === 'chat')      loadChatHistory();
+    if (name === 'match')     loadMatch();
+    if (name === 'profile')   loadProfile();
+    if (name === 'settings')  loadSettings();
 }
 
-// Signup
+/* ============================================================
+   AUTH
+   ============================================================ */
+function switchTab(tab) {
+    const panelSignup = document.getElementById('panelSignup');
+    const panelLogin  = document.getElementById('panelLogin');
+    const tabSignup   = document.getElementById('tabSignup');
+    const tabLogin    = document.getElementById('tabLogin');
+
+    if (tab === 'signup') {
+        panelSignup.classList.add('active');
+        panelLogin.classList.remove('active');
+        tabSignup.classList.add('active');
+        tabLogin.classList.remove('active');
+    } else {
+        panelLogin.classList.add('active');
+        panelSignup.classList.remove('active');
+        tabLogin.classList.add('active');
+        tabSignup.classList.remove('active');
+    }
+
+    scrollToAuth();
+}
+
+function scrollToAuth() {
+    const el = document.getElementById('authSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 document.getElementById('signupForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    // Clear previous errors
-    clearInputErrors();
-    
-    const email = document.getElementById('signupEmail').value.trim();
-    const age = parseInt(document.getElementById('signupAge').value);
+    clearErrors();
+
+    const email  = document.getElementById('signupEmail').value.trim();
+    const age    = parseInt(document.getElementById('signupAge').value);
     const gender = document.getElementById('signupGender').value;
-    
-    let hasError = false;
-    
-    // Input validation
-    if (!email || !email.includes('@')) {
-        showInputError('signupEmailError', 'Please enter a valid email address');
-        hasError = true;
-    }
-    
-    if (!gender) {
-        showInputError('signupGenderError', 'Please select your gender');
-        hasError = true;
-    }
-    
-    if (age < 18 || age > 120) {
-        showInputError('signupAgeError', 'Age must be between 18 and 120');
-        hasError = true;
-    }
-    
-    if (hasError) return;
-    
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span>Creating...';
-    
+
+    let valid = true;
+    if (!email || !email.includes('@')) { showError('signupEmailError', 'Enter a valid email'); valid = false; }
+    if (!gender) { showError('signupGenderError', 'Select your gender'); valid = false; }
+    if (!age || age < 18 || age > 120) { showError('signupAgeError', 'Age must be 18–120'); valid = false; }
+    if (!valid) return;
+
+    const btn = e.target.querySelector('button[type=submit]');
+    setBtnLoading(btn, 'Creating account…');
+
     try {
-        const response = await fetch(`${API_URL}/register`, {
+        const res = await fetch(`${API_URL}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, age, gender })
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            authToken = data.token;
+        const data = await res.json();
+
+        if (res.ok) {
+            authToken   = data.token;
             currentUser = data;
-            
-            // Save to localStorage for auto-login
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            
-            showToast(data.message || 'Account created successfully!', 'success');
-            document.getElementById('signupMessage').innerHTML = 
-                `<div class="success">${data.message}</div>`;
-            
-            // Show chat to start building profile
-            setTimeout(() => {
-                document.getElementById('mainNav').classList.add('active');
-                showView('chat');
-            }, 1500);
+            showToast('Welcome to Love-Matcher!', 'success');
+            showLoggedInNav();
+            setTimeout(() => showView('dashboard'), 600);
         } else {
-            const errorMsg = data.error || 'Signup failed';
-            // Generic signup error fallback
-            showToast(errorMsg, 'error');
-            document.getElementById('signupMessage').innerHTML = 
-                `<div class="error">${errorMsg}</div>`;
+            showMsg('signupMessage', data.error || 'Signup failed', 'error');
         }
-    } catch (error) {
-        const errorMsg = 'Connection error. Please try again.';
-        showToast(errorMsg, 'error');
-        document.getElementById('signupMessage').innerHTML = 
-            `<div class="error">${errorMsg}</div>`;
-        console.error('Signup error:', error);
+    } catch {
+        showMsg('signupMessage', 'Connection error. Please try again.', 'error');
     } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create Account';
+        resetBtn(btn, 'Create Account — It\'s Free');
     }
 });
 
-// Login
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    clearInputErrors();
-    
+    clearErrors();
+
     const email = document.getElementById('loginEmail').value.trim();
-    
-    // Input validation
-    if (!email || !email.includes('@')) {
-        showInputError('loginEmailError', 'Please enter a valid email address');
-        return;
-    }
-    
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span>Logging in...';
-    
+    if (!email || !email.includes('@')) { showError('loginEmailError', 'Enter a valid email'); return; }
+
+    const btn = e.target.querySelector('button[type=submit]');
+    setBtnLoading(btn, 'Signing in…');
+
     try {
-        const response = await fetch(`${API_URL}/login`, {
+        const res = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            authToken = data.token;
+        const data = await res.json();
+
+        if (res.ok) {
+            authToken   = data.token;
             currentUser = data;
-            
-            // Save to localStorage for auto-login
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            
-            showToast('Login successful!', 'success');
-            document.getElementById('loginMessage').innerHTML = 
-                `<div class="success">Login successful!</div>`;
-            
-            // Show chat view
-            setTimeout(() => {
-                document.getElementById('mainNav').classList.add('active');
-                showView('chat');
-            }, 1000);
+            showToast('Welcome back!', 'success');
+            showLoggedInNav();
+            setTimeout(() => showView('dashboard'), 600);
         } else {
-            const errorMsg = data.error || 'Login failed';
-            showToast(errorMsg, 'error');
-            document.getElementById('loginMessage').innerHTML = 
-                `<div class="error">${errorMsg}</div>`;
+            showMsg('loginMessage', data.error || 'Sign in failed', 'error');
         }
-    } catch (error) {
-        const errorMsg = 'Connection error. Please try again.';
-        showToast(errorMsg, 'error');
-        document.getElementById('loginMessage').innerHTML = 
-            `<div class="error">${errorMsg}</div>`;
-        console.error('Login error:', error);
+    } catch {
+        showMsg('loginMessage', 'Connection error. Please try again.', 'error');
     } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Login';
+        resetBtn(btn, 'Sign In');
     }
 });
 
-// Logout
 function logout() {
-    authToken = null;
+    authToken   = null;
     currentUser = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
     document.getElementById('mainNav').classList.remove('active');
     showView('landing');
-    showToast('Logged out successfully');
+    showToast('Signed out');
 }
 
-// Load chat history
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+async function loadDashboard() {
+    if (!authToken) return;
+
+    try {
+        const [profileRes, matchRes] = await Promise.all([
+            fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } }),
+            fetch(`${API_URL}/match`,   { headers: { Authorization: `Bearer ${authToken}` } }),
+        ]);
+
+        const profile = await profileRes.json();
+        const matchData = await matchRes.json();
+
+        if (!profileRes.ok) return;
+
+        // Update header greeting
+        const name = profile.name || '';
+        const header = document.getElementById('dashboardHeader');
+        if (header) {
+            header.innerHTML = `
+                <h1>Good to see you${name ? ', ' + name.split(' ')[0] : ''}</h1>
+                <p class="text-muted">Here's where things stand</p>
+            `;
+        }
+
+        // Completeness
+        const dims   = Object.keys(profile.dimensions || {}).length;
+        const pct    = Math.round((dims / ALL_DIMS.length) * 100);
+        const fill   = document.getElementById('completenessFill');
+        const score  = document.getElementById('completenessScore');
+        const sub    = document.getElementById('completenessSubtext');
+        const action = document.getElementById('completenessAction');
+
+        if (fill)  fill.style.width  = pct + '%';
+        if (score) score.textContent = pct + '%';
+
+        const eligible = dims >= 5;
+        if (sub) {
+            sub.textContent = eligible
+                ? `You've covered ${dims} of ${ALL_DIMS.length} topics — you're in the matching pool!`
+                : `Cover at least 5 topics to enter the matching pool (${dims}/${ALL_DIMS.length} so far)`;
+        }
+        if (action) {
+            action.innerHTML = pct >= 100
+                ? `<span style="color:var(--success); font-size:0.875rem;">✓ Profile complete</span>`
+                : `<button class="btn btn-primary btn-sm" onclick="showView('chat')">Continue Conversation <i class="ph ph-arrow-right"></i></button>`;
+        }
+
+        // Stats
+        setIfExists('dashConvos', profile.conversation_count || 0);
+        setIfExists('dashDims',   dims);
+        setIfExists('dashPhotos', (profile.photos || []).length);
+
+        // Topics checklist
+        renderTopicsChecklist(profile.dimensions || {}, 'topicsList', true);
+
+        // Match card
+        renderDashMatchCard(matchData, eligible);
+
+    } catch (err) {
+        console.error('Dashboard load error:', err);
+    }
+}
+
+function renderDashMatchCard(matchData, profileEligible) {
+    const container = document.getElementById('dashMatchContent');
+    if (!container) return;
+
+    if (!profileEligible) {
+        container.innerHTML = `
+            <div class="match-gate-notice">
+                <p>Complete at least 5 conversation topics to enter the matching pool.</p>
+                <button class="btn btn-sm btn-primary" onclick="showView('chat')">Start Conversation</button>
+            </div>`;
+        return;
+    }
+
+    if (matchData.match) {
+        const m = matchData.match;
+        const score = m.match_score || 0;
+        container.innerHTML = `
+            <div style="text-align:center; padding:16px 0;">
+                <div style="font-family:var(--font-serif); font-size:2.5rem; color:var(--slate);">${score}%</div>
+                <div style="font-size:0.775rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-muted); margin-bottom:12px;">Compatibility</div>
+                <p style="font-size:0.875rem; color:var(--slate-muted); margin-bottom:14px;">You have a match waiting!</p>
+                <button class="btn btn-primary btn-sm" onclick="showView('match')">View Your Match</button>
+            </div>`;
+        // Show match badge
+        const badge = document.getElementById('matchBadge');
+        if (badge) badge.classList.remove('hidden');
+    } else {
+        container.innerHTML = `
+            <div style="text-align:center; padding:16px 0;">
+                <p style="font-size:0.875rem; color:var(--slate-muted); margin-bottom:4px;">${matchData.message || 'No match yet — we\'re looking!'}</p>
+                <p style="font-size:0.775rem; color:var(--slate-muted);">Check back soon.</p>
+            </div>`;
+    }
+}
+
+/* ============================================================
+   TOPICS CHECKLIST (reusable)
+   ============================================================ */
+function renderTopicsChecklist(dimensions, containerId, clickable) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let html = '';
+    TOPIC_GROUPS.forEach(group => {
+        const filled   = group.dims.filter(d => dimensions[d]).length;
+        const total    = group.dims.length;
+        const complete = filled === total;
+        const partial  = filled > 0 && filled < total;
+
+        if (containerId === 'chatTopicsList') {
+            // compact per-topic list in chat panel
+            group.dims.forEach(dim => {
+                const done = !!dimensions[dim];
+                html += `
+                    <div class="chat-topic-item${done ? '' : ''}">
+                        <div class="chat-topic-check${done ? ' done' : ''}">
+                            ${done ? '✓' : ''}
+                        </div>
+                        <div class="chat-topic-text">
+                            <div class="label">${formatDimLabel(dim)}</div>
+                            <div class="sub">${group.label}</div>
+                        </div>
+                    </div>`;
+            });
+        } else {
+            // grouped for dashboard
+            const statusIcon = complete ? '✓' : partial ? '…' : '';
+            html += `
+                <div class="topic-item" ${clickable ? 'onclick="showView(\'chat\')"' : ''}>
+                    <div class="topic-check${complete ? ' done' : partial ? ' active' : ''}">
+                        ${statusIcon}
+                    </div>
+                    <div style="flex:1;">
+                        <div class="topic-label">${group.label}</div>
+                        <div class="topic-sub">${filled}/${total} topics covered</div>
+                    </div>
+                </div>`;
+        }
+    });
+
+    container.innerHTML = html;
+}
+
+function formatDimLabel(dim) {
+    const labels = {
+        gender: 'Gender identity', seeking_gender: 'Looking for', age: 'Life stage / age',
+        location: 'Location', education: 'Education', career: 'Career',
+        religion: 'Religion / spirituality', politics: 'Political views', vision: '10-year vision',
+        finances: 'Finances', family_origin: 'Family background', children: 'Children',
+        communication: 'Communication style', conflict: 'Conflict resolution',
+        affection: 'Affection & love language', humor: 'Humor',
+        domestic: 'Domestic roles', cleanliness: 'Cleanliness', food: 'Food & cooking',
+        time: 'Time management', technology: 'Tech & screen time',
+        health: 'Physical health', mental_health: 'Mental health',
+        social_energy: 'Social energy', substances: 'Alcohol / substances',
+        hobbies: 'Hobbies', travel: 'Travel', culture: 'Art & culture', pets: 'Pets',
+        independence: 'Independence vs togetherness', decisions: 'Decision-making',
+    };
+    return labels[dim] || dim.replace(/_/g, ' ');
+}
+
+/* ============================================================
+   CHAT
+   ============================================================ */
 async function loadChatHistory() {
     if (!authToken) return;
-    
+
+    const messagesDiv = document.getElementById('chatMessages');
+    messagesDiv.innerHTML = '';
+
     try {
-        // Clear existing chat first
-        const chatMessages = document.getElementById('chatMessages');
-        chatMessages.innerHTML = '';
-        
-        const response = await fetch(`${API_URL}/chat/history`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.messages.length > 0) {
-            data.messages.forEach(msg => {
-                addMessage(msg.user, 'user', msg.timestamp);
-                addMessage(msg.ai, 'ai', msg.timestamp);
+        const [histRes, profileRes] = await Promise.all([
+            fetch(`${API_URL}/chat/history`, { headers: { Authorization: `Bearer ${authToken}` } }),
+            fetch(`${API_URL}/profile`,       { headers: { Authorization: `Bearer ${authToken}` } }),
+        ]);
+
+        const histData    = await histRes.json();
+        const profileData = await profileRes.json();
+
+        if (histRes.ok && histData.messages.length > 0) {
+            histData.messages.forEach(msg => {
+                appendMessage(msg.user, 'user', msg.timestamp);
+                appendMessage(msg.ai,   'ai',   msg.timestamp);
             });
         } else {
-            // Show initial message if no history
-            chatMessages.innerHTML = `
-                <div class="message ai">
-                    <div>Hi! Let's build your profile together. First, tell me your name, where you're located, and a bit about yourself. Then we'll dive into what matters most to you in a relationship.</div>
-                    <div class="message-time">Just now</div>
-                </div>
-            `;
+            // First visit or no history — show welcome
+            appendMessage(
+                "Hi! I'm here to get to know you — through conversation, not forms. Let's start simply: what's your name, and whereabouts do you live?",
+                'ai'
+            );
         }
-        
-        // Update sidebar
-        updateChatSidebar();
-    } catch (error) {
-        console.error('Error loading chat history:', error);
+
+        // Update topics panel
+        if (profileRes.ok) {
+            const dims = profileData.dimensions || {};
+            const count = Object.keys(dims).length;
+            const pct   = Math.round((count / ALL_DIMS.length) * 100);
+            setIfExists('chatProgressFill',  null, el => el.style.width = pct + '%');
+            setIfExists('chatProgressLabel', `${count} / ${ALL_DIMS.length}`);
+            renderTopicsChecklist(dims, 'chatTopicsList', false);
+        }
+
+    } catch (err) {
+        console.error('Chat load error:', err);
     }
 }
 
-// Update chat sidebar with dimension progress
-async function updateChatSidebar() {
-    try {
-        const response = await fetch(`${API_URL}/profile`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const profile = await response.json();
-        
-        if (response.ok) {
-            const dimensionsCount = Object.keys(profile.dimensions || {}).length;
-            const percentage = Math.round((dimensionsCount / 29) * 100);
-            
-            document.getElementById('sidebarDimensionCount').textContent = dimensionsCount;
-            document.getElementById('sidebarPercentage').textContent = `${percentage}%`;
-            document.getElementById('sidebarProgressBar').style.width = `${percentage}%`;
-            
-            // Update matching toggle state
-            const isActive = profile.matching_active !== false;
-            const buildToggle = document.getElementById('buildMatchingToggle');
-            const buildStatusLabel = document.getElementById('buildMatchingStatusLabel');
-            if (buildToggle) {
-                buildToggle.checked = isActive;
-                buildStatusLabel.textContent = isActive ? 'Active' : 'Inactive';
-                buildStatusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            }
-            
-            // Update photos in Build Profile sidebar
-            if (typeof renderPhotos === 'function') {
-                renderPhotos(profile.photos || [], 'chatPhotoGrid', 'chatPhotoUploadBtn');
-            }
-            
-            // Update JSON viewer
-            const jsonViewer = document.getElementById('jsonViewer');
-            if (jsonViewer) {
-                jsonViewer.textContent = JSON.stringify(profile, null, 2);
-            }
-        }
-    } catch (error) {
-        console.error('Error updating sidebar:', error);
-    }
-}
-
-// Send message
 async function sendMessage() {
-    const input = document.getElementById('chatInput');
-    const sendBtn = input.nextElementSibling;
-    const message = input.value.trim();
-    
+    const textarea = document.getElementById('chatInput');
+    const btn      = document.getElementById('chatSendBtn');
+    const message  = textarea.value.trim();
     if (!message) return;
-    
-    addMessage(message, 'user');
-    input.value = '';
-    
-    // Disable input and show spinner
-    input.disabled = true;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<span class="spinner"></span>Sending...';
-    
-    // Show typing indicator
+
+    appendMessage(message, 'user');
+    textarea.value = '';
+    textarea.style.height = 'auto';
+
+    textarea.disabled = true;
+    setBtnLoading(btn, '…');
     showTypingIndicator();
-    
+
     try {
-        const response = await fetch(`${API_URL}/chat`, {
+        const res = await fetch(`${API_URL}/chat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
+                Authorization: `Bearer ${authToken}`
             },
             body: JSON.stringify({ message })
         });
-        
-        const data = await response.json();
-        
-        // Remove typing indicator
+
+        const data = await res.json();
         removeTypingIndicator();
-        
-        if (response.ok) {
-            addMessage(data.response, 'ai', data.timestamp);
-            updateChatSidebar();
+
+        if (res.ok) {
+            appendMessage(data.response, 'ai', data.timestamp);
+
+            // Update topics panel
+            if (data.profile_completion) {
+                const pct = data.profile_completion.percentage;
+                const count = data.profile_completion.count;
+                setIfExists('chatProgressFill',  null, el => el.style.width = pct + '%');
+                setIfExists('chatProgressLabel', `${count} / ${ALL_DIMS.length}`);
+            }
+
+            // Refresh topics (fetch latest profile)
+            fetchProfileAndUpdateTopics();
         } else {
-            const errorMsg = data.error || 'Sorry, there was an error. Please try again.';
-            addMessage(errorMsg, 'ai');
-            showToast(errorMsg, 'error');
+            appendMessage(data.error || 'Something went wrong. Please try again.', 'ai');
         }
-    } catch (error) {
+    } catch {
         removeTypingIndicator();
-        const errorMsg = 'Connection error. Please try again.';
-        addMessage(errorMsg, 'ai');
-        showToast(errorMsg, 'error');
-        console.error('Chat error:', error);
+        appendMessage('Connection error. Please try again.', 'ai');
     } finally {
-        // Re-enable input and remove spinner
-        input.disabled = false;
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = 'Send';
-        input.focus();
+        textarea.disabled = false;
+        resetBtn(btn, 'Send');
+        textarea.focus();
     }
 }
 
-// Add message to chat
-function addMessage(text, type, timestamp) {
-    const messagesDiv = document.getElementById('chatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}`;
-    
-    const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : 'Just now';
-    
-    messageDiv.innerHTML = `
-        <div>${text}</div>
-        <div class="message-time">${timeStr}</div>
-    `;
-    
-    messagesDiv.appendChild(messageDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Keyboard shortcuts for chat input
-document.getElementById('chatInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    } else if (e.key === 'Escape') {
-        e.target.value = '';
-        e.target.blur();
-    }
-});
-
-// Load current match
-async function loadMatch() {
+async function fetchProfileAndUpdateTopics() {
     try {
-        const response = await fetch(`${API_URL}/match`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const data = await response.json();
-        
-        // Update matching toggle status - read from top level of response
-        const isActive = data.matching_active !== false;
-        const statusLabel = document.getElementById('matchingStatusLabel');
-        document.getElementById('matchingActiveToggle').checked = isActive;
-        statusLabel.textContent = isActive ? 'Active' : 'Inactive';
-        statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-        
-        const matchContainer = document.getElementById('matchContainer');
-        
-        if (response.ok && data.match) {
-            const match = data.match;
-            matchContainer.innerHTML = createMatchCard(match, isActive, currentUser ? currentUser.photos : []);
-            
-            // Load match messages if both users accepted (mutual acceptance)
-            if (match.mutual_acceptance) {
+        const res  = await fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const data = await res.json();
+        if (res.ok) {
+            renderTopicsChecklist(data.dimensions || {}, 'chatTopicsList', false);
+        }
+    } catch {}
+}
+
+function appendMessage(text, type, timestamp) {
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `message ${type}`;
+
+    const timeStr = timestamp
+        ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Just now';
+
+    div.innerHTML = `
+        <div class="message-bubble">${escapeHtml(text)}</div>
+        <div class="message-time">${timeStr}</div>`;
+
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function showTypingIndicator() {
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.id = 'typingIndicator';
+    div.className = 'typing-indicator';
+    div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+}
+
+function autoResizeTextarea(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function setupChatInputKeydown() {
+    document.addEventListener('keydown', e => {
+        if (e.target.id === 'chatInput') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+    });
+}
+
+/* ============================================================
+   MATCH VIEW
+   ============================================================ */
+async function loadMatch() {
+    if (!authToken) return;
+
+    const container = document.getElementById('matchContainer');
+    container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--slate-muted);">Loading…</div>';
+
+    try {
+        const [matchRes, profileRes] = await Promise.all([
+            fetch(`${API_URL}/match`,   { headers: { Authorization: `Bearer ${authToken}` } }),
+            fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } }),
+        ]);
+
+        const matchData   = await matchRes.json();
+        const profileData = await profileRes.json();
+
+        if (!matchRes.ok) {
+            container.innerHTML = renderNoMatch('Unable to load match data.');
+            return;
+        }
+
+        // Check profile eligibility
+        const dims = Object.keys(profileData.dimensions || {}).length;
+        if (dims < 5) {
+            container.innerHTML = renderNoMatch(
+                'You need to complete at least 5 conversation topics before you can be matched.',
+                true
+            );
+            return;
+        }
+
+        if (matchData.match) {
+            container.innerHTML = renderMatchCard(matchData.match);
+
+            // Poll for new messages if mutual acceptance
+            if (matchData.match.mutual_acceptance) {
                 loadMatchMessages();
+                matchPollInterval = setInterval(loadMatchMessages, 5000);
             }
         } else {
-            // No match yet - show self-preview for debugging
-            const profileComplete = data.profile_complete;
-            const dimensionsCount = data.dimensions_count || 0;
-            
-            // Fetch own profile to display as self-preview
-            try {
-                const profileResponse = await fetch(`${API_URL}/profile`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                const profile = await profileResponse.json();
-                
-                if (profileResponse.ok) {
-                    // Create a mock match object from own profile for debugging
-                    const selfMatch = {
-                        match_score: 100,
-                        user_accepted: false,
-                        match_accepted: false,
-                        mutual_acceptance: false,
-                        age: profile.age,
-                        matched_at: new Date().toISOString(),
-                        match_analysis: {
-                            reasoning: '[DEBUG] This is how you appear to potential matches',
-                            strengths: 'Self-preview for debugging purposes',
-                            concerns: 'None - this is your own profile'
-                        },
-                        preview: {
-                            age: profile.age,
-                            location: profile.location || 'Not set',
-                            completion_percentage: Math.round((dimensionsCount / 29) * 100)
-                        },
-                        full_profile: profile.dimensions || {}
-                    };
-                    
-                    matchContainer.innerHTML = `
-                        <div style="background: rgba(255, 193, 7, 0.1); border: 2px dashed #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4 style="color: #ffc107; margin-bottom: 10px;">🔧 Debug Mode: Self-Preview</h4>
-                            <p style="color: var(--text-gray);">You have no match yet. Below is how you would appear in the "Your Match" section.</p>
-                        </div>
-                        ${createMatchCard(selfMatch, isActive)}
-                    `;
-                    return;
-                }
-            } catch (err) {
-                console.error('Error loading self-preview:', err);
-            }
-            
-            // Fallback to original "no match" UI if self-preview fails
-            matchContainer.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: var(--text-white);">
-                    <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
-                    <h3 style="color: var(--text-white); margin-bottom: 15px;">${data.message || 'No match yet'}</h3>
-                    ${!profileComplete ? `
-                        <p style="color: var(--text-gray); margin-bottom: 20px;">You have ${dimensionsCount}/29 dimensions filled.</p>
-                        <button class="btn-primary" onclick="showView('chat')" style="margin-top: 20px;">Continue Building Profile</button>
-                    ` : `
-                        <p style="color: var(--text-gray);">Your profile is complete! We'll notify you when we find a great match.</p>
-                    `}
-                </div>
-            `;
+            container.innerHTML = renderNoMatch(matchData.message || "We're finding your match — check back soon.");
         }
-    } catch (error) {
-        console.error('Error loading match:', error);
+
+    } catch (err) {
+        console.error('Match load error:', err);
+        container.innerHTML = renderNoMatch('Unable to load match data.');
     }
 }
 
-// Create match card
-function createMatchCard(match, isActive, userPhotos = []) {
-    const score = match.match_score || 0;
-    const userAccepted = match.user_accepted || false;
-    const matchAccepted = match.match_accepted || false;
-    const mutualAcceptance = match.mutual_acceptance || false;
-    
-    // Match analysis
-    const analysis = match.match_analysis || {};
-    const reasoning = analysis.reasoning || 'AI-powered compatibility analysis';
-    const strengths = analysis.strengths || 'Analyzing compatibility...';
-    const concerns = analysis.concerns || 'None identified';
-    
-    // User's own photos (Digital Mirror concept in match card)
-    let userPhotosHtml = '';
-    if (userPhotos && userPhotos.length > 0) {
-        const photoItems = userPhotos.map(url => `
-            <div style="width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid var(--gold-primary); margin: 0 4px;">
-                <img src="${url}" style="width: 100%; height: 100%; object-fit: cover;">
-            </div>
-        `).join('');
-        
-        userPhotosHtml = `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(212, 175, 55, 0.1); display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 0.8rem; color: var(--text-gray); margin-right: 10px;">You:</span>
-                <div style="display: flex;">
-                    ${photoItems}
-                </div>
-            </div>
-        `;
+function renderNoMatch(message, needsMoreProfile) {
+    return `
+        <div class="no-match-state">
+            <div class="icon"><i class="ph ph-hourglass"></i></div>
+            <h2>No match yet</h2>
+            <p>${message}</p>
+            ${needsMoreProfile
+                ? `<button class="btn btn-primary" onclick="showView('chat')">Continue Conversation</button>`
+                : `<p class="text-muted" style="font-size:0.825rem;">Matching runs daily. Make sure your matching is set to Active in Settings.</p>`}
+        </div>`;
+}
+
+function renderMatchCard(match) {
+    const score         = match.match_score || 0;
+    const userAccepted  = match.user_accepted;
+    const matchAccepted = match.match_accepted;
+    const mutual        = match.mutual_acceptance;
+    const analysis      = match.match_analysis || {};
+
+    const scoreColor = score >= 80 ? '#4A7C59' : score >= 60 ? '#B89A6A' : '#A07878';
+
+    let bodyContent = '';
+
+    // Analysis block
+    if (analysis.reasoning) {
+        bodyContent += `
+            <div class="match-analysis-block">
+                <h4>Why you might work</h4>
+                <p>${escapeHtml(analysis.reasoning)}</p>
+                ${analysis.strengths ? `<div class="match-tags">${analysis.strengths.split(',').map(s => `<span class="match-tag">${escapeHtml(s.trim())}</span>`).join('')}</div>` : ''}
+            </div>`;
     }
-    
-    // Build photo gallery HTML for mutual acceptance
-    let photosHtml = '';
-    if (mutualAcceptance && match.photos && match.photos.length > 0) {
-        const photoItems = match.photos.map(url => `
-            <div style="flex: 1; min-width: 100px; max-width: 150px;">
-                <img src="${url}" alt="Match Photo" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${url}', '_blank')">
+
+    // Preview info
+    const preview = match.preview || {};
+    bodyContent += `
+        <div class="match-preview-row">
+            <div class="match-preview-item">
+                <div class="val">${match.age || '?'}</div>
+                <div class="key">Age</div>
             </div>
-        `).join('');
-        photosHtml = `
-            <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid rgba(212, 175, 55, 0.2);">
-                <h4 style="color: var(--gold-primary); margin-bottom: 15px;">📸 Photos</h4>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-                    ${photoItems}
-                </div>
+            <div class="match-preview-item">
+                <div class="val">${preview.location || (match.location || '—')}</div>
+                <div class="key">Location</div>
             </div>
-        `;
+            <div class="match-preview-item">
+                <div class="val">${preview.completion_percentage || match.completion_percentage || '?'}%</div>
+                <div class="key">Profile</div>
+            </div>
+        </div>`;
+
+    // Photos (after mutual acceptance)
+    if (mutual && match.photos && match.photos.length > 0) {
+        const photoHtml = match.photos.map(url => `
+            <img src="${url}" style="width:100%; height:120px; object-fit:cover; border-radius:var(--radius-sm); cursor:pointer;"
+                 onclick="window.open('${url}','_blank')">`).join('');
+        bodyContent += `
+            <div style="margin-bottom:24px;">
+                <p class="profile-section-title">Photos</p>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px;">${photoHtml}</div>
+            </div>`;
     }
-    
-    let profileDataHtml = '';
-    if (mutualAcceptance && match.full_profile) {
-        // Show full profile JSON after mutual acceptance
-        const fullProfile = match.full_profile;
-        const profileKeys = Object.keys(fullProfile);
-        const profileItems = profileKeys.map(key => {
-            const value = typeof fullProfile[key] === 'object' ? JSON.stringify(fullProfile[key]) : fullProfile[key];
-            return `<div style="margin-bottom: 10px;"><strong>${key}:</strong> ${value}</div>`;
-        }).join('');
-        
-        profileDataHtml = `
-            <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid rgba(212, 175, 55, 0.2);">
-                <h4 style="color: var(--gold-primary); margin-bottom: 15px;">📋 Match Profile (${profileKeys.length} dimensions)</h4>
-                <div style="max-height: 300px; overflow-y: auto; font-size: 0.9rem; color: var(--text-gray);">
-                    ${profileItems}
-                </div>
-            </div>
-        `;
-    } else if (match.preview) {
-        // Show limited preview before acceptance
-        const preview = match.preview;
-        profileDataHtml = `
-            <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid rgba(212, 175, 55, 0.2);">
-                <h4 style="color: var(--gold-primary); margin-bottom: 15px;">👤 Match Preview</h4>
-                <p style="color: var(--text-white);"><strong>Age:</strong> ${preview.age || 'N/A'}</p>
-                <p style="color: var(--text-white);"><strong>Location:</strong> ${preview.location || 'N/A'}</p>
-                <p style="color: var(--text-white);"><strong>Profile Completion:</strong> ${preview.completion_percentage || 0}%</p>
-                <p style="color: var(--text-gray); font-style: italic; margin-top: 10px;">
-                    Accept the match to see full profile details and start chatting!
-                </p>
-            </div>
-        `;
-    }
-    
-    let actionsHtml = '';
+
+    // Actions
     if (!userAccepted) {
-        // Show accept/decline buttons
-        actionsHtml = `
-            <div class="match-actions" style="margin-top: 20px;">
-                <p style="color: var(--text-gray); margin-bottom: 15px; text-align: center;">
-                    Review this match and decide if you'd like to connect
-                </p>
-                <div style="display: flex; gap: 15px; justify-content: center;">
-                    <button class="btn-primary" onclick="acceptMatch()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-                        ✓ Accept Match
-                    </button>
-                    <button class="btn-reject" onclick="rejectMatch()">
-                        ✗ Decline Match
-                    </button>
-                </div>
-            </div>
-        `;
-    } else if (!mutualAcceptance) {
-        // User accepted, waiting for match to accept
-        actionsHtml = `
-            <div style="background: #d1ecf1; padding: 20px; border-radius: 8px; margin-top: 20px; text-align: center;">
-                <h4 style="color: #0c5460; margin-bottom: 10px;">⏳ Waiting for Match Response</h4>
-                <p style="color: #0c5460;">You've accepted this match! Waiting for them to accept too.</p>
-                <p style="color: #0c5460; font-size: 0.9rem; margin-top: 10px;">
-                    Chat will be enabled once both of you accept.
-                </p>
-            </div>
-        `;
+        bodyContent += `
+            <div class="match-actions">
+                <button class="btn btn-primary" onclick="acceptMatch()"><i class="ph ph-check"></i> Accept Introduction</button>
+                <button class="btn btn-secondary" onclick="rejectMatch()">Decline</button>
+            </div>`;
+    } else if (!mutual) {
+        bodyContent += `
+            <div style="background:var(--cream-dark); border-radius:var(--radius); padding:20px; text-align:center;">
+                <p style="font-size:0.875rem; color:var(--slate-muted);">You've accepted — waiting for the other person to respond.</p>
+            </div>`;
     } else {
-        // Both accepted - show chat interface
-        actionsHtml = `
-            <div class="match-chat-container" style="margin-top: 20px;">
-                <h3 style="margin-bottom: 15px; color: var(--gold-primary);">💬 Private Chat</h3>
-                <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                    <p style="color: #155724; font-weight: 600;">🎉 Match Accepted! You can now chat privately.</p>
-                </div>
-                <div class="match-chat-messages" id="matchChatMessages">
-                    <div style="text-align: center; color: var(--text-gray); padding: 20px;">
-                        Start a conversation!
-                    </div>
-                </div>
-                <div class="match-chat-input-area">
-                    <input type="text" id="matchChatInput" placeholder="Type your message...">
-                    <button onclick="sendMatchMessage()">Send</button>
-                </div>
-            </div>
-        `;
+        // Mutual — show chat
+        bodyContent += renderMatchChat();
     }
-    
+
     return `
         <div class="match-card">
-            <div class="match-score">
-                <div class="compatibility-circle">${score}%</div>
-                <div style="color: var(--text-gray);">Compatibility</div>
+            <div class="match-card-header">
+                <div class="compatibility-ring">
+                    <div class="compatibility-number" style="color:${scoreColor}">${score}%</div>
+                    <div class="compatibility-label">Match</div>
+                </div>
+                <h2>Your Match</h2>
+                <div class="match-meta">
+                    Matched ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}
+                    ${userAccepted ? ' · <span style="color:#a0d4b0;">✓ You accepted</span>' : ''}
+                    ${matchAccepted ? ' · <span style="color:#a0d4b0;">✓ They accepted</span>' : ''}
+                </div>
             </div>
-            <div class="match-info">
-                <h3>Your Match</h3>
-                <p style="color: var(--text-gray);">Age: ${match.age || 'N/A'}</p>
-                <p style="color: var(--text-gray); margin-top: 10px;">Matched on ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}</p>
-                ${userAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ You accepted</p>' : ''}
-                ${matchAccepted ? '<p style="color: #28a745; margin-top: 5px;">✓ Match accepted</p>' : ''}
+            <div class="match-card-body">
+                ${bodyContent}
             </div>
-            <div style="background: linear-gradient(135deg, #667eea10 0%, rgba(212, 175, 55, 0.1) 100%); padding: 15px; border-radius: 8px; margin-top: 15px;">
-                <h4 style="color: var(--gold-primary); margin-bottom: 10px;">🔍 Compatibility Analysis</h4>
-                <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Reasoning:</strong> ${reasoning}</p>
-                <p style="color: var(--text-white); margin-bottom: 8px;"><strong>Strengths:</strong> ${strengths}</p>
-                <p style="color: var(--text-white);"><strong>Considerations:</strong> ${concerns}</p>
-            </div>
-            ${photosHtml}
-            ${profileDataHtml}
-            ${actionsHtml}
-            ${userPhotosHtml}
+        </div>`;
+}
+
+function renderMatchChat() {
+    return `
+        <div class="chaperone-intro">
+            <p>You're both connected. To help you start on the right foot, our AI is here to gently guide early conversation — think of it as a warm introduction, not surveillance.</p>
         </div>
-    `;
+        <div class="match-chat-area">
+            <div class="match-chat-header">
+                <i class="ph ph-chat-circle"></i> Private Chat
+            </div>
+            <div class="match-chat-messages" id="matchChatMessages">
+                <div style="text-align:center; color:var(--slate-muted); padding:24px; font-size:0.875rem;">
+                    Start a conversation…
+                </div>
+            </div>
+            <div class="match-chat-input">
+                <input type="text" id="matchChatInput" placeholder="Say hello…">
+                <button class="btn btn-primary btn-sm" onclick="sendMatchMessage()">Send</button>
+            </div>
+        </div>`;
 }
 
-// Toggle matching active/inactive
-async function toggleMatchingStatus() {
-    const isActive = document.getElementById('matchingActiveToggle').checked;
-    const statusLabel = document.getElementById('matchingStatusLabel');
-    
-    showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'info');
-    
-    try {
-        const response = await fetch(`${API_URL}/match/toggle`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ active: isActive })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusLabel.textContent = isActive ? 'Active' : 'Inactive';
-            statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            showToast(`Matching ${isActive ? 'activated' : 'deactivated'} successfully`, 'success');
-            syncAllToggles(isActive);
-            // Reload match view to show appropriate UI
-            loadMatch();
-        } else {
-            showToast(data.error || 'Failed to update status', 'error');
-            // Revert toggle
-            document.getElementById('matchingActiveToggle').checked = !isActive;
-        }
-    } catch (error) {
-        console.error('Error toggling status:', error);
-        showToast('Connection error. Please try again.', 'error');
-        document.getElementById('matchingActiveToggle').checked = !isActive;
-    }
-}
-
-// Accept current match
 async function acceptMatch() {
-    if (!confirm('Accept this match? This will allow both of you to chat once they also accept.')) {
-        return;
-    }
-    
-    showToast('Accepting match...', 'info');
-    
+    if (!confirm('Accept this introduction? Once both of you accept, you\'ll be able to chat.')) return;
+
     try {
-        const response = await fetch(`${API_URL}/match/accept`, {
+        const res  = await fetch(`${API_URL}/match/accept`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            }
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showToast(data.message || 'Match accepted successfully!', 'success');
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message || 'Introduction accepted!', 'success');
             loadMatch();
         } else {
-            showToast(data.error || 'Failed to accept match', 'error');
+            showToast(data.error || 'Failed', 'error');
         }
-    } catch (error) {
-        console.error('Error accepting match:', error);
-        showToast('Connection error. Please try again.', 'error');
+    } catch {
+        showToast('Connection error', 'error');
     }
 }
 
-// Reject current match
 async function rejectMatch() {
-    if (!confirm('Decline this match? You will be matched with someone new in the next cycle.')) {
-        return;
-    }
-    
-    showToast('Declining match...', 'info');
-    
+    if (!confirm('Decline this match? You\'ll be returned to the matching pool.')) return;
+
     try {
-        const response = await fetch(`${API_URL}/match/reject`, {
+        const res  = await fetch(`${API_URL}/match/reject`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            }
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showToast(data.message || 'Match declined successfully', 'success');
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Match declined', 'info');
             loadMatch();
         } else {
-            showToast(data.error || 'Failed to decline match', 'error');
+            showToast(data.error || 'Failed', 'error');
         }
-    } catch (error) {
-        console.error('Error declining match:', error);
-        showToast('Connection error. Please try again.', 'error');
+    } catch {
+        showToast('Connection error', 'error');
     }
 }
 
-// Send message to match
 async function sendMatchMessage() {
     const input = document.getElementById('matchChatInput');
-    const message = input.value.trim();
-    
-    if (!message) return;
-    
+    if (!input) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+
     try {
-        const response = await fetch(`${API_URL}/match/messages`, {
+        const res  = await fetch(`${API_URL}/match/messages`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ message })
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({ message: msg })
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
+        const data = await res.json();
+        if (res.ok) {
             input.value = '';
-            // Add message to UI immediately
-            addMatchMessage(message, 'sent', data.timestamp);
+            addMatchMessageToUI(msg, 'sent', data.timestamp);
         } else {
-            alert(data.error || 'Failed to send message');
+            showToast(data.error || 'Send failed', 'error');
         }
-    } catch (error) {
-        console.error('Error sending message:', error);
-        alert('Connection error. Please try again.');
+    } catch {
+        showToast('Connection error', 'error');
     }
 }
 
-// Load match messages
 async function loadMatchMessages() {
     try {
-        // Get current user profile to determine user_id
-        const profileResponse = await fetch(`${API_URL}/profile`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        const profile = await profileResponse.json();
-        const myUserId = profile.user_id;
-        
-        const response = await fetch(`${API_URL}/match/messages`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.messages.length > 0) {
-            const messagesDiv = document.getElementById('matchChatMessages');
-            messagesDiv.innerHTML = '';
-            
-            data.messages.forEach(msg => {
-                const type = msg.from === myUserId ? 'sent' : 'received';
-                addMatchMessage(msg.message, type, msg.timestamp);
+        const profileRes = await fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const profile    = await profileRes.json();
+        const myId       = profile.user_id;
+
+        const res  = await fetch(`${API_URL}/match/messages`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const data = await res.json();
+
+        if (res.ok && data.messages.length > 0) {
+            const container = document.getElementById('matchChatMessages');
+            if (!container) return;
+            container.innerHTML = '';
+            data.messages.forEach(m => {
+                addMatchMessageToUI(m.message, m.from === myId ? 'sent' : 'received', m.timestamp);
             });
         }
-    } catch (error) {
-        console.error('Error loading match messages:', error);
-    }
+    } catch {}
 }
 
-// Add match message to UI
-function addMatchMessage(text, type, timestamp) {
-    const messagesDiv = document.getElementById('matchChatMessages');
-    if (!messagesDiv) return;
-    
-    // Clear placeholder if exists
-    if (messagesDiv.querySelector('[style*="text-align: center"]')) {
-        messagesDiv.innerHTML = '';
-    }
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `match-message ${type}`;
-    
-    const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : 'Just now';
-    
-    messageDiv.innerHTML = `
-        <div>${text}</div>
-        <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 5px;">${timeStr}</div>
-    `;
-    
-    messagesDiv.appendChild(messageDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+function addMatchMessageToUI(text, type, timestamp) {
+    const container = document.getElementById('matchChatMessages');
+    if (!container) return;
+
+    // Clear placeholder
+    const placeholder = container.querySelector('[style*="text-align:center"]');
+    if (placeholder) placeholder.remove();
+
+    const div = document.createElement('div');
+    div.className = `match-message-bubble ${type}`;
+    const timeStr = timestamp
+        ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Just now';
+    div.innerHTML = `${escapeHtml(text)}<div style="font-size:0.7rem; opacity:0.6; margin-top:4px;">${timeStr}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
 }
 
-// Enter key to send match message
-document.addEventListener('DOMContentLoaded', () => {
-    document.addEventListener('keypress', (e) => {
-        if (e.target.id === 'matchChatInput' && e.key === 'Enter') {
-            sendMatchMessage();
-        }
-    });
+// Match chat enter key
+document.addEventListener('keypress', e => {
+    if (e.target.id === 'matchChatInput' && e.key === 'Enter') sendMatchMessage();
 });
 
-// Load profile (combined with match)
+/* ============================================================
+   PROFILE VIEW
+   ============================================================ */
 async function loadProfile() {
-    try {
-        // Load profile data
-        const response = await fetch(`${API_URL}/profile`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const profile = await response.json();
-        
-        if (response.ok) {
-            // Update global current user with fresh data
-            currentUser = profile;
+    if (!authToken) return;
 
-            // Update stats
-            const dimensionsCount = Object.keys(profile.dimensions || {}).length;
-            const percentage = Math.round((dimensionsCount / 29) * 100);
-            
-            document.getElementById('profileDimCount').textContent = dimensionsCount;
-            document.getElementById('profileCompletion').textContent = `${percentage}%`;
-            document.getElementById('profileConvos').textContent = profile.conversation_count || 0;
-            
-            // Set main matching toggle state
-            const isActive = profile.matching_active !== false;
-            const mainToggle = document.getElementById('mainMatchingToggle');
-            const mainStatusLabel = document.getElementById('mainMatchingStatusLabel');
-            if (mainToggle) {
-                mainToggle.checked = isActive;
-                mainStatusLabel.textContent = isActive ? 'Active' : 'Inactive';
-                mainStatusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            }
-            
-            // Update basic info
-            document.getElementById('profileName').textContent = profile.name || 'Not set';
-            document.getElementById('profileAge').textContent = profile.age || '-';
-            document.getElementById('profileLocation').textContent = profile.location || 'Not set';
-            document.getElementById('profileAbout').textContent = profile.about || 'Share something about yourself in the Build Profile section...';
-            document.getElementById('profileAbout').style.fontStyle = profile.about ? 'normal' : 'italic';
-            document.getElementById('profileAbout').style.color = profile.about ? 'var(--text-white)' : 'var(--text-gray)';
-            
-            // Update JSON viewer
-            const jsonViewer = document.getElementById('profileJsonViewer');
-            jsonViewer.textContent = JSON.stringify(profile, null, 2);
-            
-            // Load match data in the match section
-            await loadMatchInProfile();
+    try {
+        const res     = await fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const profile = await res.json();
+        if (!res.ok) return;
+
+        currentUser = profile;
+
+        setIfExists('profileName',   profile.name || '—');
+        setIfExists('profileAge',    profile.age  || '—');
+        setIfExists('profileLocation', profile.location || '—');
+        setIfExists('profileGender', profile.gender === 'M' || profile.gender === 'male' ? 'Male' :
+                                     profile.gender === 'F' || profile.gender === 'female' ? 'Female' : '—');
+
+        const aboutEl = document.getElementById('profileAbout');
+        if (aboutEl) {
+            aboutEl.textContent = profile.about || 'Share something about yourself in conversation…';
+            aboutEl.style.color = profile.about ? 'var(--slate)' : 'var(--slate-muted)';
         }
-    } catch (error) {
-        console.error('Error loading profile:', error);
+
+        const dims = Object.keys(profile.dimensions || {}).length;
+        setIfExists('profileDims',   `${dims} / ${ALL_DIMS.length}`);
+        setIfExists('profileConvos', profile.conversation_count || 0);
+
+        if (profile.created_at) {
+            setIfExists('profileMemberSince', new Date(profile.created_at).toLocaleDateString());
+        }
+
+        renderPhotos(profile.photos || [], 'profilePhotoGrid', 'photoUploadBtn');
+    } catch (err) {
+        console.error('Profile load error:', err);
     }
 }
 
-// Load match data for profile view
-async function loadMatchInProfile() {
-    try {
-        const response = await fetch(`${API_URL}/match`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const data = await response.json();
-        const matchSection = document.getElementById('matchSection');
-        
-        if (response.ok && data.match) {
-            const match = data.match;
-            const isActive = data.matching_active !== false;
-            
-            matchSection.innerHTML = `
-                <div class="matches-header">
-                    <h2>Your Match</h2>
-                    <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
-                </div>
-                
-                ${createMatchCard(match, isActive, currentUser ? currentUser.photos : [])}
-            `;
-        } else {
-            // No match yet - show self-preview for debugging
-            const isActive = data.matching_active !== false;
-            const dimensionsCount = data.dimensions_count || 0;
-            
-            // Fetch own profile to display as self-preview
-            try {
-                const profileResponse = await fetch(`${API_URL}/profile`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                const profile = await profileResponse.json();
-                
-                if (profileResponse.ok) {
-                    // Create a mock match object from own profile for debugging
-                    const selfMatch = {
-                        match_score: 100,
-                        user_accepted: false,
-                        match_accepted: false,
-                        mutual_acceptance: false,
-                        age: profile.age,
-                        matched_at: new Date().toISOString(),
-                        match_analysis: {
-                            reasoning: '[DEBUG] This is how you appear to potential matches',
-                            strengths: 'Self-preview for debugging purposes',
-                            concerns: 'None - this is your own profile'
-                        },
-                        preview: {
-                            age: profile.age,
-                            location: profile.location || 'Not set',
-                            completion_percentage: Math.round((dimensionsCount / 29) * 100)
-                        },
-                        full_profile: profile.dimensions || {}
-                    };
-                    
-                    matchSection.innerHTML = `
-                        <div class="matches-header">
-                            <h2>Your Match</h2>
-                            <p style="color: var(--text-gray); margin-top: 10px;">Based on 29-dimension compatibility analysis</p>
-                        </div>
-                        <div style="background: rgba(255, 193, 7, 0.1); border: 2px dashed #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4 style="color: #ffc107; margin-bottom: 10px;">🔧 Debug Mode: Self-Preview</h4>
-                            <p style="color: var(--text-gray);">You have no match yet. Below is how you would appear in the "Your Match" section.</p>
-                        </div>
-                        ${createMatchCard(selfMatch, isActive)}
-                    `;
-                    return;
-                }
-            } catch (err) {
-                console.error('Error loading self-preview:', err);
-            }
-            
-            // Fallback if self-preview fails
-            matchSection.innerHTML = `
-                <div class="matches-header">
-                    <h2>Your Match</h2>
-                    <p style="color: var(--text-gray); margin-top: 10px;">No match yet. Complete your profile to get matched!</p>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error loading match:', error);
-    }
+function handlePhotoSelect(event) {
+    const file = event.target.files[0];
+    if (file) uploadPhoto(file);
 }
 
-// Toggle matching status from Build Profile view
-async function toggleBuildMatchingStatus() {
-    const isActive = document.getElementById('buildMatchingToggle').checked;
-    const statusLabel = document.getElementById('buildMatchingStatusLabel');
-    
+async function uploadPhoto(file) {
+    const btn = document.getElementById('photoUploadBtn');
+    setBtnLoading(btn, 'Uploading…');
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
     try {
-        const response = await fetch(`${API_URL}/match/toggle`, {
+        const res  = await fetch(`${API_URL}/profile/photos`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ active: isActive })
+            headers: { Authorization: `Bearer ${authToken}` },
+            body: formData
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusLabel.textContent = isActive ? 'Active' : 'Inactive';
-            statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
-            
-            // Sync other toggles
-            syncAllToggles(isActive);
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('Photo uploaded!', 'success');
+            renderPhotos(data.photos, 'profilePhotoGrid', 'photoUploadBtn');
         } else {
-            showToast(data.error || 'Failed to update status', 'error');
-            document.getElementById('buildMatchingToggle').checked = !isActive;
+            showToast(data.error || 'Upload failed', 'error');
         }
-    } catch (error) {
-        console.error('Error toggling status:', error);
-        showToast('Connection error. Please try again.', 'error');
-        document.getElementById('buildMatchingToggle').checked = !isActive;
+    } catch {
+        showToast('Upload connection error', 'error');
+    } finally {
+        resetBtn(btn, '<i class="ph ph-upload-simple"></i> Upload Photo');
+        document.getElementById('photoUploadInput').value = '';
     }
 }
 
-// Sync all matching toggles across views
-function syncAllToggles(isActive) {
-    const toggles = [
-        { toggle: 'buildMatchingToggle', label: 'buildMatchingStatusLabel' },
-        { toggle: 'mainMatchingToggle', label: 'mainMatchingStatusLabel' },
-        { toggle: 'matchingActiveToggle', label: 'matchingStatusLabel' },
-        { toggle: 'profileMatchToggle', label: 'profileMatchStatusLabel' },
-        { toggle: 'settingsMatchingToggle', label: 'settingsMatchingStatus' }
-    ];
-    
-    toggles.forEach(({ toggle, label }) => {
-        const toggleEl = document.getElementById(toggle);
-        const labelEl = document.getElementById(label);
-        if (toggleEl) {
-            toggleEl.checked = isActive;
+async function deletePhoto(url) {
+    if (!confirm('Delete this photo?')) return;
+
+    try {
+        const res  = await fetch(`${API_URL}/profile/photos`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({ photo_url: url })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('Photo deleted', 'success');
+            renderPhotos(data.photos, 'profilePhotoGrid', 'photoUploadBtn');
+        } else {
+            showToast(data.error || 'Delete failed', 'error');
         }
-        if (labelEl) {
-            labelEl.textContent = isActive ? 'Active' : 'Inactive';
-            labelEl.className = isActive ? 'status-text active' : 'status-text inactive';
-        }
+    } catch {
+        showToast('Connection error', 'error');
+    }
+}
+
+function renderPhotos(photos, gridId, btnId) {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    photos.forEach(url => {
+        const div = document.createElement('div');
+        div.className = 'photo-item';
+        div.innerHTML = `
+            <img src="${url}" alt="Profile photo">
+            <button class="photo-delete-btn" onclick="deletePhoto('${url}')" title="Delete photo">×</button>`;
+        grid.appendChild(div);
     });
-}
 
-// Toggle main matching status from profile view
-async function toggleMainMatchingStatus() {
-    const isActive = document.getElementById('mainMatchingToggle').checked;
-    const statusLabel = document.getElementById('mainMatchingStatusLabel');
-    
-    try {
-        const response = await fetch(`${API_URL}/match/toggle`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ active: isActive })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusLabel.textContent = isActive ? 'Active' : 'Inactive';
-            statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
-            syncAllToggles(isActive);
-            loadMatchInProfile();
-        } else {
-            showToast(data.error || 'Failed to update status', 'error');
-            document.getElementById('mainMatchingToggle').checked = !isActive;
-        }
-    } catch (error) {
-        console.error('Error toggling status:', error);
-        showToast('Connection error. Please try again.', 'error');
-        document.getElementById('mainMatchingToggle').checked = !isActive;
+    for (let i = photos.length; i < 3; i++) {
+        const div = document.createElement('div');
+        div.className = 'photo-item photo-item-empty';
+        div.innerHTML = '<i class="ph ph-plus"></i>';
+        grid.appendChild(div);
     }
+
+    const btn = document.getElementById(btnId);
+    if (btn) btn.disabled = photos.length >= 3;
 }
 
-// Toggle matching status from profile view (secondary toggle in match section)
-async function toggleMatchingStatusFromProfile() {
-    const isActive = document.getElementById('profileMatchToggle').checked;
-    const statusLabel = document.getElementById('profileMatchStatusLabel');
-    
-    try {
-        const response = await fetch(`${API_URL}/match/toggle`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ active: isActive })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusLabel.textContent = isActive ? 'Active' : 'Inactive';
-            statusLabel.className = isActive ? 'status-text active' : 'status-text inactive';
-            showToast(`Matching ${isActive ? 'activated' : 'deactivated'}`, 'success');
-            
-            // Sync all toggles
-            syncAllToggles(isActive);
-        } else {
-            showToast(data.error || 'Failed to update status', 'error');
-            document.getElementById('profileMatchToggle').checked = !isActive;
-        }
-    } catch (error) {
-        console.error('Error toggling status:', error);
-        showToast('Connection error. Please try again.', 'error');
-        document.getElementById('profileMatchToggle').checked = !isActive;
-    }
-}
-
-// Load Settings
+/* ============================================================
+   SETTINGS
+   ============================================================ */
 async function loadSettings() {
-    if (!currentUser) return;
-    
-    // Load profile data
+    if (!authToken) return;
+
     try {
-        const response = await fetch(`${API_URL}/profile`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const profile = await response.json();
-        
-        if (response.ok) {
-            document.getElementById('settingsEmail').textContent = profile.email || 'Unknown';
-            document.getElementById('settingsMemberNum').textContent = '#' + (profile.member_number || '?');
-            document.getElementById('settingsAccountType').textContent = profile.payment_status === 'free' ? 'Lifetime Free' : 'Standard';
-            
-            // Stats
-            const dimensionsCount = Object.keys(profile.dimensions || {}).length;
-            const percentage = Math.round((dimensionsCount / 29) * 100);
-            document.getElementById('settingsCompletion').textContent = percentage + '%';
-            document.getElementById('settingsDimensions').textContent = dimensionsCount + ' / 29';
-            document.getElementById('settingsConversations').textContent = profile.conversation_count || 0;
-            document.getElementById('settingsPhotos').textContent = (profile.photos ? profile.photos.length : 0) + ' / 3';
-            
-            // Matching
-            const isActive = profile.matching_active !== false;
-            const statusSpan = document.getElementById('settingsMatchingStatus');
-            const toggle = document.getElementById('settingsMatchingToggle');
-            
-            toggle.checked = isActive;
-            statusSpan.textContent = isActive ? 'Active' : 'Inactive';
-            statusSpan.className = 'status-text ' + (isActive ? 'active' : 'inactive');
-            
-            document.getElementById('settingsCurrentMatch').textContent = profile.current_match_id ? '1 Match' : 'None';
-            
-            // Theme
-            const savedTheme = localStorage.getItem('theme') || 'default';
-            document.getElementById('themeSelector').value = savedTheme;
-            applyTheme(savedTheme);
+        const [profileRes, matchRes] = await Promise.all([
+            fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } }),
+            fetch(`${API_URL}/match`,   { headers: { Authorization: `Bearer ${authToken}` } }),
+        ]);
+
+        const profile = await profileRes.json();
+        const matchData = await matchRes.json();
+
+        if (!profileRes.ok) return;
+
+        setIfExists('settingsEmail',       profile.email || '—');
+        setIfExists('settingsMemberNum',   '#' + (profile.member_number || '?'));
+        setIfExists('settingsAccountType', 'Free');
+
+        const dims = Object.keys(profile.dimensions || {}).length;
+        const pct  = Math.round((dims / ALL_DIMS.length) * 100);
+        setIfExists('settingsCompletion',   pct + '%');
+        setIfExists('settingsDimensions',   `${dims} / ${ALL_DIMS.length}`);
+        setIfExists('settingsConversations', profile.conversation_count || 0);
+        setIfExists('settingsPhotos',        `${(profile.photos || []).length} / 3`);
+
+        const isActive = profile.matching_active !== false;
+        const toggle   = document.getElementById('settingsMatchingToggle');
+        const pill     = document.getElementById('settingsMatchingStatus');
+        if (toggle) toggle.checked = isActive;
+        if (pill) {
+            pill.textContent  = isActive ? 'Active' : 'Paused';
+            pill.className    = `status-pill ${isActive ? 'active' : 'inactive'}`;
         }
-    } catch (error) {
-        console.error('Error loading settings:', error);
+
+        const matchStatus = matchData.match ? 'Matched' : 'Searching';
+        setIfExists('settingsCurrentMatch', matchStatus);
+
+    } catch (err) {
+        console.error('Settings load error:', err);
     }
 }
 
-// Toggle Matching from Settings
 async function toggleMatchingFromSettings() {
     const toggle = document.getElementById('settingsMatchingToggle');
-    const statusSpan = document.getElementById('settingsMatchingStatus');
-    const newStatus = toggle.checked;
-    
+    const pill   = document.getElementById('settingsMatchingStatus');
+    const active = toggle.checked;
+
     toggle.disabled = true;
-    
     try {
-        const response = await fetch(`${API_URL}/match/toggle`, {
+        const res  = await fetch(`${API_URL}/match/toggle`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ active: newStatus })
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({ active })
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusSpan.textContent = newStatus ? 'Active' : 'Inactive';
-            statusSpan.className = 'status-text ' + (newStatus ? 'active' : 'inactive');
-            
-            // Sync other toggles
-            syncAllToggles(newStatus);
-            
-            showToast(`Matching ${newStatus ? 'activated' : 'paused'}`, 'success');
+        const data = await res.json();
+
+        if (res.ok) {
+            if (pill) {
+                pill.textContent = active ? 'Active' : 'Paused';
+                pill.className   = `status-pill ${active ? 'active' : 'inactive'}`;
+            }
+            showToast(`Matching ${active ? 'activated' : 'paused'}`, 'success');
         } else {
-            toggle.checked = !newStatus;
-            showToast(data.error || 'Failed to update status', 'error');
+            toggle.checked = !active;
+            showToast(data.error || 'Failed to update', 'error');
         }
-    } catch (error) {
-        console.error('Error toggling status:', error);
-        toggle.checked = !newStatus;
+    } catch {
+        toggle.checked = !active;
         showToast('Connection error', 'error');
     } finally {
         toggle.disabled = false;
     }
 }
 
-// Theme Management
-function changeTheme(theme) {
-    localStorage.setItem('theme', theme);
-    applyTheme(theme);
+/* ============================================================
+   CANCEL / DELETE ACCOUNT
+   ============================================================ */
+function showCancelModal() {
+    document.getElementById('cancelModal').style.display = 'flex';
 }
 
-function applyTheme(theme) {
-    // Remove all theme classes
-    document.body.classList.remove('theme-borland', 'theme-dark', 'theme-nature', 'theme-ocean');
-    
-    // Add selected theme class
-    if (theme !== 'default') {
-        document.body.classList.add(`theme-${theme}`);
-    }
+function hideCancelModal() {
+    document.getElementById('cancelModal').style.display = 'none';
 }
 
-// Apply saved theme on load
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme) {
-    applyTheme(savedTheme);
-}
+async function deleteAccount() {
+    const btn = document.getElementById('confirmDeleteBtn');
+    setBtnLoading(btn, 'Deleting…');
 
-// Photo Upload Handling
-let selectedChatPhoto = null;
-
-function triggerChatPhotoUpload() {
-    document.getElementById('chatPhotoUploadInput').click();
-}
-
-function handleChatPhotoSelect(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    uploadPhoto(file);
-}
-
-async function uploadPhoto(file) {
-    if (!file) return;
-    
-    // Show uploading state
-    const btn = document.getElementById('chatPhotoUploadBtn');
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Uploading...';
-    
-    const formData = new FormData();
-    formData.append('photo', file);
-    
     try {
-        const response = await fetch(`${API_URL}/profile/photos`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showToast('Photo uploaded successfully!', 'success');
-            renderPhotos(data.photos, 'chatPhotoGrid', 'chatPhotoUploadBtn');
-        } else {
-            showToast(data.error || 'Upload failed', 'error');
-        }
-    } catch (error) {
-        console.error('Photo upload error:', error);
-        showToast('Upload connection error', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-        // Clear input
-        document.getElementById('chatPhotoUploadInput').value = '';
-    }
-}
-
-async function deletePhoto(photoUrl) {
-    if (!confirm('Delete this photo?')) return;
-    
-    try {
-        const response = await fetch(`${API_URL}/profile/photos`, {
+        const res = await fetch(`${API_URL}/account`, {
             method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ photo_url: photoUrl })
+            headers: { Authorization: `Bearer ${authToken}` }
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showToast('Photo deleted', 'success');
-            renderPhotos(data.photos, 'chatPhotoGrid', 'chatPhotoUploadBtn');
+
+        if (res.ok) {
+            hideCancelModal();
+            showToast('Your account has been deleted.', 'info');
+            setTimeout(() => logout(), 1500);
         } else {
-            showToast(data.error || 'Delete failed', 'error');
+            const data = await res.json();
+            showToast(data.error || 'Failed to delete account', 'error');
+            resetBtn(btn, 'Yes, Delete My Account');
         }
-    } catch (error) {
-        console.error('Photo delete error:', error);
-        showToast('Delete connection error', 'error');
+    } catch {
+        showToast('Connection error', 'error');
+        resetBtn(btn, 'Yes, Delete My Account');
     }
 }
 
-function renderPhotos(photos, gridId, uploadBtnId) {
-    const grid = document.getElementById(gridId);
-    if (!grid) return;
-    
-    grid.innerHTML = '';
-    
-    // Render existing photos
-    photos.forEach(url => {
-        const div = document.createElement('div');
-        div.className = 'photo-item';
-        div.innerHTML = `
-            <img src="${url}" alt="Profile Photo">
-            <button class="photo-delete-btn" onclick="deletePhoto('${url}')">×</button>
-        `;
-        grid.appendChild(div);
-    });
-    
-    // Render placeholders
-    const placeholdersNeeded = 3 - photos.length;
-    for (let i = 0; i < placeholdersNeeded; i++) {
-        const div = document.createElement('div');
-        div.className = 'photo-item photo-item-empty';
-        div.innerHTML = '<span>+</span>';
-        grid.appendChild(div);
-    }
-    
-    // Disable upload if full
-    const btn = document.getElementById(uploadBtnId);
-    if (btn) {
-        if (photos.length >= 3) {
-            btn.disabled = true;
-            btn.title = 'Maximum 3 photos allowed';
-        } else {
-            btn.disabled = false;
-            btn.title = '';
-        }
-    }
+/* ============================================================
+   TOAST NOTIFICATIONS
+   ============================================================ */
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast     = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    const icons = { success: '✓', error: '✗', info: 'i' };
+    toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || 'i'}</div>
+        <div class="toast-message">${escapeHtml(message)}</div>
+        <div class="toast-close" onclick="this.parentElement.remove()">×</div>`;
+
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+}
+
+/* ============================================================
+   UTILITY HELPERS
+   ============================================================ */
+function escapeHtml(str) {
+    if (typeof str !== 'string') return str;
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function setIfExists(id, value, fn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (fn) { fn(el); return; }
+    if (value !== null && value !== undefined) el.textContent = value;
+}
+
+function showError(id, msg) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = msg;
+}
+
+function clearErrors() {
+    document.querySelectorAll('.input-error').forEach(el => el.textContent = '');
+}
+
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<div class="msg-${type}">${escapeHtml(msg)}</div>`;
+}
+
+function setBtnLoading(btn, label) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> ${label}`;
+}
+
+function resetBtn(btn, label) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.innerHTML = label;
 }

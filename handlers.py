@@ -779,15 +779,6 @@ def get_current_match():
             'message': 'Matching will be available when you turn 18. Keep building your profile!'
         })
     
-    # Check payment status
-    payment_status = profile.get('payment_status', 'payment_required')
-    if payment_status not in ['free', 'completed']:
-        return jsonify({
-            'match': None,
-            'message': 'Payment required to access matching services. Please complete your payment to continue.',
-            'payment_required': True
-        })
-    
     # Get current match
     match_id = profile.get('current_match_id')
     if not match_id:
@@ -1129,6 +1120,72 @@ def get_matching_logs():
         'recent_runs': recent_runs
     })
 
+@token_required
+def delete_account():
+    """Permanently delete account and all associated data"""
+    user_id = request.user_id
+
+    try:
+        # Load profile to find any match partner
+        profile = s3_get(f"profiles/{user_id}.json")
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        # Notify match partner that this user's match is cleared
+        match_id = profile.get('current_match_id')
+        if match_id:
+            match_profile = s3_get(f"profiles/{match_id}.json")
+            if match_profile:
+                match_profile['current_match_id'] = None
+                match_profile['match_score'] = None
+                match_profile['matched_at'] = None
+                match_profile['match_accepted'] = False
+                match_profile['match_analysis'] = None
+                s3_put(f"profiles/{match_id}.json", match_profile)
+
+        # Delete photos from S3
+        for photo_url in profile.get('photos', []):
+            try:
+                delete_photo_from_s3(photo_url)
+            except Exception:
+                pass
+
+        # Delete profile
+        try:
+            s3_client.delete_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}profiles/{user_id}.json")
+        except Exception as e:
+            print(f"Error deleting profile from S3: {e}")
+
+        # Delete chat history
+        try:
+            s3_client.delete_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}chat/{user_id}_history.json")
+        except Exception:
+            pass
+
+        # Remove from member list
+        try:
+            member_list = s3_get(MEMBER_LIST_KEY)
+            if member_list:
+                member_list['members'] = [m for m in member_list.get('members', []) if m.get('user_id') != user_id]
+                member_list['updated_at'] = datetime.utcnow().isoformat()
+                s3_put(MEMBER_LIST_KEY, member_list)
+        except Exception as e:
+            print(f"Error removing from member list: {e}")
+
+        # Evict caches
+        _s3_cache.pop(f"profiles/{user_id}.json", None)
+        _s3_cache_ts.pop(f"profiles/{user_id}.json", None)
+
+        print(f"✅ Account deleted: {user_id}")
+        return jsonify({'success': True, 'message': 'Account deleted successfully'})
+
+    except Exception as e:
+        print(f"❌ Error deleting account {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to delete account'}), 500
+
+
 # Register all routes with the Flask app
 def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cfg):
     global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config
@@ -1156,6 +1213,9 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
     app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
     
+    # Account deletion
+    app.add_url_rule('/account', 'delete_account', delete_account, methods=['DELETE'])
+
     # Admin/Cron endpoints for matching
     app.add_url_rule('/admin/run-matching', 'run_daily_matching', run_daily_matching, methods=['POST'])
     app.add_url_rule('/admin/matching-logs', 'get_matching_logs', get_matching_logs, methods=['GET'])
