@@ -59,6 +59,8 @@ def token_required(f):
             token = token.replace('Bearer ', '')
             data = jwt.decode(token, jwt_secret, algorithms=['HS256'])
             request.user_id = data['user_id']
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Token expired', 'expired': True}), 401
         except Exception as e:
             print(f"Token verification failed: {e}")
             return jsonify({'error': 'Invalid token'}), 401
@@ -228,11 +230,13 @@ def call_openrouter_llm(messages, use_fallback=False):
         if response.status_code >= 400:
             error_message = None
             if isinstance(result, dict):
-                error_message = (
-                    result.get('error', {}).get('message')
-                    or result.get('error', {}).get('details')
-                    or result.get('message')
-                )
+                err_obj = result.get('error')
+                if isinstance(err_obj, dict):
+                    error_message = err_obj.get('message') or err_obj.get('details')
+                elif isinstance(err_obj, str):
+                    error_message = err_obj
+                if not error_message:
+                    error_message = result.get('message')
             if not error_message:
                 error_message = response.text.strip() or f"HTTP {response.status_code} error"
             print(f"❌ OpenRouter returned error: {error_message}")
@@ -368,7 +372,7 @@ def register():
     else:
         payment_status = 'payment_required'
     
-    # Create user profile
+    # Create user profile — matching off by default until user opts in
     profile = {
         'user_id': user_id,
         'email': email,
@@ -383,6 +387,7 @@ def register():
         'conversation_count': 0,
         'dimensions': {},
         'is_free_member': is_free,
+        'matching_active': False,
         'name': '',
         'location': '',
         'about': '',
@@ -393,7 +398,7 @@ def register():
     
     # Generate token
     token = jwt.encode(
-        {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
+        {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=30)},
         jwt_secret,
         algorithm='HS256'
     )
@@ -442,7 +447,7 @@ def login():
     # If no password provided or stored, allow login with just email (username-only mode)
     
     token = jwt.encode(
-        {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=1)},
+        {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=30)},
         jwt_secret,
         algorithm='HS256'
     )
@@ -699,7 +704,8 @@ def chat():
             s3_put(f"profiles/{request.user_id}.json", profile)
         
     elif llm_response and 'error' in llm_response:
-        ai_response = f"LLM Error: {llm_response['error']}"
+        print(f"❌ LLM error in chat: {llm_response['error']}")
+        ai_response = "I'm having a little trouble right now — please try again in a moment."
     
     # Store in chat history
     chat_entry = {
@@ -845,6 +851,63 @@ def get_current_match():
         'match': match_info,
         'matching_active': profile.get('matching_active', True)
     })
+
+@token_required
+def generate_profile_summary():
+    """Generate (or regenerate) an LLM narrative summary of the user and cache it on their profile"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+
+    history_key = f"chat/{request.user_id}_history.json"
+    chat_history = s3_get(history_key) or {'messages': []}
+    messages_list = chat_history.get('messages', [])
+
+    if len(messages_list) < 3:
+        return jsonify({'summary': None, 'message': 'Have a few more conversations first — your summary will be generated once we know you better.'})
+
+    name = profile.get('name') or 'This person'
+    age = profile.get('age', 'unknown')
+    gender_raw = profile.get('gender', '')
+    gender = 'Male' if gender_raw in ('male', 'M', 'm') else 'Female' if gender_raw in ('female', 'F', 'f') else gender_raw
+    location = profile.get('location', 'unknown')
+    dimensions = profile.get('dimensions', {})
+
+    import json as _json
+    dims_text = _json.dumps(dimensions, indent=2) if dimensions else 'No dimensions collected yet'
+
+    recent = messages_list[-30:]
+    conversation_text = ''
+    for m in recent:
+        conversation_text += f"User: {m['user']}\nMatchmaker: {m['ai']}\n\n"
+
+    summary_prompt = f"""You are a thoughtful matchmaking writer. Based on the conversation and profile below, write a warm and insightful 3–4 paragraph summary of this person. Write in third person as if introducing them to a potential match. Capture their personality, values, aspirations, and what makes them unique. Be specific and use actual details from their responses — avoid generic platitudes. Keep each paragraph focused and distinct.
+
+Name: {name}
+Age: {age}
+Gender: {gender}
+Location: {location}
+
+Profile Dimensions:
+{dims_text}
+
+Recent Conversation:
+{conversation_text if conversation_text else 'No conversation history yet'}
+
+Write 3–4 paragraphs that paint a vivid, honest portrait of who this person is and what they are looking for."""
+
+    llm_response = call_openrouter_llm([{'role': 'user', 'content': summary_prompt}])
+
+    if llm_response and 'content' in llm_response:
+        summary = llm_response['content'].strip()
+        profile['profile_summary'] = summary
+        profile['profile_summary_updated_at'] = datetime.utcnow().isoformat()
+        s3_put(f"profiles/{request.user_id}.json", profile)
+        return jsonify({'summary': summary})
+    else:
+        error = llm_response.get('error', 'Unknown error') if llm_response else 'LLM unavailable'
+        return jsonify({'error': f'Could not generate summary: {error}'}), 500
+
 
 @token_required
 def toggle_matching_active():
@@ -1202,6 +1265,7 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
     app.add_url_rule('/profile/photos', 'upload_photo', upload_photo, methods=['POST'])
     app.add_url_rule('/profile/photos', 'delete_photo', delete_photo, methods=['DELETE'])
+    app.add_url_rule('/profile/summary', 'generate_profile_summary', generate_profile_summary, methods=['POST'])
     app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
     app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
     app.add_url_rule('/match', 'get_current_match', get_current_match, methods=['GET'])

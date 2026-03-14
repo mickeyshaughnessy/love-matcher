@@ -427,9 +427,22 @@
                         <button class="btn btn-secondary btn-sm" onclick="showView('chat')">Continue Conversation</button>
                     </div>
                 </div>
+
+                <!-- AI-generated summary -->
+                <div class="card card-padded" style="margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                        <p class="profile-section-title" style="margin-bottom:0;">Your Story</p>
+                        <button class="btn btn-ghost btn-sm" id="profileSummaryRegenBtn" onclick="generateProfileSummary()" style="display:none;">
+                            <i class="ph ph-arrow-clockwise"></i> Regenerate
+                        </button>
+                    </div>
+                    <div id="profileSummaryContent" style="font-size:0.9rem; line-height:1.75; color:var(--slate-light);">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
             </div>
 
-            <!-- Right: photos -->
+            <!-- Right: photos + matching -->
             <div>
                 <div class="card card-padded">
                     <p class="profile-section-title">Photos</p>
@@ -442,6 +455,14 @@
                         <i class="ph ph-upload-simple"></i> Upload Photo
                     </button>
                     <p class="text-muted" style="font-size:0.775rem; text-align:center; margin-top:8px;">Max 5MB · JPG, PNG, GIF</p>
+                </div>
+
+                <!-- Matching toggle -->
+                <div class="card card-padded" style="margin-top:20px;">
+                    <p class="profile-section-title">Matching</p>
+                    <div id="profileMatchingContent">
+                        <!-- Rendered by JS -->
+                    </div>
                 </div>
             </div>
         </div>

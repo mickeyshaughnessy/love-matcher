@@ -29,15 +29,35 @@ document.addEventListener('DOMContentLoaded', () => {
     setupChatInputKeydown();
 });
 
-function checkAutoLogin() {
+async function checkAutoLogin() {
     const token = localStorage.getItem('authToken');
     const user  = localStorage.getItem('currentUser');
-    if (token && user) {
-        authToken = token;
+    if (!token || !user) return;
+
+    try {
+        authToken   = token;
         currentUser = JSON.parse(user);
-        showLoggedInNav();
-        showView('dashboard');
+    } catch {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        return;
     }
+
+    try {
+        // Validate token with the server; apiFetch handles 401 → clears session + shows landing
+        const res = await apiFetch(`${API_URL}/profile`);
+        if (!res.ok) return;
+
+        try {
+            const profile = await res.json();
+            currentUser = { ...currentUser, ...profile };
+        } catch { /* keep existing currentUser if parse fails */ }
+    } catch {
+        // Network unavailable — show app with cached credentials
+    }
+
+    showLoggedInNav();
+    showView('dashboard');
 }
 
 function showLoggedInNav() {
@@ -443,12 +463,9 @@ async function sendMessage() {
     showTypingIndicator();
 
     try {
-        const res = await fetch(`${API_URL}/chat`, {
+        const res = await apiFetch(`${API_URL}/chat`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${authToken}`
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message })
         });
 
@@ -852,8 +869,143 @@ async function loadProfile() {
         }
 
         renderPhotos(profile.photos || [], 'profilePhotoGrid', 'photoUploadBtn');
+        renderProfileMatchingToggle(profile, dims);
+        renderProfileSummary(profile, dims);
     } catch (err) {
         console.error('Profile load error:', err);
+    }
+}
+
+function renderProfileMatchingToggle(profile, dims) {
+    const container = document.getElementById('profileMatchingContent');
+    if (!container) return;
+
+    const MIN_DIMS = 5;
+    const isActive = profile.matching_active === true;
+
+    if (dims < MIN_DIMS) {
+        container.innerHTML = `
+            <p style="font-size:0.875rem; color:var(--slate-muted); margin-bottom:12px;">
+                Complete at least ${MIN_DIMS} conversation topics to enable matching (${dims}/${MIN_DIMS} so far).
+            </p>
+            <button class="btn btn-primary btn-sm" onclick="showView('chat')">Continue Conversation</button>`;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+                <div style="font-size:0.9rem; font-weight:500; color:var(--slate); margin-bottom:2px;">
+                    ${isActive ? 'You are in the matching pool' : 'Matching is off'}
+                </div>
+                <div style="font-size:0.825rem; color:var(--slate-muted);">
+                    ${isActive ? 'Turn off to pause while you take a break.' : 'Turn on to be considered for matches.'}
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0; margin-left:16px;">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="profileMatchingToggle" onchange="toggleMatchingFromProfile()"
+                           ${isActive ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="status-pill ${isActive ? 'active' : 'inactive'}" id="profileMatchingStatus">
+                    ${isActive ? 'Active' : 'Off'}
+                </span>
+            </div>
+        </div>`;
+}
+
+async function toggleMatchingFromProfile() {
+    const toggle = document.getElementById('profileMatchingToggle');
+    const pill   = document.getElementById('profileMatchingStatus');
+    const active = toggle.checked;
+
+    toggle.disabled = true;
+    try {
+        const res  = await fetch(`${API_URL}/match/toggle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({ active })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            const label = document.querySelector('#profileMatchingContent [style*="font-weight:500"]');
+            const sub   = document.querySelector('#profileMatchingContent [style*="slate-muted"]');
+            if (label) label.textContent = active ? 'You are in the matching pool' : 'Matching is off';
+            if (sub)   sub.textContent   = active ? 'Turn off to pause while you take a break.' : 'Turn on to be considered for matches.';
+            if (pill) {
+                pill.textContent = active ? 'Active' : 'Off';
+                pill.className   = `status-pill ${active ? 'active' : 'inactive'}`;
+            }
+            showToast(`Matching ${active ? 'activated' : 'paused'}`, 'success');
+        } else {
+            toggle.checked = !active;
+            showToast(data.error || 'Failed to update', 'error');
+        }
+    } catch {
+        toggle.checked = !active;
+        showToast('Connection error', 'error');
+    } finally {
+        toggle.disabled = false;
+    }
+}
+
+function renderProfileSummary(profile, dims) {
+    const content = document.getElementById('profileSummaryContent');
+    const regenBtn = document.getElementById('profileSummaryRegenBtn');
+    if (!content) return;
+
+    const MIN_CONVOS = 3;
+    const convos = profile.conversation_count || 0;
+
+    if (convos < MIN_CONVOS) {
+        content.innerHTML = `<p style="color:var(--slate-muted);">Have at least ${MIN_CONVOS} conversations and we'll generate a personal summary for you.</p>`;
+        if (regenBtn) regenBtn.style.display = 'none';
+        return;
+    }
+
+    if (profile.profile_summary) {
+        const paragraphs = profile.profile_summary.split(/\n\n+/).filter(p => p.trim());
+        content.innerHTML = paragraphs.map(p => `<p style="margin-bottom:1em;">${escapeHtml(p.trim())}</p>`).join('');
+        if (regenBtn) regenBtn.style.display = 'inline-flex';
+    } else {
+        content.innerHTML = `
+            <p style="color:var(--slate-muted); margin-bottom:12px;">We'll write a short narrative summary of who you are based on your conversations.</p>
+            <button class="btn btn-secondary btn-sm" onclick="generateProfileSummary()">
+                <i class="ph ph-sparkle"></i> Generate My Story
+            </button>`;
+        if (regenBtn) regenBtn.style.display = 'none';
+    }
+}
+
+async function generateProfileSummary() {
+    const content  = document.getElementById('profileSummaryContent');
+    const regenBtn = document.getElementById('profileSummaryRegenBtn');
+    if (!content) return;
+
+    content.innerHTML = '<span style="color:var(--slate-muted); font-size:0.875rem;"><span class="spinner"></span> Writing your story…</span>';
+    if (regenBtn) regenBtn.disabled = true;
+
+    try {
+        const res  = await fetch(`${API_URL}/profile/summary`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+
+        if (res.ok && data.summary) {
+            const paragraphs = data.summary.split(/\n\n+/).filter(p => p.trim());
+            content.innerHTML = paragraphs.map(p => `<p style="margin-bottom:1em;">${escapeHtml(p.trim())}</p>`).join('');
+            if (regenBtn) { regenBtn.style.display = 'inline-flex'; regenBtn.disabled = false; }
+            showToast('Your story has been written!', 'success');
+        } else {
+            content.innerHTML = `<p style="color:var(--error); font-size:0.875rem;">${escapeHtml(data.error || data.message || 'Could not generate summary.')}</p>`;
+            if (regenBtn) regenBtn.disabled = false;
+        }
+    } catch {
+        content.innerHTML = `<p style="color:var(--error); font-size:0.875rem;">Connection error. Please try again.</p>`;
+        if (regenBtn) regenBtn.disabled = false;
     }
 }
 
@@ -1068,6 +1220,37 @@ function showToast(message, type = 'info') {
 
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
+}
+
+/* ============================================================
+   AUTHENTICATED FETCH — auto-handles 401 with re-login prompt
+   ============================================================ */
+async function apiFetch(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    if (authToken) options.headers['Authorization'] = `Bearer ${authToken}`;
+
+    const res = await fetch(url, options);
+
+    if (res.status === 401) {
+        const data = await res.json().catch(() => ({}));
+        // Session expired — clear credentials and prompt re-login
+        authToken   = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        document.getElementById('mainNav').classList.remove('active');
+        VIEWS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        const landingEl = document.getElementById('landingPage');
+        if (landingEl) landingEl.style.display = 'block';
+        showToast('Your session has expired — please sign in again.', 'error');
+        // Return a fake Response so callers don't crash
+        return new Response(JSON.stringify(data), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return res;
 }
 
 /* ============================================================

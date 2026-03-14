@@ -280,7 +280,7 @@ def find_match_for_user(user_profile, all_profiles, verbose=False):
             continue
         
         # Skip if not active
-        if not candidate.get('matching_active', True):
+        if not candidate.get('matching_active', False):
             skip_reasons['inactive'] += 1
             continue
         
@@ -433,7 +433,7 @@ def run_matching(dry_run=False, verbose=False):
     print("\n📈 Profile Status Breakdown:")
     total_users = len(all_profiles)
     already_matched = sum(1 for p in all_profiles if p.get('current_match_id'))
-    active_matching = sum(1 for p in all_profiles if p.get('matching_active', True))
+    active_matching = sum(1 for p in all_profiles if p.get('matching_active', False))
     inactive_matching = total_users - active_matching
     eligible = sum(1 for p in all_profiles if p.get('matching_eligible', False))
     under_18 = sum(1 for p in all_profiles if p.get('age', 0) < 18)
@@ -455,7 +455,7 @@ def run_matching(dry_run=False, verbose=False):
     print("\n🔍 Filtering users for matching...")
     active_users = [
         p for p in all_profiles 
-        if p.get('matching_active', True) 
+        if p.get('matching_active', False) 
         and not p.get('current_match_id')
     ]
     
