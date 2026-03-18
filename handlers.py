@@ -816,6 +816,7 @@ def chat():
     data = request.json
     user_message = data.get('message')
     topic_id = data.get('topic_id')  # Optional - uses/creates active topic if absent
+    is_start = user_message == '__start__'  # Special signal: open topic with LLM question
 
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
@@ -825,9 +826,10 @@ def chat():
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
 
-    # Increment conversation count
-    profile['conversation_count'] = profile.get('conversation_count', 0) + 1
-    s3_put(f"profiles/{request.user_id}.json", profile)
+    # Only count real messages toward conversation count
+    if not is_start:
+        profile['conversation_count'] = profile.get('conversation_count', 0) + 1
+        s3_put(f"profiles/{request.user_id}.json", profile)
 
     # Resolve topic: use provided, find active, or create new
     topic_data = None
@@ -835,27 +837,29 @@ def chat():
         topic_data = load_topic(request.user_id, topic_id)
 
     if not topic_data:
-        # Find active topic or create one
         active_id = get_active_topic_id(request.user_id)
         if active_id:
             topic_id = active_id
             topic_data = load_topic(request.user_id, topic_id)
-
         if not topic_data:
-            # Create first topic
             topic_id, topic_data = create_user_topic(request.user_id, 'Getting to Know You')
 
-    # Build chat history from topic messages for LLM context
     topic_messages = topic_data.get('messages', [])
     topic_chat_history = {'messages': topic_messages}
 
-    # Build messages for LLM (using topic history + topic context in system prompt)
-    messages = prompts.build_messages_for_llm(
-        profile, topic_chat_history, user_message,
-        max_history=20,
-        topic_title=topic_data.get('title', ''),
-        topic_key=topic_data.get('topic_key', '')
-    )
+    # For __start__, ask the LLM to open the topic without a user message
+    if is_start:
+        messages = prompts.build_opening_messages_for_llm(
+            profile, topic_title=topic_data.get('title', ''),
+            topic_key=topic_data.get('topic_key', '')
+        )
+    else:
+        messages = prompts.build_messages_for_llm(
+            profile, topic_chat_history, user_message,
+            max_history=20,
+            topic_title=topic_data.get('title', ''),
+            topic_key=topic_data.get('topic_key', '')
+        )
 
     # Call LLM
     llm_response = call_openrouter_llm(messages)
@@ -950,12 +954,19 @@ def chat():
         print(f"LLM error in chat: {llm_response['error']}")
         ai_response = "I'm having a little trouble right now — please try again in a moment."
 
-    # Store message in topic
-    chat_entry = {
-        'timestamp': datetime.utcnow().isoformat(),
-        'user': user_message,
-        'ai': ai_response
-    }
+    # Store message in topic (for __start__, only store the AI opening, no user message)
+    if is_start:
+        chat_entry = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'user': None,
+            'ai': ai_response
+        }
+    else:
+        chat_entry = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'user': user_message,
+            'ai': ai_response
+        }
     if parsed_response:
         chat_entry['parsed_dimension'] = parsed_response['dimension']
         chat_entry['parsed_value'] = parsed_response['value']

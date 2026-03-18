@@ -506,11 +506,26 @@ async function loadTopicMessages(topicId) {
 
             if (data.messages && data.messages.length > 0) {
                 data.messages.forEach(msg => {
-                    appendMessage(msg.user, 'user', msg.timestamp);
-                    appendMessage(msg.ai, 'ai', msg.timestamp);
+                    if (msg.user) appendMessage(msg.user, 'user', msg.timestamp);
+                    if (msg.ai)   appendMessage(msg.ai,   'ai',   msg.timestamp);
                 });
             } else {
-                appendMessage("I'm ready to explore this topic with you. What would you like to share?", 'ai');
+                // Fresh topic — ask LLM for a specific opening question
+                showTypingIndicator();
+                try {
+                    const openRes = await apiFetch(`${API_URL}/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: '__start__', topic_id: topicId })
+                    });
+                    removeTypingIndicator();
+                    if (openRes.ok) {
+                        const openData = await openRes.json();
+                        appendMessage(openData.response, 'ai', openData.timestamp);
+                    }
+                } catch {
+                    removeTypingIndicator();
+                }
             }
         }
     } catch (err) {
