@@ -29,7 +29,7 @@
             <i class="ph ph-house"></i> <span class="nav-text">Home</span>
         </a>
         <a href="#" class="nav-link" id="navChat" onclick="showView('chat'); return false;">
-            <i class="ph ph-chat-circle"></i> <span class="nav-text">Conversation</span>
+            <i class="ph ph-chat-circle"></i> <span class="nav-text">Conversations</span>
         </a>
         <a href="#" class="nav-link" id="navMatch" onclick="showView('match'); return false;">
             <i class="ph ph-heart"></i> <span class="nav-text">Your Match</span>
@@ -307,8 +307,8 @@
         <div class="chat-main">
             <div class="chat-header-bar">
                 <div>
-                    <h2>Your Conversation</h2>
-                    <div class="sub">Chat with our matchmaking AI to build your profile</div>
+                    <h2 id="chatHeaderTitle">Conversations</h2>
+                    <div class="sub" id="chatHeaderSub">Select a topic to begin</div>
                 </div>
                 <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">
                     <i class="ph ph-arrow-left"></i> Dashboard

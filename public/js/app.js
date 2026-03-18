@@ -371,7 +371,7 @@ function renderTopicsChecklist(dimensions, containerId, clickable) {
             // grouped for dashboard
             const statusIcon = complete ? '✓' : partial ? '…' : '';
             html += `
-                <div class="topic-item" ${clickable ? 'onclick="showView(\'chat\')"' : ''}>
+                <div class="topic-item" ${clickable ? `onclick="showChatForGroup('${group.label}')"` : ''} ${clickable ? 'style="cursor:pointer;"' : ''}>
                     <div class="topic-check${complete ? ' done' : partial ? ' active' : ''}">
                         ${statusIcon}
                     </div>
@@ -424,13 +424,17 @@ async function loadChatHistory() {
 
         // Render topics sidebar
         if (topicsRes.ok) {
-            renderTopicsList(topicsData.topics || [], topicsData.active_topic_id);
+            const topics   = topicsData.topics || [];
+            // Prefer a pre-selected topic (e.g. from dashboard click), then active, then first
+            const targetId = currentTopicId
+                || topicsData.active_topic_id
+                || (topics[0] && topics[0].topic_id);
 
-            // Load active topic messages
-            const activeId = topicsData.active_topic_id || (topicsData.topics && topicsData.topics[0] && topicsData.topics[0].topic_id);
-            if (activeId) {
-                currentTopicId = activeId;
-                await loadTopicMessages(activeId);
+            renderTopicsList(topics, targetId);
+
+            if (targetId) {
+                currentTopicId = targetId;
+                await loadTopicMessages(targetId);
             } else {
                 // No topics yet - show welcome message
                 appendMessage(
@@ -483,14 +487,16 @@ async function loadTopicMessages(topicId) {
 }
 
 function updateChatHeader(topicTitle, status) {
-    const header = document.querySelector('.chat-header-bar h2');
-    const sub    = document.querySelector('.chat-header-bar .sub');
-    if (header) header.textContent = topicTitle || 'Your Conversation';
+    const header = document.getElementById('chatHeaderTitle');
+    const sub    = document.getElementById('chatHeaderSub');
+    if (header) header.textContent = topicTitle || 'Conversations';
     if (sub) {
         if (status === 'completed') {
-            sub.innerHTML = '<span style="color:var(--success)">✓ Topic completed</span> · Chat with our matchmaking AI';
+            sub.innerHTML = '<span style="color:var(--success)">✓ Completed</span> · Start a new topic to keep going';
+        } else if (topicTitle) {
+            sub.textContent = 'Chat with your matchmaking AI';
         } else {
-            sub.textContent = 'Chat with our matchmaking AI to build your profile';
+            sub.textContent = 'Select a topic to begin';
         }
     }
 }
@@ -537,7 +543,14 @@ function renderTopicsList(topics, activeTopicId) {
 async function selectTopic(topicId) {
     currentTopicId = topicId;
 
-    // Update sidebar active state
+    const chatView = document.getElementById('chatView');
+    if (!chatView || chatView.style.display === 'none') {
+        // Navigate to chat — loadChatHistory will pick up currentTopicId
+        showView('chat');
+        return;
+    }
+
+    // Already in chat view — just swap the topic
     document.querySelectorAll('.topic-thread-item').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.topic-thread-item').forEach(el => {
         if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(topicId)) {
@@ -546,6 +559,29 @@ async function selectTopic(topicId) {
     });
 
     await loadTopicMessages(topicId);
+}
+
+async function showChatForGroup(groupLabel) {
+    // Find an existing topic with this label, or create one
+    try {
+        const res  = await apiFetch(`${API_URL}/topics`);
+        const data = await res.json();
+        const existing = res.ok && data.topics && data.topics.find(t => t.title === groupLabel);
+        if (existing) {
+            currentTopicId = existing.topic_id;
+        } else {
+            const createRes = await apiFetch(`${API_URL}/topics`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: groupLabel })
+            });
+            if (createRes.ok) {
+                const created = await createRes.json();
+                currentTopicId = created.topic_id;
+            }
+        }
+    } catch {}
+    showView('chat');
 }
 
 async function startNewTopic() {
