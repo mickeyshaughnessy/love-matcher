@@ -6,6 +6,8 @@ const API_URL = 'https://love-matcher.com';
 let authToken = null;
 let currentUser = null;
 let matchPollInterval = null;
+let currentTopicId = null;
+let matchTopicId = null;
 
 // Conversation topic categories shown in the sidebar checklist
 const TOPIC_GROUPS = [
@@ -412,40 +414,170 @@ async function loadChatHistory() {
     messagesDiv.innerHTML = '';
 
     try {
-        const [histRes, profileRes] = await Promise.all([
-            fetch(`${API_URL}/chat/history`, { headers: { Authorization: `Bearer ${authToken}` } }),
-            fetch(`${API_URL}/profile`,       { headers: { Authorization: `Bearer ${authToken}` } }),
+        const [topicsRes, profileRes] = await Promise.all([
+            apiFetch(`${API_URL}/topics`),
+            apiFetch(`${API_URL}/profile`),
         ]);
 
-        const histData    = await histRes.json();
+        const topicsData  = await topicsRes.json();
         const profileData = await profileRes.json();
 
-        if (histRes.ok && histData.messages.length > 0) {
-            histData.messages.forEach(msg => {
-                appendMessage(msg.user, 'user', msg.timestamp);
-                appendMessage(msg.ai,   'ai',   msg.timestamp);
-            });
-        } else {
-            // First visit or no history — show welcome
-            appendMessage(
-                "Hi! I'm here to get to know you — through conversation, not forms. Let's start simply: what's your name, and whereabouts do you live?",
-                'ai'
-            );
+        // Render topics sidebar
+        if (topicsRes.ok) {
+            renderTopicsList(topicsData.topics || [], topicsData.active_topic_id);
+
+            // Load active topic messages
+            const activeId = topicsData.active_topic_id || (topicsData.topics && topicsData.topics[0] && topicsData.topics[0].topic_id);
+            if (activeId) {
+                currentTopicId = activeId;
+                await loadTopicMessages(activeId);
+            } else {
+                // No topics yet - show welcome message
+                appendMessage(
+                    "Hi! I'm here to get to know you — through conversation, not forms. Let's start simply: what's your name, and whereabouts do you live?",
+                    'ai'
+                );
+                updateChatHeader('Getting to Know You', 'active');
+            }
         }
 
-        // Update topics panel
+        // Update progress bar
         if (profileRes.ok) {
-            const dims = profileData.dimensions || {};
+            const dims  = profileData.dimensions || {};
             const count = Object.keys(dims).length;
             const pct   = Math.round((count / ALL_DIMS.length) * 100);
             setIfExists('chatProgressFill',  null, el => el.style.width = pct + '%');
             setIfExists('chatProgressLabel', `${count} / ${ALL_DIMS.length}`);
-            renderTopicsChecklist(dims, 'chatTopicsList', false);
         }
 
     } catch (err) {
         console.error('Chat load error:', err);
+        appendMessage("Hi! I'm here to get to know you — through conversation, not forms. Let's start simply: what's your name, and whereabouts do you live?", 'ai');
     }
+}
+
+async function loadTopicMessages(topicId) {
+    const messagesDiv = document.getElementById('chatMessages');
+    messagesDiv.innerHTML = '';
+
+    try {
+        const res  = await apiFetch(`${API_URL}/topics/${topicId}`);
+        const data = await res.json();
+
+        if (res.ok) {
+            currentTopicId = topicId;
+            updateChatHeader(data.title, data.status);
+
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(msg => {
+                    appendMessage(msg.user, 'user', msg.timestamp);
+                    appendMessage(msg.ai, 'ai', msg.timestamp);
+                });
+            } else {
+                appendMessage("I'm ready to explore this topic with you. What would you like to share?", 'ai');
+            }
+        }
+    } catch (err) {
+        console.error('Topic load error:', err);
+    }
+}
+
+function updateChatHeader(topicTitle, status) {
+    const header = document.querySelector('.chat-header-bar h2');
+    const sub    = document.querySelector('.chat-header-bar .sub');
+    if (header) header.textContent = topicTitle || 'Your Conversation';
+    if (sub) {
+        if (status === 'completed') {
+            sub.innerHTML = '<span style="color:var(--success)">✓ Topic completed</span> · Chat with our matchmaking AI';
+        } else {
+            sub.textContent = 'Chat with our matchmaking AI to build your profile';
+        }
+    }
+}
+
+function renderTopicsList(topics, activeTopicId) {
+    const container = document.getElementById('chatTopicsList');
+    if (!container) return;
+
+    let html = '';
+
+    if (topics.length === 0) {
+        html = `<div style="padding:12px; color:var(--slate-muted); font-size:0.8rem;">Your conversation topics will appear here as you chat.</div>`;
+    } else {
+        topics.forEach(topic => {
+            const isActive  = topic.topic_id === activeTopicId && topic.status === 'active';
+            const isDone    = topic.status === 'completed' || topic.status === 'archived';
+            const msgCount  = topic.message_count || 0;
+
+            html += `
+                <div class="topic-thread-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}"
+                     onclick="selectTopic('${topic.topic_id}')">
+                    <div class="topic-thread-check ${isDone ? 'done' : isActive ? 'active' : ''}">
+                        ${isDone ? '✓' : ''}
+                    </div>
+                    <div class="topic-thread-text">
+                        <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
+                        <div class="topic-thread-meta">${msgCount} message${msgCount !== 1 ? 's' : ''}${isDone ? ' · done' : ''}</div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // New topic button
+    html += `
+        <div style="padding:12px 8px; margin-top:4px;">
+            <button class="btn btn-ghost btn-sm" style="width:100%; font-size:0.775rem;" onclick="startNewTopic()">
+                + New Topic
+            </button>
+        </div>`;
+
+    container.innerHTML = html;
+}
+
+async function selectTopic(topicId) {
+    currentTopicId = topicId;
+
+    // Update sidebar active state
+    document.querySelectorAll('.topic-thread-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.topic-thread-item').forEach(el => {
+        if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(topicId)) {
+            el.classList.add('active');
+        }
+    });
+
+    await loadTopicMessages(topicId);
+}
+
+async function startNewTopic() {
+    const title = prompt('What would you like to talk about?', 'New Conversation');
+    if (!title) return;
+
+    try {
+        const res = await apiFetch(`${API_URL}/topics`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            currentTopicId = data.topic_id;
+            showToast(`Started new topic: ${title}`, 'success');
+            loadChatHistory();
+        }
+    } catch (err) {
+        showToast('Could not create topic', 'error');
+    }
+}
+
+async function fetchAndUpdateTopicsSidebar() {
+    try {
+        const res  = await apiFetch(`${API_URL}/topics`);
+        const data = await res.json();
+        if (res.ok) {
+            renderTopicsList(data.topics || [], currentTopicId);
+        }
+    } catch {}
 }
 
 async function sendMessage() {
@@ -463,10 +595,13 @@ async function sendMessage() {
     showTypingIndicator();
 
     try {
+        const body = { message };
+        if (currentTopicId) body.topic_id = currentTopicId;
+
         const res = await apiFetch(`${API_URL}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
+            body: JSON.stringify(body)
         });
 
         const data = await res.json();
@@ -475,16 +610,35 @@ async function sendMessage() {
         if (res.ok) {
             appendMessage(data.response, 'ai', data.timestamp);
 
-            // Update topics panel
+            // Update current topic id (backend may have created one)
+            if (data.topic_id && !currentTopicId) {
+                currentTopicId = data.topic_id;
+            }
+
+            // If topic was completed and next topic created, switch to it
+            if (data.topic_status === 'completed') {
+                showToast(`Topic "${data.topic_title}" completed!`, 'success');
+                if (data.next_topic_id) {
+                    setTimeout(() => {
+                        currentTopicId = data.next_topic_id;
+                        loadChatHistory();
+                    }, 2000);
+                } else {
+                    // Refresh topics list
+                    setTimeout(() => loadChatHistory(), 1500);
+                }
+            }
+
+            // Update progress bar
             if (data.profile_completion) {
-                const pct = data.profile_completion.percentage;
+                const pct   = data.profile_completion.percentage;
                 const count = data.profile_completion.count;
                 setIfExists('chatProgressFill',  null, el => el.style.width = pct + '%');
                 setIfExists('chatProgressLabel', `${count} / ${ALL_DIMS.length}`);
             }
 
-            // Refresh topics (fetch latest profile)
-            fetchProfileAndUpdateTopics();
+            // Refresh topics sidebar
+            fetchAndUpdateTopicsSidebar();
         } else {
             appendMessage(data.error || 'Something went wrong. Please try again.', 'ai');
         }
@@ -499,13 +653,8 @@ async function sendMessage() {
 }
 
 async function fetchProfileAndUpdateTopics() {
-    try {
-        const res  = await fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } });
-        const data = await res.json();
-        if (res.ok) {
-            renderTopicsChecklist(data.dimensions || {}, 'chatTopicsList', false);
-        }
-    } catch {}
+    // Kept for compatibility - now uses topics sidebar refresh
+    await fetchAndUpdateTopicsSidebar();
 }
 
 function appendMessage(text, type, timestamp) {
@@ -592,10 +741,12 @@ async function loadMatch() {
         if (matchData.match) {
             container.innerHTML = renderMatchCard(matchData.match);
 
-            // Poll for new messages if mutual acceptance
+            // Load match topics if mutual acceptance
             if (matchData.match.mutual_acceptance) {
-                loadMatchMessages();
-                matchPollInterval = setInterval(loadMatchMessages, 5000);
+                loadMatchTopics();
+                matchPollInterval = setInterval(() => {
+                    if (matchTopicId) loadMatchTopicMessages(matchTopicId);
+                }, 5000);
             }
         } else {
             container.innerHTML = renderNoMatch(matchData.message || "We're finding your match — check back soon.");
@@ -684,7 +835,7 @@ function renderMatchCard(match) {
             </div>`;
     } else {
         // Mutual — show chat
-        bodyContent += renderMatchChat();
+        bodyContent += renderMatchChat(match);
     }
 
     return `
@@ -707,25 +858,158 @@ function renderMatchCard(match) {
         </div>`;
 }
 
-function renderMatchChat() {
+function renderMatchChat(matchInfo) {
     return `
         <div class="chaperone-intro">
-            <p>You're both connected. To help you start on the right foot, our AI is here to gently guide early conversation — think of it as a warm introduction, not surveillance.</p>
+            <p>You're connected! Our AI has started 3 conversation topics to help you get to know each other. Click any topic to begin.</p>
         </div>
-        <div class="match-chat-area">
-            <div class="match-chat-header">
-                <i class="ph ph-chat-circle"></i> Private Chat
-            </div>
-            <div class="match-chat-messages" id="matchChatMessages">
-                <div style="text-align:center; color:var(--slate-muted); padding:24px; font-size:0.875rem;">
-                    Start a conversation…
-                </div>
-            </div>
-            <div class="match-chat-input">
-                <input type="text" id="matchChatInput" placeholder="Say hello…">
-                <button class="btn btn-primary btn-sm" onclick="sendMatchMessage()">Send</button>
+        <div id="matchTopicsContainer">
+            <div style="text-align:center; padding:24px; color:var(--slate-muted); font-size:0.875rem;">
+                <span class="spinner"></span> Loading conversation topics…
             </div>
         </div>`;
+}
+
+async function loadMatchTopics() {
+    try {
+        const res  = await apiFetch(`${API_URL}/match/topics`);
+        const data = await res.json();
+
+        const container = document.getElementById('matchTopicsContainer');
+        if (!container) return;
+
+        if (!data.topics || data.topics.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:24px; color:var(--slate-muted);">Conversation topics are being prepared…</div>`;
+            return;
+        }
+
+        // Show topic tabs
+        let html = `<div class="match-topics-tabs">`;
+        data.topics.forEach((topic, i) => {
+            const isDone = topic.status === 'completed';
+            const isActive = matchTopicId ? matchTopicId === topic.topic_id : i === 0;
+            html += `
+                <button class="match-topic-tab ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}"
+                        onclick="selectMatchTopic('${topic.topic_id}', this)">
+                    ${isDone ? '✓ ' : ''}${escapeHtml(topic.title)}
+                </button>`;
+        });
+        html += `</div>`;
+
+        // Chat area for selected topic
+        html += `
+            <div class="match-chat-area" id="matchTopicChatArea">
+                <div class="match-chat-messages" id="matchChatMessages">
+                    <div style="text-align:center; color:var(--slate-muted); padding:24px; font-size:0.875rem;">Select a topic above to begin…</div>
+                </div>
+                <div class="match-chat-input">
+                    <input type="text" id="matchChatInput" placeholder="Share your thoughts…">
+                    <button class="btn btn-primary btn-sm" onclick="sendMatchTopicMessage()">Send</button>
+                </div>
+            </div>`;
+
+        container.innerHTML = html;
+
+        // Auto-load first topic
+        if (data.topics.length > 0) {
+            const firstTopicId = matchTopicId || data.topics[0].topic_id;
+            matchTopicId = firstTopicId;
+            await loadMatchTopicMessages(firstTopicId);
+        }
+    } catch (err) {
+        console.error('Match topics load error:', err);
+    }
+}
+
+async function selectMatchTopic(topicId, tabEl) {
+    matchTopicId = topicId;
+
+    // Update tab active state
+    document.querySelectorAll('.match-topic-tab').forEach(t => t.classList.remove('active'));
+    if (tabEl) tabEl.classList.add('active');
+
+    await loadMatchTopicMessages(topicId);
+}
+
+async function loadMatchTopicMessages(topicId) {
+    const container = document.getElementById('matchChatMessages');
+    if (!container) return;
+
+    try {
+        const [res, profileRes] = await Promise.all([
+            apiFetch(`${API_URL}/match/topics/${topicId}`),
+            apiFetch(`${API_URL}/profile`)
+        ]);
+        const data    = await res.json();
+        const profile = await profileRes.json();
+        const myId    = profile.user_id;
+
+        container.innerHTML = '';
+
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(m => {
+                if (m.from === 'ai') {
+                    const div = document.createElement('div');
+                    div.className = 'match-ai-message';
+                    div.innerHTML = `<span class="match-ai-label">✦ Love-Matcher</span> ${escapeHtml(m.message)}`;
+                    container.appendChild(div);
+                } else {
+                    addMatchMessageToUI(m.message, m.from === myId ? 'sent' : 'received', m.timestamp);
+                }
+            });
+        } else {
+            container.innerHTML = `<div style="text-align:center; color:var(--slate-muted); padding:24px; font-size:0.875rem;">Start a conversation on this topic…</div>`;
+        }
+        container.scrollTop = container.scrollHeight;
+    } catch (err) {
+        console.error('Match topic messages error:', err);
+    }
+}
+
+async function sendMatchTopicMessage() {
+    if (!matchTopicId) return;
+    const input = document.getElementById('matchChatInput');
+    if (!input) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    input.disabled = true;
+
+    try {
+        const res  = await apiFetch(`${API_URL}/match/topics/${matchTopicId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            input.value = '';
+            addMatchMessageToUI(msg, 'sent', data.timestamp);
+
+            if (data.ai_message) {
+                const container = document.getElementById('matchChatMessages');
+                if (container) {
+                    const div = document.createElement('div');
+                    div.className = 'match-ai-message';
+                    div.innerHTML = `<span class="match-ai-label">✦ Love-Matcher</span> ${escapeHtml(data.ai_message)}`;
+                    container.appendChild(div);
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+
+            if (data.topic_status === 'completed') {
+                showToast('This topic has been completed!', 'success');
+                loadMatchTopics(); // Refresh to show completion
+            }
+        } else {
+            showToast(data.error || 'Send failed', 'error');
+        }
+    } catch {
+        showToast('Connection error', 'error');
+    } finally {
+        input.disabled = false;
+    }
 }
 
 async function acceptMatch() {
@@ -832,7 +1116,7 @@ function addMatchMessageToUI(text, type, timestamp) {
 
 // Match chat enter key
 document.addEventListener('keypress', e => {
-    if (e.target.id === 'matchChatInput' && e.key === 'Enter') sendMatchMessage();
+    if (e.target.id === 'matchChatInput' && e.key === 'Enter') sendMatchTopicMessage();
 });
 
 /* ============================================================

@@ -41,7 +41,7 @@ def _ttl_for(key: str) -> float:
         return _TTL_PROFILE
     if key == MEMBER_LIST_KEY:
         return _TTL_MEMBER_LIST
-    if 'chat/' in key:
+    if 'chat/' in key or 'topics/' in key or 'match_topics/' in key:
         return _TTL_CHAT
     if 'matches/' in key:
         return _TTL_MATCH
@@ -181,6 +181,226 @@ def delete_photo_from_s3(photo_url):
     except Exception as e:
         print(f"Error deleting photo from DO Spaces: {e}")
         return False
+
+# ============================================================================
+# TOPIC HELPERS
+# ============================================================================
+
+def get_topic_index_key(user_id):
+    return f"topics/{user_id}/index.json"
+
+def get_topic_key(user_id, topic_id):
+    return f"topics/{user_id}/{topic_id}.json"
+
+def load_topic_index(user_id):
+    return s3_get(get_topic_index_key(user_id)) or {
+        'created_at': datetime.utcnow().isoformat(),
+        'updated_at': datetime.utcnow().isoformat(),
+        'topics': []
+    }
+
+def save_topic_index(user_id, index):
+    index['updated_at'] = datetime.utcnow().isoformat()
+    s3_put(get_topic_index_key(user_id), index)
+
+def load_topic(user_id, topic_id):
+    return s3_get(get_topic_key(user_id, topic_id))
+
+def save_topic(user_id, topic_id, data):
+    data['updated_at'] = datetime.utcnow().isoformat()
+    s3_put(get_topic_key(user_id, topic_id), data)
+
+def get_active_topic_id(user_id):
+    """Get the most recent active topic_id, or None"""
+    index = load_topic_index(user_id)
+    active = [t for t in index['topics'] if t['status'] == 'active']
+    return active[-1]['topic_id'] if active else None
+
+def create_user_topic(user_id, title, topic_type='profile_building'):
+    """Create a new topic, add to index, return (topic_id, topic_data)"""
+    topic_id = f"topic_{int(time.time() * 1000)}"
+    now = datetime.utcnow().isoformat()
+    topic_data = {
+        'topic_id': topic_id,
+        'title': title,
+        'type': topic_type,
+        'status': 'active',
+        'participants': [user_id],
+        'created_at': now,
+        'updated_at': now,
+        'messages': []
+    }
+    save_topic(user_id, topic_id, topic_data)
+    index = load_topic_index(user_id)
+    index['topics'].append({
+        'topic_id': topic_id,
+        'title': title,
+        'status': 'active',
+        'type': topic_type,
+        'created_at': now,
+        'message_count': 0
+    })
+    save_topic_index(user_id, index)
+    return topic_id, topic_data
+
+def close_user_topic_in_index(user_id, topic_id, status='completed'):
+    """Mark a topic as completed/archived in the index"""
+    index = load_topic_index(user_id)
+    for t in index['topics']:
+        if t['topic_id'] == topic_id:
+            t['status'] = status
+            t['closed_at'] = datetime.utcnow().isoformat()
+    save_topic_index(user_id, index)
+    # Also update the topic data file
+    topic = load_topic(user_id, topic_id)
+    if topic:
+        topic['status'] = status
+        topic['closed_at'] = datetime.utcnow().isoformat()
+        save_topic(user_id, topic_id, topic)
+
+# ============================================================================
+# MATCH TOPIC HELPERS
+# ============================================================================
+
+def get_match_pair_key(user1_id, user2_id):
+    ids = sorted([user1_id, user2_id])
+    return f"{ids[0]}_{ids[1]}"
+
+def get_match_topic_index_key(pair_key):
+    return f"match_topics/{pair_key}/index.json"
+
+def get_match_topic_key(pair_key, topic_id):
+    return f"match_topics/{pair_key}/{topic_id}.json"
+
+def load_match_topic_index(pair_key):
+    return s3_get(get_match_topic_index_key(pair_key)) or {
+        'created_at': datetime.utcnow().isoformat(),
+        'updated_at': datetime.utcnow().isoformat(),
+        'topics': []
+    }
+
+def save_match_topic_index(pair_key, index):
+    index['updated_at'] = datetime.utcnow().isoformat()
+    s3_put(get_match_topic_index_key(pair_key), index)
+
+def load_match_topic(pair_key, topic_id):
+    return s3_get(get_match_topic_key(pair_key, topic_id))
+
+def save_match_topic(pair_key, topic_id, data):
+    data['updated_at'] = datetime.utcnow().isoformat()
+    s3_put(get_match_topic_key(pair_key, topic_id), data)
+
+def create_match_topics_for_pair(user1_id, user2_id, profile1, profile2):
+    """Called after mutual acceptance - creates 3 AI-curated match topics"""
+    pair_key = get_match_pair_key(user1_id, user2_id)
+
+    # Check if already created
+    existing_index = load_match_topic_index(pair_key)
+    if existing_index.get('topics'):
+        print(f"Match topics already exist for {pair_key}")
+        return
+
+    print(f"Creating match topics for {pair_key}")
+
+    # Build prompt for topic generation
+    import json as _json
+    p1_dims = profile1.get('dimensions', {})
+    p2_dims = profile2.get('dimensions', {})
+    p1_name = profile1.get('name') or 'Partner 1'
+    p2_name = profile2.get('name') or 'Partner 2'
+
+    topic_gen_prompt = f"""You are Love-Matcher AI. Two people have been matched and both accepted. Create 3 meaningful conversation topics for them to explore together.
+
+Profile 1 ({p1_name}, age {profile1.get('age', '?')}):
+{_json.dumps(p1_dims, indent=2)}
+
+Profile 2 ({p2_name}, age {profile2.get('age', '?')}):
+{_json.dumps(p2_dims, indent=2)}
+
+Based on their profiles, choose 3 topics that would be:
+1. A shared value or belief worth deepening (e.g. faith, family vision)
+2. An interesting difference worth exploring with curiosity
+3. Something fun and personal (hobbies, travel dreams, etc.)
+
+Respond with ONLY a valid JSON array of exactly 3 objects. No other text:
+[
+  {{
+    "title": "Short warm topic title (3-6 words)",
+    "opening_message": "A warm 2-3 sentence message from Love-Matcher AI that introduces the topic and invites both people to share. Be specific to their profiles. Address them both warmly."
+  }},
+  ...
+]"""
+
+    llm_response = call_openrouter_llm([{'role': 'user', 'content': topic_gen_prompt}])
+
+    topics_data = None
+    if llm_response and 'content' in llm_response:
+        try:
+            import re as _re
+            content = llm_response['content'].strip()
+            # Extract JSON array
+            json_match = _re.search(r'\[[\s\S]*\]', content)
+            if json_match:
+                topics_data = _json.loads(json_match.group())
+        except Exception as e:
+            print(f"Error parsing topic generation response: {e}")
+
+    # Fallback topics if LLM fails
+    if not topics_data or len(topics_data) < 3:
+        topics_data = [
+            {
+                "title": "What Brought You Here",
+                "opening_message": f"Welcome, {p1_name} and {p2_name}! I thought we'd start by exploring what led each of you to Love-Matcher. What are you hoping to find, and what has your journey toward this point looked like?"
+            },
+            {
+                "title": "Life, Faith & Values",
+                "opening_message": f"I'd love to help you two explore the values that are most important to each of you — the things that guide your decisions and shape how you see the world. What matters most to you both?"
+            },
+            {
+                "title": "Dreams & Adventures",
+                "opening_message": f"Let's talk about the fun stuff — your dreams, bucket lists, and what a joyful life looks like to each of you. Where do you want to travel? What adventures are you hoping to share with someone?"
+            }
+        ]
+
+    now = datetime.utcnow().isoformat()
+    index = {
+        'created_at': now,
+        'updated_at': now,
+        'pair': [user1_id, user2_id],
+        'topics': []
+    }
+
+    for i, topic_spec in enumerate(topics_data[:3]):
+        topic_id = f"match_topic_{int(time.time() * 1000) + i}"
+        topic_data = {
+            'topic_id': topic_id,
+            'title': topic_spec['title'],
+            'type': 'match',
+            'status': 'active',
+            'participants': [user1_id, user2_id],
+            'pair_key': pair_key,
+            'created_at': now,
+            'updated_at': now,
+            'messages': [
+                {
+                    'from': 'ai',
+                    'message': topic_spec['opening_message'],
+                    'timestamp': now
+                }
+            ]
+        }
+        save_match_topic(pair_key, topic_id, topic_data)
+        index['topics'].append({
+            'topic_id': topic_id,
+            'title': topic_spec['title'],
+            'status': 'active',
+            'created_at': now,
+            'message_count': 1
+        })
+
+    save_match_topic_index(pair_key, index)
+    print(f"Created 3 match topics for {pair_key}")
+
 
 def call_openrouter_llm(messages, use_fallback=False):
     """Call OpenRouter API with configured model and fallback support"""
@@ -587,75 +807,101 @@ def delete_photo():
 
 @token_required
 def chat():
-    """Chat endpoint with OpenRouter LLM integration"""
-    user_message = request.json.get('message')
+    """Chat endpoint with topic-based conversation threads"""
+    data = request.json
+    user_message = data.get('message')
+    topic_id = data.get('topic_id')  # Optional - uses/creates active topic if absent
+
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
-    
+
     # Load user profile
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
-    
+
     # Increment conversation count
     profile['conversation_count'] = profile.get('conversation_count', 0) + 1
     s3_put(f"profiles/{request.user_id}.json", profile)
-    
-    # Load chat history
-    history_key = f"chat/{request.user_id}_history.json"
-    chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
-    
-    # Build messages using prompts module
-    messages = prompts.build_messages_for_llm(profile, chat_history, user_message, max_history=20)
-    
-    # Call OpenRouter LLM
+
+    # Resolve topic: use provided, find active, or create new
+    topic_data = None
+    if topic_id:
+        topic_data = load_topic(request.user_id, topic_id)
+
+    if not topic_data:
+        # Find active topic or create one
+        active_id = get_active_topic_id(request.user_id)
+        if active_id:
+            topic_id = active_id
+            topic_data = load_topic(request.user_id, topic_id)
+
+        if not topic_data:
+            # Create first topic
+            topic_id, topic_data = create_user_topic(request.user_id, 'Getting to Know You')
+
+    # Build chat history from topic messages for LLM context
+    topic_messages = topic_data.get('messages', [])
+    topic_chat_history = {'messages': topic_messages}
+
+    # Build messages for LLM (using topic history + topic context in system prompt)
+    messages = prompts.build_messages_for_llm(
+        profile, topic_chat_history, user_message,
+        max_history=20,
+        topic_title=topic_data.get('title', '')
+    )
+
+    # Call LLM
     llm_response = call_openrouter_llm(messages)
-    
+
     ai_response = "I'm sorry, I'm having trouble processing that right now. Could you try again?"
     parsed_response = None
-    
+    topic_complete = False
+    suggested_topic = None
+
     if llm_response and 'content' in llm_response:
         raw_ai_response = llm_response['content']
-        # Parse the structured response
         parsed_response = parse_llm_response(raw_ai_response)
         ai_response = parsed_response['display_text']
-        
-        # Extract basic info fields from user message (simple keyword matching)
+
+        # Check for topic management signals
+        if '[TOPIC_COMPLETE]' in raw_ai_response:
+            topic_complete = True
+            # Remove the tag from display text
+            ai_response = ai_response.replace('[TOPIC_COMPLETE]', '').strip()
+
+        import re as _re
+        suggest_match = _re.search(r'\[SUGGEST_TOPIC:\s*([^\]]+)\]', raw_ai_response)
+        if suggest_match:
+            suggested_topic = suggest_match.group(1).strip()
+            ai_response = _re.sub(r'\[SUGGEST_TOPIC:[^\]]+\]', '', ai_response).strip()
+
+        # Update profile dimensions from response
         profile_updated = False
         user_lower = user_message.lower()
-        
-        # Extract name if not set (look for "my name is", "i'm", "call me")
+
         if not profile.get('name') or profile.get('name') == '':
             if 'my name is' in user_lower or "i'm " in user_lower or 'call me' in user_lower:
-                # Simple extraction - take words after the trigger phrase
                 import re
                 name_match = re.search(r"(?:my name is|i'm|call me)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)", user_message, re.IGNORECASE)
                 if name_match:
                     profile['name'] = name_match.group(1).strip()
                     profile_updated = True
-                    print(f"✅ Extracted name: {profile['name']}")
-        
-        # Extract location if not set (look for "in", "from", "live in", "located in")
+
         if not profile.get('location') or profile.get('location') == '':
             if ' in ' in user_lower or 'from ' in user_lower or 'live' in user_lower:
-                # Simple extraction - this is basic, LLM should ideally store in dimension
                 import re
                 location_match = re.search(r"(?:in|from|live in|located in)\s+([A-Z][a-zA-Z\s,]+(?:[A-Z]{2})?)", user_message)
                 if location_match:
                     profile['location'] = location_match.group(1).strip()
                     profile_updated = True
-                    print(f"✅ Extracted location: {profile['location']}")
-        
-        # Update profile dimensions if we extracted dimension data
+
         if parsed_response['dimension'] and parsed_response['dimension'] != 'none':
             if parsed_response['value'] and parsed_response['value'] != 'none':
                 if 'dimensions' not in profile:
                     profile['dimensions'] = {}
-                
-                # Store the dimension value
                 profile['dimensions'][parsed_response['dimension']] = parsed_response['value']
-                
-                # Special handling for basic info dimensions
+
                 if parsed_response['dimension'] == 'name' and not profile.get('name'):
                     profile['name'] = str(parsed_response['value'])
                     profile_updated = True
@@ -665,111 +911,348 @@ def chat():
                 elif parsed_response['dimension'] == 'about':
                     profile['about'] = str(parsed_response['value'])
                     profile_updated = True
-                
-                # Special handling for gender - store at profile level for matching
+
                 if parsed_response['dimension'] == 'gender':
                     gender_value = str(parsed_response['value']).lower()
-                    # Normalize gender values
                     if 'male' in gender_value and 'female' not in gender_value:
                         profile['gender'] = 'male'
                     elif 'female' in gender_value:
                         profile['gender'] = 'female'
                     else:
                         profile['gender'] = gender_value
-                
-                # Special handling for seeking_gender - store at profile level for matching
+
                 if parsed_response['dimension'] == 'seeking_gender':
                     seeking_value = str(parsed_response['value']).lower()
-                    # Normalize seeking_gender values
                     if 'male' in seeking_value and 'female' not in seeking_value:
                         profile['seeking_gender'] = 'male'
                     elif 'female' in seeking_value:
                         profile['seeking_gender'] = 'female'
                     else:
                         profile['seeking_gender'] = seeking_value
-                
-                # Calculate completion percentage
+
                 dimensions_count = len(profile['dimensions'])
                 profile['completion_percentage'] = round((dimensions_count / 29) * 100)
-                
-                # Mark profile as complete if all 29 dimensions filled
                 if dimensions_count >= 29:
                     profile['profile_complete'] = True
-                
                 profile_updated = True
-                print(f"✅ Updated dimension '{parsed_response['dimension']}' - Profile now {dimensions_count}/29 complete")
-        
-        # Save profile if updated
+                print(f"Updated dimension '{parsed_response['dimension']}' in topic '{topic_data['title']}'")
+
         if profile_updated:
             s3_put(f"profiles/{request.user_id}.json", profile)
-        
+
     elif llm_response and 'error' in llm_response:
-        print(f"❌ LLM error in chat: {llm_response['error']}")
+        print(f"LLM error in chat: {llm_response['error']}")
         ai_response = "I'm having a little trouble right now — please try again in a moment."
-    
-    # Store in chat history
+
+    # Store message in topic
     chat_entry = {
         'timestamp': datetime.utcnow().isoformat(),
         'user': user_message,
         'ai': ai_response
     }
-    
-    # Add parsed dimension info to chat entry for debugging
     if parsed_response:
         chat_entry['parsed_dimension'] = parsed_response['dimension']
         chat_entry['parsed_value'] = parsed_response['value']
-    
-    # Add model info if available
     if llm_response:
         chat_entry['model'] = llm_response.get('model', 'unknown')
         chat_entry['usage'] = llm_response.get('usage', {})
-        if 'raw_response' in llm_response:
-            chat_entry['raw_response'] = llm_response['raw_response']
-        if 'status_code' in llm_response:
-            chat_entry['status_code'] = llm_response['status_code']
-    
-    chat_history['messages'].append(chat_entry)
-    chat_history['updated_at'] = datetime.utcnow().isoformat()
-    
-    s3_put(history_key, chat_history)
-    
+
+    topic_data['messages'].append(chat_entry)
+    save_topic(request.user_id, topic_id, topic_data)
+
+    # Update index message count
+    index = load_topic_index(request.user_id)
+    for t in index['topics']:
+        if t['topic_id'] == topic_id:
+            t['message_count'] = len(topic_data['messages'])
+            break
+
+    # Handle topic completion
+    new_topic_id = None
+    new_topic_title = None
+    if topic_complete:
+        close_user_topic_in_index(request.user_id, topic_id, 'completed')
+        print(f"Topic completed: {topic_data['title']}")
+
+        # Create suggested next topic if provided
+        if suggested_topic:
+            new_topic_id, _ = create_user_topic(request.user_id, suggested_topic)
+            new_topic_title = suggested_topic
+            # Update index again (create_user_topic saves its own index, so reload)
+            index = load_topic_index(request.user_id)
+            print(f"Created next topic: {suggested_topic}")
+    else:
+        save_topic_index(request.user_id, index)
+
+    # Build response
     response_payload = {
         'response': ai_response,
-        'timestamp': chat_entry['timestamp']
+        'timestamp': chat_entry['timestamp'],
+        'topic_id': topic_id,
+        'topic_title': topic_data['title'],
+        'topic_status': 'completed' if topic_complete else 'active',
     }
-    
-    # Add profile completion info
+
+    if new_topic_id:
+        response_payload['next_topic_id'] = new_topic_id
+        response_payload['next_topic_title'] = new_topic_title
+
     if profile.get('dimensions'):
         response_payload['profile_completion'] = {
             'count': len(profile['dimensions']),
             'percentage': profile.get('completion_percentage', 0),
             'complete': profile.get('profile_complete', False)
         }
-    
+
     if llm_response:
         if 'model' in llm_response:
             response_payload['model'] = llm_response.get('model')
         if 'usage' in llm_response:
             response_payload['usage'] = llm_response.get('usage')
-        if 'raw_response' in llm_response:
-            response_payload['raw_response'] = llm_response.get('raw_response')
         if 'error' in llm_response:
             response_payload['error'] = llm_response.get('error')
-        if 'status_code' in llm_response:
-            response_payload['status_code'] = llm_response.get('status_code')
-    
+
     return jsonify(response_payload)
 
 @token_required
 def get_chat_history():
-    """Get user's chat history"""
+    """Get user's chat history - returns active topic messages or all topics"""
+    topic_id = request.args.get('topic_id')
+
+    if topic_id:
+        # Return specific topic
+        topic = load_topic(request.user_id, topic_id)
+        if topic:
+            return jsonify({
+                'messages': topic.get('messages', []),
+                'total_messages': len(topic.get('messages', [])),
+                'topic_id': topic_id,
+                'topic_title': topic.get('title', '')
+            })
+
+    # Try topics system first
+    index = load_topic_index(request.user_id)
+    topics = index.get('topics', [])
+
+    if topics:
+        # Get active topic messages
+        active_id = get_active_topic_id(request.user_id)
+        if active_id:
+            topic = load_topic(request.user_id, active_id)
+            if topic:
+                return jsonify({
+                    'messages': topic.get('messages', []),
+                    'total_messages': len(topic.get('messages', [])),
+                    'topic_id': active_id,
+                    'topic_title': topic.get('title', '')
+                })
+
+    # Fall back to old flat history
     history_key = f"chat/{request.user_id}_history.json"
     chat_history = s3_get(history_key) or {'messages': [], 'created_at': datetime.utcnow().isoformat()}
-    
     return jsonify({
         'messages': chat_history.get('messages', []),
         'total_messages': len(chat_history.get('messages', []))
     })
+
+@token_required
+def get_user_topics():
+    """Get all topics for the user"""
+    index = load_topic_index(request.user_id)
+    return jsonify({
+        'topics': index.get('topics', []),
+        'active_topic_id': get_active_topic_id(request.user_id)
+    })
+
+@token_required
+def get_topic_messages_handler(topic_id):
+    """Get messages for a specific topic"""
+    topic = load_topic(request.user_id, topic_id)
+    if not topic:
+        return jsonify({'error': 'Topic not found'}), 404
+    return jsonify({
+        'topic_id': topic_id,
+        'title': topic.get('title', ''),
+        'status': topic.get('status', 'active'),
+        'messages': topic.get('messages', [])
+    })
+
+@token_required
+def close_topic_handler(topic_id):
+    """Close/archive a topic"""
+    topic = load_topic(request.user_id, topic_id)
+    if not topic:
+        return jsonify({'error': 'Topic not found'}), 404
+    close_user_topic_in_index(request.user_id, topic_id, 'completed')
+    return jsonify({'success': True, 'topic_id': topic_id, 'status': 'completed'})
+
+@token_required
+def create_topic_handler():
+    """Create a new topic explicitly"""
+    data = request.json
+    title = data.get('title', 'New Conversation')
+    topic_id, topic_data = create_user_topic(request.user_id, title)
+    return jsonify({
+        'topic_id': topic_id,
+        'title': title,
+        'status': 'active'
+    })
+
+@token_required
+def get_match_topics_handler():
+    """Get all match topics for the current match"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match'}), 400
+
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    user_accepted = profile.get('match_accepted', False)
+    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
+
+    if not (user_accepted and match_accepted):
+        return jsonify({'topics': [], 'message': 'Topics available after both accept the match'})
+
+    pair_key = get_match_pair_key(request.user_id, match_id)
+    index = load_match_topic_index(pair_key)
+    return jsonify({
+        'topics': index.get('topics', []),
+        'pair_key': pair_key
+    })
+
+@token_required
+def get_match_topic_messages_handler(topic_id):
+    """Get messages for a specific match topic"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match'}), 400
+
+    pair_key = get_match_pair_key(request.user_id, match_id)
+    topic = load_match_topic(pair_key, topic_id)
+    if not topic:
+        return jsonify({'error': 'Topic not found'}), 404
+
+    return jsonify({
+        'topic_id': topic_id,
+        'title': topic.get('title', ''),
+        'status': topic.get('status', 'active'),
+        'messages': topic.get('messages', []),
+        'my_user_id': request.user_id
+    })
+
+@token_required
+def send_match_topic_message_handler(topic_id):
+    """Send message in a match topic - AI facilitates the conversation"""
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+
+    match_id = profile.get('current_match_id')
+    if not match_id:
+        return jsonify({'error': 'No current match'}), 400
+
+    match_profile = s3_get(f"profiles/{match_id}.json")
+    user_accepted = profile.get('match_accepted', False)
+    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
+
+    if not (user_accepted and match_accepted):
+        return jsonify({'error': 'Chat only available after mutual acceptance'}), 403
+
+    message = request.json.get('message')
+    if not message:
+        return jsonify({'error': 'Message required'}), 400
+
+    pair_key = get_match_pair_key(request.user_id, match_id)
+    topic = load_match_topic(pair_key, topic_id)
+    if not topic:
+        return jsonify({'error': 'Topic not found'}), 404
+
+    now = datetime.utcnow().isoformat()
+
+    # Add user message
+    topic['messages'].append({
+        'from': request.user_id,
+        'message': message,
+        'timestamp': now
+    })
+
+    # Build AI facilitation message
+    import json as _json
+    p1_name = profile.get('name') or 'Partner 1'
+    p2_name = match_profile.get('name') if match_profile else 'Partner 2'
+    p1_dims = profile.get('dimensions', {})
+    p2_dims = match_profile.get('dimensions', {}) if match_profile else {}
+
+    # Build conversation history for LLM
+    convo_history = []
+    for m in topic['messages'][-20:]:
+        if m['from'] == 'ai':
+            convo_history.append({'role': 'assistant', 'content': m['message']})
+        else:
+            name = p1_name if m['from'] == request.user_id else p2_name
+            convo_history.append({'role': 'user', 'content': f"{name}: {m['message']}"})
+
+    facilitator_system = f"""You are Love-Matcher AI, gently facilitating a meaningful conversation between two matched people.
+
+Topic: {topic.get('title', '')}
+
+{p1_name}'s profile highlights: {_json.dumps({k: p1_dims[k] for k in list(p1_dims.keys())[:8]}, indent=2)}
+
+{p2_name}'s profile highlights: {_json.dumps({k: p2_dims[k] for k in list(p2_dims.keys())[:8]}, indent=2)}
+
+Your role:
+- Ask ONE thoughtful follow-up question or make a gentle observation to deepen the conversation
+- Keep it brief (1-2 sentences max)
+- Be warm but not intrusive - let them talk to each other
+- Reference their profiles when relevant
+- After 8+ exchanges, you can signal [TOPIC_COMPLETE] to gently close this topic
+
+Only respond if you have something genuinely useful to add. If the conversation is flowing well on its own, respond with just [PASS] to skip your turn."""
+
+    facilitation_messages = [{'role': 'system', 'content': facilitator_system}] + convo_history
+
+    ai_response = None
+    llm_response = call_openrouter_llm(facilitation_messages)
+    if llm_response and 'content' in llm_response:
+        content = llm_response['content'].strip()
+        topic_done = '[TOPIC_COMPLETE]' in content
+        content = content.replace('[TOPIC_COMPLETE]', '').strip()
+
+        if content and content != '[PASS]' and '[PASS]' not in content:
+            ai_response = content
+            topic['messages'].append({
+                'from': 'ai',
+                'message': ai_response,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+        if topic_done:
+            topic['status'] = 'completed'
+            topic['closed_at'] = datetime.utcnow().isoformat()
+            # Update index
+            index = load_match_topic_index(pair_key)
+            for t in index['topics']:
+                if t['topic_id'] == topic_id:
+                    t['status'] = 'completed'
+                    t['closed_at'] = datetime.utcnow().isoformat()
+            save_match_topic_index(pair_key, index)
+
+    save_match_topic(pair_key, topic_id, topic)
+
+    return jsonify({
+        'success': True,
+        'timestamp': now,
+        'ai_message': ai_response,
+        'topic_status': topic.get('status', 'active')
+    })
+
 
 @token_required
 def get_current_match():
@@ -948,7 +1431,14 @@ def accept_match():
     # Check if other user has also accepted
     match_profile = s3_get(f"profiles/{match_id}.json")
     mutual_acceptance = match_profile and match_profile.get('match_accepted', False)
-    
+
+    # Create match topics when mutual acceptance occurs
+    if mutual_acceptance:
+        try:
+            create_match_topics_for_pair(request.user_id, match_id, profile, match_profile)
+        except Exception as e:
+            print(f"Warning: Error creating match topics: {e}")
+
     return jsonify({
         'success': True,
         'match_accepted': True,
@@ -1268,6 +1758,13 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/profile/summary', 'generate_profile_summary', generate_profile_summary, methods=['POST'])
     app.add_url_rule('/chat', 'chat', chat, methods=['POST'])
     app.add_url_rule('/chat/history', 'get_chat_history', get_chat_history, methods=['GET'])
+    app.add_url_rule('/topics', 'get_user_topics', get_user_topics, methods=['GET'])
+    app.add_url_rule('/topics', 'create_topic_handler', create_topic_handler, methods=['POST'])
+    app.add_url_rule('/topics/<topic_id>', 'get_topic_messages_handler', get_topic_messages_handler, methods=['GET'])
+    app.add_url_rule('/topics/<topic_id>/close', 'close_topic_handler', close_topic_handler, methods=['POST'])
+    app.add_url_rule('/match/topics', 'get_match_topics_handler', get_match_topics_handler, methods=['GET'])
+    app.add_url_rule('/match/topics/<topic_id>', 'get_match_topic_messages_handler', get_match_topic_messages_handler, methods=['GET'])
+    app.add_url_rule('/match/topics/<topic_id>/messages', 'send_match_topic_message_handler', send_match_topic_message_handler, methods=['POST'])
     app.add_url_rule('/match', 'get_current_match', get_current_match, methods=['GET'])
     app.add_url_rule('/match/toggle', 'toggle_matching_active', toggle_matching_active, methods=['POST'])
     app.add_url_rule('/match/accept', 'accept_match', accept_match, methods=['POST'])

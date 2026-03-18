@@ -98,7 +98,17 @@ Good: [DIMENSION: career] [ACKNOWLEDGMENT: Software in NYC—that's a solid move
 - Match their tone (casual → casual, thoughtful → thoughtful)
 - NO [VALUE] tag needed - just make the acknowledgment natural
 - Keep the dimension tag for data extraction
-- Make it feel like a real conversation, not a form"""
+- Make it feel like a real conversation, not a form
+
+## Topic Lifecycle Signals (optional):
+
+When you've thoroughly covered a topic area (gathered the key dimension data, had meaningful exchange):
+- Add [TOPIC_COMPLETE] at the end of your response to signal this conversation thread is done
+- Add [SUGGEST_TOPIC: Title] to suggest what to explore next (e.g. "Values & Worldview")
+
+Example: "...That's beautifully said. [TOPIC_COMPLETE] [SUGGEST_TOPIC: Values & Worldview]"
+
+Use these signals naturally — don't rush topics, but do close them when they feel complete."""
 
 # ============================================================================
 # COMMUNICATION STYLE - How to interact with users
@@ -371,18 +381,21 @@ def load_conversation_history(chat_history, max_exchanges=20):
 # FULL SYSTEM PROMPT - Combines all components
 # ============================================================================
 
-def build_system_prompt(profile):
+def build_system_prompt(profile, topic_title=''):
     """
     Build the complete system prompt with profile context
-    
+
     Args:
         profile: User profile dict
-    
+        topic_title: Optional current topic title for focused context
+
     Returns:
         Complete system prompt string
     """
     profile_context = build_profile_context(profile)
-    
+
+    topic_context = f"\n## Current Conversation Topic: {topic_title}\nFocus this conversation on topics relevant to '{topic_title}'. Ask questions that naturally fit this theme.\n" if topic_title else ""
+
     return f"""{SYSTEM_DESCRIPTION}
 
 {DIMENSIONS_DESCRIPTION}
@@ -396,7 +409,7 @@ def build_system_prompt(profile):
 {PROFILE_MODIFICATION_GUIDANCE}
 
 {GOAL}
-
+{topic_context}
 {'='*80}
 CURRENT USER CONTEXT:
 {'='*80}
@@ -411,17 +424,15 @@ KEY REMINDERS:
 
 2. ONE QUESTION AT A TIME: Never ask multiple questions. Keep responses conversational and focused.
 
-3. FOLLOW THE STRUCTURED FORMAT: Always include [DIMENSION:], [VALUE:], [ACKNOWLEDGMENT:], [NEXT_QUESTION:] tags.
+3. FOLLOW THE STRUCTURED FORMAT: Always include [DIMENSION:], [ACKNOWLEDGMENT:], [NEXT_QUESTION:] tags.
 
-4. EXTRACT & STORE INSIGHTS: When the user answers, capture the essence in the [VALUE:] field. Be specific and detailed - this data drives the matching algorithm.
+4. EXTRACT & STORE INSIGHTS: When the user answers, capture the essence in the acknowledgment. Be specific and detailed - this data drives the matching algorithm.
 
-5. BE STRATEGICALLY THOUGHTFUL: Look at which dimensions are missing and choose the next question that flows naturally from the conversation, not just the next item on a list.
+5. BE STRATEGICALLY THOUGHTFUL: Look at which dimensions are missing and choose the next question that flows naturally from the conversation.
 
-6. BUILD NARRATIVE: Help users tell their story. Make connections between what they've shared. Show that you see the whole person emerging.
+6. BUILD NARRATIVE: Help users tell their story. Make connections between what they've shared.
 
-7. PROFILE UPDATES: Users can update any dimension at any time. When they want to change something, use the standard format to update that dimension with the new value.
-
-8. ACTIVE/INACTIVE STATUS: Users can pause or resume matching. Acknowledge their intent and remind them they can toggle this in their profile settings.
+7. TOPIC LIFECYCLE: When a topic feels complete (you've gathered key data and had meaningful exchange), signal [TOPIC_COMPLETE] and optionally [SUGGEST_TOPIC: Next Title].
 
 Now engage with this user authentically and help them build a profile that will lead to their perfect match.
 """
@@ -519,43 +530,45 @@ Provide your compatibility analysis in JSON format:"""
 # CONVENIENCE FUNCTIONS
 # ============================================================================
 
-def get_system_message(profile):
+def get_system_message(profile, topic_title=''):
     """
     Get system message dict for OpenAI-style API
-    
+
     Args:
         profile: User profile dict
-    
+        topic_title: Optional current topic title for focused context
+
     Returns:
         Dict with 'role' and 'content' keys
     """
     return {
         'role': 'system',
-        'content': build_system_prompt(profile)
+        'content': build_system_prompt(profile, topic_title=topic_title)
     }
 
-def build_messages_for_llm(profile, chat_history, user_message, max_history=20):
+def build_messages_for_llm(profile, chat_history, user_message, max_history=20, topic_title=''):
     """
     Build complete message array for LLM API call
-    
+
     Args:
         profile: User profile dict
         chat_history: Chat history dict with 'messages' array
         user_message: Current user message string
         max_history: Max conversation exchanges to include (default 20)
-    
+        topic_title: Optional current topic title for focused context
+
     Returns:
         List of message dicts ready for LLM API
     """
     messages = []
-    
+
     # Add system message with profile context
-    messages.append(get_system_message(profile))
-    
+    messages.append(get_system_message(profile, topic_title=topic_title))
+
     # Add conversation history
     messages.extend(load_conversation_history(chat_history, max_history))
-    
+
     # Add current user message
     messages.append({'role': 'user', 'content': user_message})
-    
+
     return messages
