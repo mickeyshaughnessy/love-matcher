@@ -216,7 +216,7 @@ def get_active_topic_id(user_id):
     active = [t for t in index['topics'] if t['status'] == 'active']
     return active[-1]['topic_id'] if active else None
 
-def create_user_topic(user_id, title, topic_type='profile_building'):
+def create_user_topic(user_id, title, topic_type='profile_building', topic_key=None):
     """Create a new topic, add to index, return (topic_id, topic_data)"""
     topic_id = f"topic_{int(time.time() * 1000)}"
     now = datetime.utcnow().isoformat()
@@ -230,16 +230,21 @@ def create_user_topic(user_id, title, topic_type='profile_building'):
         'updated_at': now,
         'messages': []
     }
+    if topic_key:
+        topic_data['topic_key'] = topic_key
     save_topic(user_id, topic_id, topic_data)
     index = load_topic_index(user_id)
-    index['topics'].append({
+    index_entry = {
         'topic_id': topic_id,
         'title': title,
         'status': 'active',
         'type': topic_type,
         'created_at': now,
         'message_count': 0
-    })
+    }
+    if topic_key:
+        index_entry['topic_key'] = topic_key
+    index['topics'].append(index_entry)
     save_topic_index(user_id, index)
     return topic_id, topic_data
 
@@ -848,7 +853,8 @@ def chat():
     messages = prompts.build_messages_for_llm(
         profile, topic_chat_history, user_message,
         max_history=20,
-        topic_title=topic_data.get('title', '')
+        topic_title=topic_data.get('title', ''),
+        topic_key=topic_data.get('topic_key', '')
     )
 
     # Call LLM
@@ -1091,7 +1097,14 @@ def create_topic_handler():
     """Create a new topic explicitly"""
     data = request.json
     title = data.get('title', 'New Conversation')
-    topic_id, topic_data = create_user_topic(request.user_id, title)
+    topic_key = data.get('topic_key')
+    # Check for existing topic with this key to avoid duplicates
+    if topic_key:
+        index = load_topic_index(request.user_id)
+        for t in index.get('topics', []):
+            if t.get('topic_key') == topic_key:
+                return jsonify({'topic_id': t['topic_id'], 'title': t['title'], 'status': t['status'], 'existing': True})
+    topic_id, topic_data = create_user_topic(request.user_id, title, topic_key=topic_key)
     return jsonify({
         'topic_id': topic_id,
         'title': title,

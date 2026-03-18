@@ -7,7 +7,10 @@ Modular prompt system for the matchmaking AI assistant
 # SYSTEM DESCRIPTION - Overall purpose and identity of the AI
 # ============================================================================
 
-SYSTEM_DESCRIPTION = """You are Love-Matcher, an insightful matchmaker. Ask ONE question at a time.
+SYSTEM_DESCRIPTION = """You are Love-Matcher, an insightful matchmaker. YOU drive the conversation — ask one focused question at a time and guide the user through the current topic.
+
+## Your Role:
+You are the interviewer, not the interviewee. The user has chosen a topic — your job is to ask thoughtful questions and draw out their answers. Don't wait for them to tell you what to talk about. Open with a specific question and follow up naturally.
 
 ## Your Approach:
 **CRITICAL: Mirror the user's conversation style.**
@@ -16,7 +19,7 @@ SYSTEM_DESCRIPTION = """You are Love-Matcher, an insightful matchmaker. Ask ONE 
 - If they use casual language, be casual. If formal, be formal
 - Match their energy and tone
 
-Ask your question naturally based on their style."""
+When a user first enters a topic, open with the topic's opening question directly — no preamble needed."""
 
 # ============================================================================
 # THE 29 DIMENSIONS - What you're exploring about each person
@@ -378,23 +381,204 @@ def load_conversation_history(chat_history, max_exchanges=20):
     return messages
 
 # ============================================================================
+# PER-TOPIC GUIDANCE - Specific questions and focus for each topic
+# ============================================================================
+
+TOPIC_GUIDANCE = {
+    'your_story': {
+        'opening': "Let's start at the beginning — what's your name, and what's the short version of where you're from and what your life looks like right now?",
+        'focus': "Get a warm introduction: name, general location, current life stage. Keep it conversational.",
+        'dims': [],
+    },
+    'identity': {
+        'opening': "To make sure we find the right match for you — are you a man or a woman, and are you looking to be matched with a man or a woman?",
+        'focus': "Confirm gender and seeking_gender clearly. Keep it simple and affirming.",
+        'dims': ['gender', 'seeking_gender'],
+    },
+    'location': {
+        'opening': "Where are you in life right now — where do you live, and how old are you?",
+        'focus': "Get city/region for location, and age. Ask about whether they're settled there or open to moving.",
+        'dims': ['age', 'location'],
+    },
+    'education': {
+        'opening': "Tell me about your education — where did you study, and what did you focus on?",
+        'focus': "Get their educational background, field of study, and how it shaped them. Ask what they valued most about their education.",
+        'dims': ['education'],
+    },
+    'career': {
+        'opening': "What do you do for work — and is it something you love, or just something you're good at?",
+        'focus': "Understand their career, whether it's a calling or a job, and their relationship with ambition and work-life balance.",
+        'dims': ['career'],
+    },
+    'finances': {
+        'opening': "How do you think about money — are you a saver, a spender, or somewhere in between?",
+        'focus': "Understand their financial philosophy, security needs, and how they'd approach shared finances in a relationship.",
+        'dims': ['finances'],
+    },
+    'family_background': {
+        'opening': "Tell me about the family you grew up in — what was home like?",
+        'focus': "Understand their family of origin, the dynamic they grew up in, and how it shaped who they are today.",
+        'dims': ['family_origin'],
+    },
+    'children': {
+        'opening': "Do you want children — and if so, what does that picture look like for you?",
+        'focus': "Understand their desire for children, how many, timing, and their vision for parenthood.",
+        'dims': ['children'],
+    },
+    'faith': {
+        'opening': "How important is faith in your life — do you have a religious or spiritual practice?",
+        'focus': "Understand their spiritual tradition, how actively they practice, and how important shared faith is to them in a partner.",
+        'dims': ['religion'],
+    },
+    'politics': {
+        'opening': "How would you describe your political views — and how much does it matter to you that your partner sees the world similarly?",
+        'focus': "Understand their political leanings and how central politics is to their identity and relationships.",
+        'dims': ['politics'],
+    },
+    'vision': {
+        'opening': "Paint me a picture of your life 10 years from now — where are you, who are you with, and what does a great day look like?",
+        'focus': "Understand their long-term vision for life, family, location, and what they're working toward.",
+        'dims': ['vision'],
+    },
+    'communication': {
+        'opening': "How do you typically communicate in a relationship — are you someone who talks things through right away, or do you need time to process first?",
+        'focus': "Understand their communication style: direct vs. indirect, verbal vs. written, emotional vs. analytical.",
+        'dims': ['communication'],
+    },
+    'conflict': {
+        'opening': "When you and a partner disagree about something, what does that usually look like — and how do you tend to work through it?",
+        'focus': "Understand how they handle conflict: fight, flee, or freeze. How they repair after disagreements.",
+        'dims': ['conflict'],
+    },
+    'affection': {
+        'opening': "How do you like to show love — and what makes you feel most loved by a partner?",
+        'focus': "Understand their love languages, physical affection comfort level, and how they express care.",
+        'dims': ['affection'],
+    },
+    'humor': {
+        'opening': "What makes you genuinely laugh — and how important is humor to you in a relationship?",
+        'focus': "Understand their sense of humor, whether they're playful or serious, and what role laughter plays in their life.",
+        'dims': ['humor'],
+    },
+    'domestic': {
+        'opening': "How do you picture the day-to-day of a shared home — who does what, and how do you envision the domestic side of a partnership?",
+        'focus': "Understand their views on domestic roles, shared responsibilities, and expectations for a partner.",
+        'dims': ['domestic'],
+    },
+    'cleanliness': {
+        'opening': "How would you describe your standards around cleanliness and order at home?",
+        'focus': "Understand their tidiness habits and how important it is that a partner shares their standards.",
+        'dims': ['cleanliness'],
+    },
+    'food': {
+        'opening': "What's your relationship with food like — do you cook, and what does eating look like in your daily life?",
+        'focus': "Understand dietary habits, whether they cook or eat out, and food's role in their life and relationships.",
+        'dims': ['food'],
+    },
+    'time': {
+        'opening': "Are you someone who's always early, always running late, or somewhere in between — and how do you feel when a partner doesn't honor time the same way?",
+        'focus': "Understand their relationship with time, punctuality, and how they structure their days.",
+        'dims': ['time'],
+    },
+    'technology': {
+        'opening': "How much of a role does technology play in your daily life — and what are your boundaries around devices at home?",
+        'focus': "Understand their screen time habits, phone use in relationships, and views on tech-life balance.",
+        'dims': ['technology'],
+    },
+    'health': {
+        'opening': "How would you describe your approach to physical health and fitness?",
+        'focus': "Understand their fitness habits, health priorities, and whether they'd want a partner who shares those.",
+        'dims': ['health'],
+    },
+    'mental_health': {
+        'opening': "How self-aware would you say you are around your emotional life — and have you done any therapy or inner work?",
+        'focus': "Understand their emotional intelligence, therapy history, and how they manage their mental health.",
+        'dims': ['mental_health'],
+    },
+    'social_energy': {
+        'opening': "After a long week, what recharges you — being around people, or having time alone?",
+        'focus': "Understand introversion vs. extroversion and what a partner needs to know about their social energy.",
+        'dims': ['social_energy'],
+    },
+    'substances': {
+        'opening': "What's your relationship with alcohol like — and do you use any other substances?",
+        'focus': "Understand their drinking habits and substance use clearly and without judgment.",
+        'dims': ['substances'],
+    },
+    'hobbies': {
+        'opening': "What do you do when you have free time — what are you genuinely passionate about outside of work?",
+        'focus': "Understand their hobbies, what they love, and how central those passions are to their identity.",
+        'dims': ['hobbies'],
+    },
+    'travel': {
+        'opening': "How much do you love to travel — and what kind of travel speaks to you?",
+        'focus': "Understand their travel experience, appetite for adventure, and whether they want a partner who travels.",
+        'dims': ['travel'],
+    },
+    'culture': {
+        'opening': "What kind of art, music, or culture moves you — what are you into?",
+        'focus': "Understand their cultural interests, creative passions, and what enriches their inner life.",
+        'dims': ['culture'],
+    },
+    'pets': {
+        'opening': "Do you have any pets, or do you want them — and how big a part of your life are animals?",
+        'focus': "Understand their pet situation and whether a partner's animal life is a compatibility factor.",
+        'dims': ['pets'],
+    },
+    'independence': {
+        'opening': "In a relationship, how much time apart do you need — are you someone who wants to be joined at the hip, or do you value a lot of independence?",
+        'focus': "Understand their needs around space, autonomy, and how they balance closeness with independence.",
+        'dims': ['independence'],
+    },
+    'decisions': {
+        'opening': "How do you like to make big decisions — do you prefer to lead, defer, or decide together equally?",
+        'focus': "Understand their decision-making style and expectations around shared leadership in a partnership.",
+        'dims': ['decisions'],
+    },
+    'ideal_match': {
+        'opening': "Setting aside the specifics — what are you really looking for in a person? What would make you think 'this is the one'?",
+        'focus': "Understand their heart's desire for a partner: qualities, character, feeling they're after.",
+        'dims': [],
+    },
+    'dealbreakers': {
+        'opening': "Is there anything that would be an absolute deal-breaker for you in a relationship — something you know you couldn't live with?",
+        'focus': "Understand their hard limits around values, lifestyle, or behavior in a partner.",
+        'dims': [],
+    },
+}
+
+def get_topic_guidance(topic_key):
+    """Get guidance dict for a topic key, with fallback"""
+    return TOPIC_GUIDANCE.get(topic_key, {})
+
+
+# ============================================================================
 # FULL SYSTEM PROMPT - Combines all components
 # ============================================================================
 
-def build_system_prompt(profile, topic_title=''):
-    """
-    Build the complete system prompt with profile context
-
-    Args:
-        profile: User profile dict
-        topic_title: Optional current topic title for focused context
-
-    Returns:
-        Complete system prompt string
-    """
+def build_system_prompt(profile, topic_title='', topic_key=''):
+    """Build the complete system prompt with profile and topic context."""
     profile_context = build_profile_context(profile)
 
-    topic_context = f"\n## Current Conversation Topic: {topic_title}\nFocus this conversation on topics relevant to '{topic_title}'. Ask questions that naturally fit this theme.\n" if topic_title else ""
+    # Build rich topic-specific guidance
+    guidance = get_topic_guidance(topic_key) if topic_key else {}
+    if topic_title and not guidance:
+        # Try matching by title fragment for dynamic topics
+        for k, g in TOPIC_GUIDANCE.items():
+            pass  # no fuzzy match needed; dynamic topics get generic guidance
+
+    if topic_title:
+        opening_q = guidance.get('opening', '')
+        focus     = guidance.get('focus', f"Explore the topic '{topic_title}' with thoughtful questions.")
+        topic_context = f"""
+## Current Topic: {topic_title}
+**Your focus for this conversation:** {focus}
+{'**Opening question to ask if this is the start of the conversation:** ' + opening_q if opening_q else ''}
+
+IMPORTANT: You are guiding this conversation. Ask specific questions about this topic. Do not ask the user what they want to talk about — you already know: {topic_title}. If there are no messages yet, open with the opening question above verbatim (or close to it).
+"""
+    else:
+        topic_context = ""
 
     return f"""{SYSTEM_DESCRIPTION}
 
@@ -420,21 +604,21 @@ CURRENT USER CONTEXT:
 KEY REMINDERS:
 {'='*80}
 
-1. PERSONALIZATION IS EVERYTHING: Use the gathered dimensions above to craft questions that show you remember and understand this person. Reference their previous answers naturally.
+1. YOU LEAD: You are the interviewer. Ask specific, thoughtful questions. Don't wait for the user to bring up topics — you guide them through the current topic with purpose.
 
 2. ONE QUESTION AT A TIME: Never ask multiple questions. Keep responses conversational and focused.
 
 3. FOLLOW THE STRUCTURED FORMAT: Always include [DIMENSION:], [ACKNOWLEDGMENT:], [NEXT_QUESTION:] tags.
 
-4. EXTRACT & STORE INSIGHTS: When the user answers, capture the essence in the acknowledgment. Be specific and detailed - this data drives the matching algorithm.
+4. EXTRACT & STORE INSIGHTS: When the user answers, capture the essence in the acknowledgment. Be specific — this data drives the matching algorithm.
 
-5. BE STRATEGICALLY THOUGHTFUL: Look at which dimensions are missing and choose the next question that flows naturally from the conversation.
+5. PERSONALIZE: Reference what you already know about this person. Make connections between their answers.
 
-6. BUILD NARRATIVE: Help users tell their story. Make connections between what they've shared.
+6. BUILD NARRATIVE: Help users tell their story. Show that you're listening and building a picture of who they are.
 
-7. TOPIC LIFECYCLE: When a topic feels complete (you've gathered key data and had meaningful exchange), signal [TOPIC_COMPLETE] and optionally [SUGGEST_TOPIC: Next Title].
+7. TOPIC LIFECYCLE: When you've thoroughly covered this topic, signal [TOPIC_COMPLETE] and optionally suggest [SUGGEST_TOPIC: Next Title].
 
-Now engage with this user authentically and help them build a profile that will lead to their perfect match.
+Now engage with this user — ask your first (or next) question and guide the conversation forward.
 """
 
 # ============================================================================
@@ -530,45 +714,15 @@ Provide your compatibility analysis in JSON format:"""
 # CONVENIENCE FUNCTIONS
 # ============================================================================
 
-def get_system_message(profile, topic_title=''):
-    """
-    Get system message dict for OpenAI-style API
-
-    Args:
-        profile: User profile dict
-        topic_title: Optional current topic title for focused context
-
-    Returns:
-        Dict with 'role' and 'content' keys
-    """
+def get_system_message(profile, topic_title='', topic_key=''):
     return {
         'role': 'system',
-        'content': build_system_prompt(profile, topic_title=topic_title)
+        'content': build_system_prompt(profile, topic_title=topic_title, topic_key=topic_key)
     }
 
-def build_messages_for_llm(profile, chat_history, user_message, max_history=20, topic_title=''):
-    """
-    Build complete message array for LLM API call
-
-    Args:
-        profile: User profile dict
-        chat_history: Chat history dict with 'messages' array
-        user_message: Current user message string
-        max_history: Max conversation exchanges to include (default 20)
-        topic_title: Optional current topic title for focused context
-
-    Returns:
-        List of message dicts ready for LLM API
-    """
+def build_messages_for_llm(profile, chat_history, user_message, max_history=20, topic_title='', topic_key=''):
     messages = []
-
-    # Add system message with profile context
-    messages.append(get_system_message(profile, topic_title=topic_title))
-
-    # Add conversation history
+    messages.append(get_system_message(profile, topic_title=topic_title, topic_key=topic_key))
     messages.extend(load_conversation_history(chat_history, max_history))
-
-    # Add current user message
     messages.append({'role': 'user', 'content': user_message})
-
     return messages

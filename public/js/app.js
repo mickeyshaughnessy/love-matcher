@@ -9,7 +9,43 @@ let matchPollInterval = null;
 let currentTopicId = null;
 let matchTopicId = null;
 
-// Conversation topic categories shown in the sidebar checklist
+// 32 predefined conversation topics
+const PREDEFINED_TOPICS = [
+    { key: 'your_story',        title: 'Your Story',                   dims: [] },
+    { key: 'identity',          title: 'Identity & Orientation',       dims: ['gender', 'seeking_gender'] },
+    { key: 'location',          title: 'Life Stage & Location',        dims: ['age', 'location'] },
+    { key: 'education',         title: 'Education',                    dims: ['education'] },
+    { key: 'career',            title: 'Career & Calling',             dims: ['career'] },
+    { key: 'finances',          title: 'Money & Finances',             dims: ['finances'] },
+    { key: 'family_background', title: 'Family Background',            dims: ['family_origin'] },
+    { key: 'children',          title: 'Children & Parenting',         dims: ['children'] },
+    { key: 'faith',             title: 'Faith & Spirituality',         dims: ['religion'] },
+    { key: 'politics',          title: 'Political Views',              dims: ['politics'] },
+    { key: 'vision',            title: 'Your 10-Year Vision',          dims: ['vision'] },
+    { key: 'communication',     title: 'How You Communicate',          dims: ['communication'] },
+    { key: 'conflict',          title: 'Handling Conflict',            dims: ['conflict'] },
+    { key: 'affection',         title: 'Affection & Love',             dims: ['affection'] },
+    { key: 'humor',             title: 'Humor & Play',                 dims: ['humor'] },
+    { key: 'domestic',          title: 'Home Life & Roles',            dims: ['domestic'] },
+    { key: 'cleanliness',       title: 'Cleanliness & Order',          dims: ['cleanliness'] },
+    { key: 'food',              title: 'Food & Cooking',               dims: ['food'] },
+    { key: 'time',              title: 'Time & Punctuality',           dims: ['time'] },
+    { key: 'technology',        title: 'Technology & Screens',         dims: ['technology'] },
+    { key: 'health',            title: 'Physical Health',              dims: ['health'] },
+    { key: 'mental_health',     title: 'Mental & Emotional Health',    dims: ['mental_health'] },
+    { key: 'social_energy',     title: 'Social Energy',                dims: ['social_energy'] },
+    { key: 'substances',        title: 'Alcohol & Substances',         dims: ['substances'] },
+    { key: 'hobbies',           title: 'Hobbies & Passions',           dims: ['hobbies'] },
+    { key: 'travel',            title: 'Travel & Adventure',           dims: ['travel'] },
+    { key: 'culture',           title: 'Art, Music & Culture',         dims: ['culture'] },
+    { key: 'pets',              title: 'Pets & Animals',               dims: ['pets'] },
+    { key: 'independence',      title: 'Independence & Togetherness',  dims: ['independence'] },
+    { key: 'decisions',         title: 'Decision Making',              dims: ['decisions'] },
+    { key: 'ideal_match',       title: 'Your Ideal Match',             dims: [] },
+    { key: 'dealbreakers',      title: 'Deal-Breakers',               dims: [] },
+];
+
+// Legacy group mapping for dashboard checklist
 const TOPIC_GROUPS = [
     { key: 'identity',    label: 'Who You Are',        dims: ['gender', 'seeking_gender', 'age', 'location', 'education', 'career'] },
     { key: 'values',      label: 'Values & Worldview',  dims: ['religion', 'politics', 'vision', 'finances'] },
@@ -414,34 +450,30 @@ async function loadChatHistory() {
     messagesDiv.innerHTML = '';
 
     try {
-        const [topicsRes, profileRes] = await Promise.all([
+        const [topicsRes, profileRes, matchTopicsRes] = await Promise.all([
             apiFetch(`${API_URL}/topics`),
             apiFetch(`${API_URL}/profile`),
+            apiFetch(`${API_URL}/match/topics`).catch(() => null),
         ]);
 
-        const topicsData  = await topicsRes.json();
-        const profileData = await profileRes.json();
+        const topicsData      = await topicsRes.json();
+        const profileData     = await profileRes.json();
+        const matchTopicsData = matchTopicsRes && matchTopicsRes.ok ? await matchTopicsRes.json() : null;
 
         // Render topics sidebar
         if (topicsRes.ok) {
-            const topics   = topicsData.topics || [];
-            // Prefer a pre-selected topic (e.g. from dashboard click), then active, then first
-            const targetId = currentTopicId
-                || topicsData.active_topic_id
-                || (topics[0] && topics[0].topic_id);
+            const topics      = topicsData.topics || [];
+            const matchTopics = matchTopicsData && matchTopicsData.topics;
+            // Prefer a pre-selected topic (e.g. from dashboard click), then active, then nothing
+            const targetId = currentTopicId || topicsData.active_topic_id || null;
 
-            renderTopicsList(topics, targetId);
+            renderTopicsList(topics, targetId, matchTopics);
 
             if (targetId) {
                 currentTopicId = targetId;
                 await loadTopicMessages(targetId);
             } else {
-                // No topics yet - show welcome message
-                appendMessage(
-                    "Hi! I'm here to get to know you — through conversation, not forms. Let's start simply: what's your name, and whereabouts do you live?",
-                    'ai'
-                );
-                updateChatHeader('Getting to Know You', 'active');
+                updateChatHeader('Conversations', '');
             }
         }
 
@@ -501,20 +533,54 @@ function updateChatHeader(topicTitle, status) {
     }
 }
 
-function renderTopicsList(topics, activeTopicId) {
+function renderTopicsList(createdTopics, activeTopicId, matchTopics) {
     const container = document.getElementById('chatTopicsList');
     if (!container) return;
 
-    let html = '';
+    // Build lookup: topic_key → created topic data
+    const createdByKey   = {};
+    const createdById    = {};
+    const predefinedKeys = new Set(PREDEFINED_TOPICS.map(p => p.key));
 
-    if (topics.length === 0) {
-        html = `<div style="padding:12px; color:var(--slate-muted); font-size:0.8rem;">Your conversation topics will appear here as you chat.</div>`;
-    } else {
-        topics.forEach(topic => {
-            const isActive  = topic.topic_id === activeTopicId && topic.status === 'active';
-            const isDone    = topic.status === 'completed' || topic.status === 'archived';
-            const msgCount  = topic.message_count || 0;
+    (createdTopics || []).forEach(t => {
+        createdById[t.topic_id] = t;
+        if (t.topic_key) createdByKey[t.topic_key] = t;
+    });
 
+    let html = '<div class="topics-section-label">Your Profile</div>';
+
+    // Render all 32 predefined topics
+    PREDEFINED_TOPICS.forEach(pre => {
+        const created   = createdByKey[pre.key];
+        const isActive  = created && created.topic_id === activeTopicId;
+        const isDone    = created && (created.status === 'completed' || created.status === 'archived');
+        const msgCount  = created ? (created.message_count || 0) : 0;
+        const started   = !!created;
+
+        const onclick = started
+            ? `selectTopic('${created.topic_id}')`
+            : `showChatForGroup('${pre.key}', '${pre.title.replace(/'/g, "\\'")}')`;
+
+        html += `
+            <div class="topic-thread-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''} ${!started ? 'not-started' : ''}"
+                 onclick="${onclick}">
+                <div class="topic-thread-check ${isDone ? 'done' : isActive ? 'active' : ''}">
+                    ${isDone ? '✓' : ''}
+                </div>
+                <div class="topic-thread-text">
+                    <div class="topic-thread-title">${escapeHtml(pre.title)}</div>
+                    <div class="topic-thread-meta">${started ? `${msgCount} message${msgCount !== 1 ? 's' : ''}${isDone ? ' · done' : ''}` : 'Tap to begin'}</div>
+                </div>
+            </div>`;
+    });
+
+    // Dynamic topics not in predefined list
+    const dynamicTopics = (createdTopics || []).filter(t => !t.topic_key || !predefinedKeys.has(t.topic_key));
+    if (dynamicTopics.length > 0) {
+        html += '<div class="topics-section-label" style="margin-top:12px;">Custom Topics</div>';
+        dynamicTopics.forEach(topic => {
+            const isActive = topic.topic_id === activeTopicId;
+            const isDone   = topic.status === 'completed' || topic.status === 'archived';
             html += `
                 <div class="topic-thread-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}"
                      onclick="selectTopic('${topic.topic_id}')">
@@ -523,17 +589,37 @@ function renderTopicsList(topics, activeTopicId) {
                     </div>
                     <div class="topic-thread-text">
                         <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
-                        <div class="topic-thread-meta">${msgCount} message${msgCount !== 1 ? 's' : ''}${isDone ? ' · done' : ''}</div>
+                        <div class="topic-thread-meta">${topic.message_count || 0} messages${isDone ? ' · done' : ''}</div>
                     </div>
                 </div>`;
         });
     }
 
-    // New topic button
+    // Match topics section
+    if (matchTopics && matchTopics.length > 0) {
+        html += '<div class="topics-section-label" style="margin-top:12px;">With Your Match</div>';
+        matchTopics.forEach(topic => {
+            const isActive = topic.topic_id === activeTopicId;
+            const isDone   = topic.status === 'completed';
+            html += `
+                <div class="topic-thread-item match-topic ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}"
+                     onclick="showView('match')">
+                    <div class="topic-thread-check ${isDone ? 'done' : ''}">
+                        ${isDone ? '✓' : '♡'}
+                    </div>
+                    <div class="topic-thread-text">
+                        <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
+                        <div class="topic-thread-meta">Open in Match view</div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // Custom new topic button at bottom
     html += `
-        <div style="padding:12px 8px; margin-top:4px;">
+        <div style="padding:10px 8px 4px;">
             <button class="btn btn-ghost btn-sm" style="width:100%; font-size:0.775rem;" onclick="startNewTopic()">
-                + New Topic
+                + Custom Topic
             </button>
         </div>`;
 
@@ -561,19 +647,21 @@ async function selectTopic(topicId) {
     await loadTopicMessages(topicId);
 }
 
-async function showChatForGroup(groupLabel) {
-    // Find an existing topic with this label, or create one
+async function showChatForGroup(topicKey, topicTitle) {
+    // Find by topic_key first, then title, or create new
     try {
         const res  = await apiFetch(`${API_URL}/topics`);
         const data = await res.json();
-        const existing = res.ok && data.topics && data.topics.find(t => t.title === groupLabel);
+        const existing = res.ok && data.topics && data.topics.find(
+            t => (topicKey && t.topic_key === topicKey) || t.title === topicTitle
+        );
         if (existing) {
             currentTopicId = existing.topic_id;
         } else {
             const createRes = await apiFetch(`${API_URL}/topics`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: groupLabel })
+                body: JSON.stringify({ title: topicTitle, topic_key: topicKey })
             });
             if (createRes.ok) {
                 const created = await createRes.json();
@@ -608,10 +696,14 @@ async function startNewTopic() {
 
 async function fetchAndUpdateTopicsSidebar() {
     try {
-        const res  = await apiFetch(`${API_URL}/topics`);
-        const data = await res.json();
-        if (res.ok) {
-            renderTopicsList(data.topics || [], currentTopicId);
+        const [topicsRes, matchTopicsRes] = await Promise.all([
+            apiFetch(`${API_URL}/topics`),
+            apiFetch(`${API_URL}/match/topics`).catch(() => null),
+        ]);
+        const topicsData     = await topicsRes.json();
+        const matchTopicsData = matchTopicsRes && matchTopicsRes.ok ? await matchTopicsRes.json() : null;
+        if (topicsRes.ok) {
+            renderTopicsList(topicsData.topics || [], currentTopicId, matchTopicsData && matchTopicsData.topics);
         }
     } catch {}
 }

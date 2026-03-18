@@ -1834,8 +1834,20 @@ footer {
     margin-bottom: 2px;
 }
 .topic-thread-item:hover { background: var(--cream-dark); }
-.topic-thread-item.active { background: var(--cream-dark); }
-.topic-thread-item.done { opacity: 0.65; }
+.topic-thread-item.active { background: var(--cream-dark); border-left: 2px solid var(--primary); }
+.topic-thread-item.done { opacity: 0.6; }
+.topic-thread-item.not-started { opacity: 0.75; }
+.topic-thread-item.not-started:hover { opacity: 1; }
+.topic-thread-item.match-topic .topic-thread-check { font-size: 11px; border-color: var(--primary); color: var(--primary); }
+
+.topics-section-label {
+    padding: 10px 12px 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--slate-muted);
+}
 
 .topic-thread-check {
     width: 18px;
