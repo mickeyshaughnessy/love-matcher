@@ -890,21 +890,19 @@ def chat():
         profile_updated = False
         user_lower = user_message.lower()
 
-        if not profile.get('name') or profile.get('name') == '':
-            if 'my name is' in user_lower or "i'm " in user_lower or 'call me' in user_lower:
-                import re
-                name_match = re.search(r"(?:my name is|i'm|call me)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)", user_message, re.IGNORECASE)
-                if name_match:
-                    profile['name'] = name_match.group(1).strip()
-                    profile_updated = True
+        if 'my name is' in user_lower or 'call me' in user_lower:
+            import re
+            name_match = re.search(r"(?:my name is|call me)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)", user_message, re.IGNORECASE)
+            if name_match:
+                profile['name'] = name_match.group(1).strip()
+                profile_updated = True
 
-        if not profile.get('location') or profile.get('location') == '':
-            if ' in ' in user_lower or 'from ' in user_lower or 'live' in user_lower:
-                import re
-                location_match = re.search(r"(?:in|from|live in|located in)\s+([A-Z][a-zA-Z\s,]+(?:[A-Z]{2})?)", user_message)
-                if location_match:
-                    profile['location'] = location_match.group(1).strip()
-                    profile_updated = True
+        if ' in ' in user_lower or 'from ' in user_lower or 'live' in user_lower:
+            import re
+            location_match = re.search(r"(?:in|from|live in|located in)\s+([A-Z][a-zA-Z\s,]+(?:[A-Z]{2})?)", user_message)
+            if location_match:
+                profile['location'] = location_match.group(1).strip()
+                profile_updated = True
 
         if parsed_response['dimension'] and parsed_response['dimension'] != 'none':
             if parsed_response['value'] and parsed_response['value'] != 'none':
@@ -912,12 +910,18 @@ def chat():
                     profile['dimensions'] = {}
                 profile['dimensions'][parsed_response['dimension']] = parsed_response['value']
 
-                if parsed_response['dimension'] == 'name' and not profile.get('name'):
+                if parsed_response['dimension'] == 'name':
                     profile['name'] = str(parsed_response['value'])
                     profile_updated = True
-                elif parsed_response['dimension'] == 'location' and not profile.get('location'):
+                elif parsed_response['dimension'] == 'location':
                     profile['location'] = str(parsed_response['value'])
                     profile_updated = True
+                elif parsed_response['dimension'] == 'age':
+                    try:
+                        profile['age'] = int(parsed_response['value'])
+                        profile_updated = True
+                    except (ValueError, TypeError):
+                        pass
                 elif parsed_response['dimension'] == 'about':
                     profile['about'] = str(parsed_response['value'])
                     profile_updated = True
