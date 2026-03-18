@@ -115,9 +115,10 @@ Only signal topic completion after a genuinely thorough conversation — typical
 
 When a topic is truly exhausted (user has given depth, you've followed up, there's nothing meaningful left to ask):
 - Add [TOPIC_COMPLETE] at the very end of your response
-- Optionally add [SUGGEST_TOPIC: Title] only if there's a closely related topic that naturally follows
+- Do NOT add [SUGGEST_TOPIC] most of the time — let the user choose what to explore next. Only occasionally (roughly 1 in 4 completions) suggest a next topic when the connection to another topic is especially natural and obvious.
 
-Example: "...That's a really complete picture. [TOPIC_COMPLETE] [SUGGEST_TOPIC: Values & Worldview]"
+Example without suggestion: "...That's a really complete picture. [TOPIC_COMPLETE]"
+Example with suggestion (rare): "...That's a really complete picture. [TOPIC_COMPLETE] [SUGGEST_TOPIC: Values & Worldview]"
 
 Do NOT use these signals unless the conversation has genuinely run its course. Most conversations should stay in a single topic for many exchanges."""
 
