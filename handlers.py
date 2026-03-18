@@ -1104,6 +1104,27 @@ def close_topic_handler(topic_id):
     return jsonify({'success': True, 'topic_id': topic_id, 'status': 'completed'})
 
 @token_required
+def delete_topic_handler(topic_id):
+    """Delete a custom topic (not predefined) by removing it from index and S3"""
+    index = load_topic_index(request.user_id)
+    topics = index.get('topics', [])
+    topic_entry = next((t for t in topics if t['topic_id'] == topic_id), None)
+    if not topic_entry:
+        return jsonify({'error': 'Topic not found'}), 404
+    # Remove from index
+    index['topics'] = [t for t in topics if t['topic_id'] != topic_id]
+    save_topic_index(request.user_id, index)
+    # Delete topic data file from S3
+    try:
+        key = get_topic_key(request.user_id, topic_id)
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{key}")
+        _s3_cache.pop(key, None)
+        _s3_cache_ts.pop(key, None)
+    except Exception as e:
+        print(f"Error deleting topic file: {e}")
+    return jsonify({'success': True, 'topic_id': topic_id})
+
+@token_required
 def create_topic_handler():
     """Create a new topic explicitly"""
     data = request.json
@@ -1785,6 +1806,7 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/topics', 'get_user_topics', get_user_topics, methods=['GET'])
     app.add_url_rule('/topics', 'create_topic_handler', create_topic_handler, methods=['POST'])
     app.add_url_rule('/topics/<topic_id>', 'get_topic_messages_handler', get_topic_messages_handler, methods=['GET'])
+    app.add_url_rule('/topics/<topic_id>', 'delete_topic_handler', delete_topic_handler, methods=['DELETE'])
     app.add_url_rule('/topics/<topic_id>/close', 'close_topic_handler', close_topic_handler, methods=['POST'])
     app.add_url_rule('/match/topics', 'get_match_topics_handler', get_match_topics_handler, methods=['GET'])
     app.add_url_rule('/match/topics/<topic_id>', 'get_match_topic_messages_handler', get_match_topic_messages_handler, methods=['GET'])

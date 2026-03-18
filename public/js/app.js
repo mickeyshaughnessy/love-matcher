@@ -562,13 +562,26 @@ function renderTopicsList(createdTopics, activeTopicId, matchTopics) {
         if (t.topic_key) createdByKey[t.topic_key] = t;
     });
 
+    // Separate completed predefined vs active predefined
+    const completedPredefined = [];
+    const activePredefined    = [];
+    PREDEFINED_TOPICS.forEach(pre => {
+        const created = createdByKey[pre.key];
+        const isDone  = created && (created.status === 'completed' || created.status === 'archived');
+        if (isDone) completedPredefined.push({ pre, created });
+        else activePredefined.push({ pre, created });
+    });
+
+    // Separate custom topics into active vs completed
+    const dynamicTopics = (createdTopics || []).filter(t => !t.topic_key || !predefinedKeys.has(t.topic_key));
+    const activeDynamic    = dynamicTopics.filter(t => t.status !== 'completed' && t.status !== 'archived');
+    const completedDynamic = dynamicTopics.filter(t => t.status === 'completed' || t.status === 'archived');
+
     let html = '<div class="topics-section-label">Your Profile</div>';
 
-    // Render all 32 predefined topics
-    PREDEFINED_TOPICS.forEach(pre => {
-        const created   = createdByKey[pre.key];
+    // Render active/not-started predefined topics
+    activePredefined.forEach(({ pre, created }) => {
         const isActive  = created && created.topic_id === activeTopicId;
-        const isDone    = created && (created.status === 'completed' || created.status === 'archived');
         const msgCount  = created ? (created.message_count || 0) : 0;
         const started   = !!created;
 
@@ -577,54 +590,95 @@ function renderTopicsList(createdTopics, activeTopicId, matchTopics) {
             : `showChatForGroup('${pre.key}', '${pre.title.replace(/'/g, "\\'")}')`;
 
         html += `
-            <div class="topic-thread-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''} ${!started ? 'not-started' : ''}"
+            <div class="topic-thread-item ${isActive ? 'active' : ''} ${!started ? 'not-started' : ''}"
                  onclick="${onclick}">
-                <div class="topic-thread-check ${isDone ? 'done' : isActive ? 'active' : ''}">
-                    ${isDone ? '✓' : ''}
-                </div>
+                <div class="topic-thread-check ${isActive ? 'active' : ''}"></div>
                 <div class="topic-thread-text">
                     <div class="topic-thread-title">${escapeHtml(pre.title)}</div>
-                    <div class="topic-thread-meta">${started ? `${msgCount} message${msgCount !== 1 ? 's' : ''}${isDone ? ' · done' : ''}` : 'Tap to begin'}</div>
+                    <div class="topic-thread-meta">${started ? `${msgCount} message${msgCount !== 1 ? 's' : ''}` : 'Tap to begin'}</div>
                 </div>
             </div>`;
     });
 
-    // Dynamic topics not in predefined list
-    const dynamicTopics = (createdTopics || []).filter(t => !t.topic_key || !predefinedKeys.has(t.topic_key));
-    if (dynamicTopics.length > 0) {
+    // Active custom topics
+    if (activeDynamic.length > 0) {
         html += '<div class="topics-section-label" style="margin-top:12px;">Custom Topics</div>';
-        dynamicTopics.forEach(topic => {
+        activeDynamic.forEach(topic => {
             const isActive = topic.topic_id === activeTopicId;
-            const isDone   = topic.status === 'completed' || topic.status === 'archived';
+            const safeId   = topic.topic_id;
             html += `
-                <div class="topic-thread-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}"
-                     onclick="selectTopic('${topic.topic_id}')">
-                    <div class="topic-thread-check ${isDone ? 'done' : isActive ? 'active' : ''}">
-                        ${isDone ? '✓' : ''}
-                    </div>
+                <div class="topic-thread-item ${isActive ? 'active' : ''}"
+                     onclick="selectTopic('${safeId}')">
+                    <div class="topic-thread-check ${isActive ? 'active' : ''}"></div>
                     <div class="topic-thread-text">
                         <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
-                        <div class="topic-thread-meta">${topic.message_count || 0} messages${isDone ? ' · done' : ''}</div>
+                        <div class="topic-thread-meta">${topic.message_count || 0} messages</div>
                     </div>
+                    <button class="topic-delete-btn" onclick="event.stopPropagation(); deleteTopic('${safeId}')" title="Delete topic">×</button>
                 </div>`;
         });
     }
 
     // Match topics section
     if (matchTopics && matchTopics.length > 0) {
-        html += '<div class="topics-section-label" style="margin-top:12px;">With Your Match</div>';
-        matchTopics.forEach(topic => {
-            const isActive = topic.topic_id === activeTopicId;
-            const isDone   = topic.status === 'completed';
+        const activeMatchTopics = matchTopics.filter(t => t.status !== 'completed');
+        if (activeMatchTopics.length > 0) {
+            html += '<div class="topics-section-label" style="margin-top:12px;">With Your Match</div>';
+            activeMatchTopics.forEach(topic => {
+                const isActive = topic.topic_id === activeTopicId;
+                html += `
+                    <div class="topic-thread-item match-topic ${isActive ? 'active' : ''}"
+                         onclick="showView('match')">
+                        <div class="topic-thread-check">♡</div>
+                        <div class="topic-thread-text">
+                            <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
+                            <div class="topic-thread-meta">Open in Match view</div>
+                        </div>
+                    </div>`;
+            });
+        }
+    }
+
+    // Completed section (predefined + custom + match)
+    const completedMatchTopics = (matchTopics || []).filter(t => t.status === 'completed');
+    const hasCompleted = completedPredefined.length > 0 || completedDynamic.length > 0 || completedMatchTopics.length > 0;
+    if (hasCompleted) {
+        html += '<div class="topics-section-label" style="margin-top:12px;">Completed</div>';
+        completedPredefined.forEach(({ pre, created }) => {
+            const isActive = created.topic_id === activeTopicId;
+            const msgCount = created.message_count || 0;
             html += `
-                <div class="topic-thread-item match-topic ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}"
-                     onclick="showView('match')">
-                    <div class="topic-thread-check ${isDone ? 'done' : ''}">
-                        ${isDone ? '✓' : '♡'}
+                <div class="topic-thread-item done ${isActive ? 'active' : ''}"
+                     onclick="selectTopic('${created.topic_id}')">
+                    <div class="topic-thread-check done">✓</div>
+                    <div class="topic-thread-text">
+                        <div class="topic-thread-title">${escapeHtml(pre.title)}</div>
+                        <div class="topic-thread-meta">${msgCount} message${msgCount !== 1 ? 's' : ''}</div>
                     </div>
+                </div>`;
+        });
+        completedDynamic.forEach(topic => {
+            const isActive = topic.topic_id === activeTopicId;
+            const safeId   = topic.topic_id;
+            html += `
+                <div class="topic-thread-item done ${isActive ? 'active' : ''}"
+                     onclick="selectTopic('${safeId}')">
+                    <div class="topic-thread-check done">✓</div>
                     <div class="topic-thread-text">
                         <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
-                        <div class="topic-thread-meta">Open in Match view</div>
+                        <div class="topic-thread-meta">${topic.message_count || 0} messages</div>
+                    </div>
+                    <button class="topic-delete-btn" onclick="event.stopPropagation(); deleteTopic('${safeId}')" title="Delete topic">×</button>
+                </div>`;
+        });
+        completedMatchTopics.forEach(topic => {
+            html += `
+                <div class="topic-thread-item done match-topic"
+                     onclick="showView('match')">
+                    <div class="topic-thread-check done">✓</div>
+                    <div class="topic-thread-text">
+                        <div class="topic-thread-title">${escapeHtml(topic.title)}</div>
+                        <div class="topic-thread-meta">With your match</div>
                     </div>
                 </div>`;
         });
@@ -639,6 +693,24 @@ function renderTopicsList(createdTopics, activeTopicId, matchTopics) {
         </div>`;
 
     container.innerHTML = html;
+}
+
+async function deleteTopic(topicId) {
+    if (!confirm('Delete this topic and its conversation? This cannot be undone.')) return;
+    try {
+        const res = await apiFetch(`${API_URL}/topics/${topicId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Delete failed');
+        if (currentTopicId === topicId) currentTopicId = null;
+        await fetchAndUpdateTopicsSidebar();
+        // If we just deleted the active topic, clear chat
+        if (currentTopicId === null) {
+            const msgs = document.getElementById('chatMessages');
+            if (msgs) msgs.innerHTML = '';
+            updateChatHeader('Conversations', 'Select a topic to begin');
+        }
+    } catch (e) {
+        alert('Could not delete topic. Please try again.');
+    }
 }
 
 async function selectTopic(topicId) {

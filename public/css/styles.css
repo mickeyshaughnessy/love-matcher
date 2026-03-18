@@ -1832,7 +1832,26 @@ footer {
     cursor: pointer;
     transition: background 0.15s;
     margin-bottom: 2px;
+    position: relative;
 }
+.topic-delete-btn {
+    display: none;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--slate-muted);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    opacity: 0.6;
+}
+.topic-delete-btn:hover { opacity: 1; color: #c0392b; background: rgba(192,57,43,0.08); }
+.topic-thread-item:hover .topic-delete-btn { display: block; }
 .topic-thread-item:hover { background: var(--cream-dark); }
 .topic-thread-item.active { background: var(--cream-dark); border-left: 2px solid var(--primary); }
 .topic-thread-item.done { opacity: 0.6; }
