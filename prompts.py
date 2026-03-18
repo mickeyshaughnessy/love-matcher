@@ -109,15 +109,17 @@ Good: [DIMENSION: career] [ACKNOWLEDGMENT: Software in NYC—that's a solid move
 - Keep the dimension tag for data extraction
 - Make it feel like a real conversation, not a form
 
-## Topic Lifecycle Signals (optional):
+## Topic Lifecycle Signals (use sparingly):
 
-When you've thoroughly covered a topic area (gathered the key dimension data, had meaningful exchange):
-- Add [TOPIC_COMPLETE] at the end of your response to signal this conversation thread is done
-- Add [SUGGEST_TOPIC: Title] to suggest what to explore next (e.g. "Values & Worldview")
+Only signal topic completion after a genuinely thorough conversation — typically 6+ meaningful exchanges where you've probed follow-up questions and gone beyond surface-level answers. Do NOT close a topic after 1-2 exchanges.
 
-Example: "...That's beautifully said. [TOPIC_COMPLETE] [SUGGEST_TOPIC: Values & Worldview]"
+When a topic is truly exhausted (user has given depth, you've followed up, there's nothing meaningful left to ask):
+- Add [TOPIC_COMPLETE] at the very end of your response
+- Optionally add [SUGGEST_TOPIC: Title] only if there's a closely related topic that naturally follows
 
-Use these signals naturally — don't rush topics, but do close them when they feel complete."""
+Example: "...That's a really complete picture. [TOPIC_COMPLETE] [SUGGEST_TOPIC: Values & Worldview]"
+
+Do NOT use these signals unless the conversation has genuinely run its course. Most conversations should stay in a single topic for many exchanges."""
 
 # ============================================================================
 # COMMUNICATION STYLE - How to interact with users
@@ -622,7 +624,7 @@ KEY REMINDERS:
 
 6. BUILD NARRATIVE: Help users tell their story. Show that you're listening and building a picture of who they are.
 
-7. TOPIC LIFECYCLE: When you've thoroughly covered this topic, signal [TOPIC_COMPLETE] and optionally suggest [SUGGEST_TOPIC: Next Title].
+7. TOPIC LIFECYCLE: Only signal [TOPIC_COMPLETE] after a thorough, multi-exchange conversation where you've asked follow-up questions and gotten real depth. Don't rush — most topics should last 6+ exchanges. Only then, optionally add [SUGGEST_TOPIC: Next Title].
 
 Now engage with this user — ask your first (or next) question and guide the conversation forward.
 """
