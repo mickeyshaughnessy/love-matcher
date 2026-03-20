@@ -7,10 +7,15 @@ import requests
 import bcrypt
 import time
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from werkzeug.utils import secure_filename
 
 import config
 import prompts
+
+ADMIN_USER_ID = 'mickeyshaughnessy_gmail_com'
 
 # Global variables to be set by api_server
 s3_client = None
@@ -565,26 +570,25 @@ def ping():
 def register():
     data = request.json
     email = data.get('email')
-    password = data.get('password')  # Optional now
+    password = data.get('password')
     age = data.get('age')
     gender = data.get('gender')
-    
-    if not all([email, age, gender]):
-        return jsonify({'error': 'Missing required fields (email, age, and gender)'}), 400
-    
+
+    if not all([email, password, age, gender]):
+        return jsonify({'error': 'Email, password, age, and gender are required'}), 400
+    if len(password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+
     age_int = int(age)
     matching_eligible = age_int >= 18
-    
+
     # Check if user exists
     user_id = email.replace('@', '_').replace('.', '_')
     if s3_get(f"profiles/{user_id}.json"):
-        return jsonify({'error': 'User already exists'}), 400
-    
-    # Hash password if provided (for backward compatibility)
-    password_hash = None
-    if password:
-        salt = bcrypt.gensalt()
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+        return jsonify({'error': 'An account with that email already exists'}), 400
+
+    salt = bcrypt.gensalt()
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
     
     # Add to member list and get member number
     registration_time = datetime.utcnow().isoformat()
@@ -648,28 +652,27 @@ def register():
 
 def login():
     data = request.json
-    email = data.get('email')
-    password = data.get('password')  # Optional now
-    
-    if not email:
-        return jsonify({'error': 'Email required'}), 400
-    
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required'}), 400
+
     user_id = email.replace('@', '_').replace('.', '_')
-    
+
     profile = s3_get(f"profiles/{user_id}.json")
     if not profile:
-        return jsonify({'error': 'Invalid email'}), 401
-    
-    # Verify password only if provided and stored
+        return jsonify({'error': 'Invalid email or password'}), 401
+
     stored_hash = profile.get('password_hash')
-    if password and stored_hash:
+    if stored_hash:
         try:
             if not bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-                return jsonify({'error': 'Invalid password'}), 401
+                return jsonify({'error': 'Invalid email or password'}), 401
         except Exception as e:
             print(f"❌ Password verification error for {user_id}: {e}")
             return jsonify({'error': 'Authentication error - please contact support'}), 500
-    # If no password provided or stored, allow login with just email (username-only mode)
+    # Accounts without a password_hash (legacy) can still log in — they should use reset flow
     
     token = jwt.encode(
         {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(days=30)},
@@ -1788,6 +1791,190 @@ def delete_account():
         return jsonify({'error': 'Failed to delete account'}), 500
 
 
+# ============================================================================
+# EMAIL HELPER
+# ============================================================================
+
+def send_email(to_email, subject, body_html):
+    smtp_pass = getattr(config, 'SMTP_PASS', '')
+    if not smtp_pass:
+        print(f"[EMAIL] SMTP not configured. Would send to {to_email}: {subject}")
+        return False
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = getattr(config, 'SMTP_FROM', config.SMTP_USER)
+        msg['To'] = to_email
+        msg.attach(MIMEText(body_html, 'html'))
+        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
+            server.starttls()
+            server.login(config.SMTP_USER, smtp_pass)
+            server.sendmail(config.SMTP_USER, to_email, msg.as_string())
+        print(f"[EMAIL] Sent '{subject}' to {to_email}")
+        return True
+    except Exception as e:
+        print(f"[EMAIL] Error sending to {to_email}: {e}")
+        return False
+
+# ============================================================================
+# PASSWORD RESET
+# ============================================================================
+
+def forgot_password():
+    data = request.json or {}
+    email = data.get('email', '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email required'}), 400
+    user_id = email.replace('@', '_').replace('.', '_')
+    profile = s3_get(f"profiles/{user_id}.json")
+    if profile:
+        token = jwt.encode(
+            {'user_id': user_id, 'purpose': 'reset', 'exp': datetime.utcnow() + timedelta(hours=1)},
+            jwt_secret, algorithm='HS256'
+        )
+        profile['password_reset_token'] = token
+        s3_put(f"profiles/{user_id}.json", profile)
+        site_url = getattr(config, 'SITE_URL', 'https://love-matcher.com')
+        reset_link = f"{site_url}?reset_token={token}"
+        body = f"""
+<p>Hi,</p>
+<p>You requested a password reset for your Love-Matcher account.</p>
+<p style="margin:24px 0;">
+  <a href="{reset_link}" style="background:#8B5E3C;color:white;padding:12px 24px;
+     text-decoration:none;border-radius:6px;display:inline-block;">Reset Password</a>
+</p>
+<p>Or copy this link: {reset_link}</p>
+<p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
+<p>— Love-Matcher</p>"""
+        send_email(email, "Reset your Love-Matcher password", body)
+    # Always return the same response (don't reveal whether email exists)
+    return jsonify({'message': 'If that email is registered, you will receive a reset link shortly.'})
+
+def reset_password_with_token():
+    data = request.json or {}
+    token = data.get('token', '')
+    new_password = data.get('password', '')
+    if not token or not new_password:
+        return jsonify({'error': 'Token and new password required'}), 400
+    if len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    try:
+        payload = jwt.decode(token, jwt_secret, algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Reset link has expired. Please request a new one.'}), 400
+    except Exception:
+        return jsonify({'error': 'Invalid reset link'}), 400
+    if payload.get('purpose') != 'reset':
+        return jsonify({'error': 'Invalid reset link'}), 400
+    user_id = payload.get('user_id')
+    profile = s3_get(f"profiles/{user_id}.json")
+    if not profile:
+        return jsonify({'error': 'User not found'}), 404
+    if profile.get('password_reset_token') != token:
+        return jsonify({'error': 'Reset link has already been used'}), 400
+    salt = bcrypt.gensalt()
+    profile['password_hash'] = bcrypt.hashpw(new_password.encode('utf-8'), salt).decode('utf-8')
+    profile.pop('password_reset_token', None)
+    s3_put(f"profiles/{user_id}.json", profile)
+    return jsonify({'message': 'Password updated successfully. You can now sign in.'})
+
+@token_required
+def change_password():
+    data = request.json or {}
+    current_password = data.get('current_password', '')
+    new_password = data.get('new_password', '')
+    if not current_password or not new_password:
+        return jsonify({'error': 'Current and new password required'}), 400
+    if len(new_password) < 6:
+        return jsonify({'error': 'New password must be at least 6 characters'}), 400
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    stored_hash = profile.get('password_hash')
+    if stored_hash:
+        try:
+            if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
+                return jsonify({'error': 'Current password is incorrect'}), 401
+        except Exception:
+            return jsonify({'error': 'Authentication error'}), 500
+    salt = bcrypt.gensalt()
+    profile['password_hash'] = bcrypt.hashpw(new_password.encode('utf-8'), salt).decode('utf-8')
+    s3_put(f"profiles/{request.user_id}.json", profile)
+    return jsonify({'message': 'Password changed successfully'})
+
+# ============================================================================
+# ADMIN
+# ============================================================================
+
+@token_required
+def admin_stats():
+    if request.user_id != ADMIN_USER_ID:
+        return jsonify({'error': 'Unauthorized'}), 403
+    member_list = s3_get(MEMBER_LIST_KEY) or {'members': []}
+    members = member_list.get('members', [])
+    users = []
+    active_count = 0
+    matched_count = 0
+    total_conversations = 0
+    for m in members:
+        uid = m.get('user_id')
+        profile = s3_get(f"profiles/{uid}.json")
+        if not profile:
+            continue
+        matching_active = profile.get('matching_active', False)
+        if matching_active:
+            active_count += 1
+        current_match = profile.get('current_match_id')
+        if current_match:
+            matched_count += 1
+        conv_count = profile.get('conversation_count', 0)
+        total_conversations += conv_count
+        users.append({
+            'user_id': uid,
+            'email': profile.get('email', ''),
+            'name': profile.get('name', ''),
+            'age': profile.get('age'),
+            'gender': profile.get('gender', ''),
+            'location': profile.get('location', ''),
+            'member_number': profile.get('member_number'),
+            'created_at': profile.get('created_at', ''),
+            'matching_active': matching_active,
+            'match_accepted': profile.get('match_accepted', False),
+            'current_match_id': current_match,
+            'completion_percentage': profile.get('completion_percentage', 0),
+            'conversation_count': conv_count,
+            'dimensions_count': len(profile.get('dimensions', {})),
+            'photos_count': len(profile.get('photos', [])),
+            'payment_status': profile.get('payment_status', ''),
+            'about': profile.get('about', ''),
+            'dimensions': profile.get('dimensions', {}),
+        })
+    return jsonify({
+        'total_users': len(users),
+        'active_users': active_count,
+        'matched_users': matched_count,
+        'total_conversations': total_conversations,
+        'users': users,
+    })
+
+@token_required
+def admin_user_transcript(target_user_id):
+    if request.user_id != ADMIN_USER_ID:
+        return jsonify({'error': 'Unauthorized'}), 403
+    index = load_topic_index(target_user_id)
+    topics_data = []
+    for t in index.get('topics', []):
+        topic = load_topic(target_user_id, t['topic_id'])
+        if topic:
+            topics_data.append({
+                'topic_id': t['topic_id'],
+                'title': t.get('title', ''),
+                'status': t.get('status', ''),
+                'messages': topic.get('messages', []),
+            })
+    return jsonify({'user_id': target_user_id, 'topics': topics_data})
+
+
 # Register all routes with the Flask app
 def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cfg):
     global s3_client, S3_BUCKET, S3_PREFIX, jwt_secret, openrouter_config
@@ -1800,6 +1987,11 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/ping', 'ping', ping, methods=['GET'])
     app.add_url_rule('/register', 'register', register, methods=['POST'])
     app.add_url_rule('/login', 'login', login, methods=['POST'])
+    app.add_url_rule('/forgot-password', 'forgot_password', forgot_password, methods=['POST'])
+    app.add_url_rule('/reset-password', 'reset_password_with_token', reset_password_with_token, methods=['POST'])
+    app.add_url_rule('/change-password', 'change_password', change_password, methods=['POST'])
+    app.add_url_rule('/admin/stats', 'admin_stats', admin_stats, methods=['GET'])
+    app.add_url_rule('/admin/transcript/<target_user_id>', 'admin_user_transcript', admin_user_transcript, methods=['GET'])
     app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])
     app.add_url_rule('/profile', 'update_profile', update_profile, methods=['PUT'])
     app.add_url_rule('/profile/photos', 'upload_photo', upload_photo, methods=['POST'])

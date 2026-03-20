@@ -63,6 +63,16 @@ const ALL_DIMS = TOPIC_GROUPS.flatMap(g => g.dims);
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
+    // Check for password reset token in URL
+    const params = new URLSearchParams(window.location.search);
+    const resetToken = params.get('reset_token');
+    if (resetToken) {
+        document.getElementById('resetToken').value = resetToken;
+        // Clean the URL without reloading
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showView('reset');
+        return;
+    }
     checkAutoLogin();
     setupChatInputKeydown();
 });
@@ -98,15 +108,22 @@ async function checkAutoLogin() {
     showView('dashboard');
 }
 
+const ADMIN_EMAIL = 'mickeyshaughnessy@gmail.com';
+
 function showLoggedInNav() {
     document.getElementById('mainNav').classList.add('active');
+    const adminNav = document.getElementById('navAdmin');
+    if (adminNav && currentUser && currentUser.email === ADMIN_EMAIL) {
+        adminNav.style.display = '';
+    }
 }
 
 /* ============================================================
    VIEW MANAGEMENT
    ============================================================ */
 const VIEWS = ['landingPage', 'dashboardView', 'chatView', 'matchView',
-               'profileView', 'settingsView', 'privacyView', 'termsView'];
+               'profileView', 'settingsView', 'privacyView', 'termsView',
+               'forgotView', 'resetView', 'adminView'];
 
 function showView(name) {
     // Clear any polling
@@ -133,6 +150,9 @@ function showView(name) {
         settings:  { el: 'settingsView',  nav: null },
         privacy:   { el: 'privacyView',   nav: null },
         terms:     { el: 'termsView',     nav: null },
+        forgot:    { el: 'forgotView',    nav: null },
+        reset:     { el: 'resetView',     nav: null },
+        admin:     { el: 'adminView',     nav: 'navAdmin' },
     };
 
     const entry = map[name];
@@ -153,6 +173,7 @@ function showView(name) {
     if (name === 'match')     loadMatch();
     if (name === 'profile')   loadProfile();
     if (name === 'settings')  loadSettings();
+    if (name === 'admin')     loadAdminStats();
 }
 
 /* ============================================================
@@ -188,14 +209,18 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     clearErrors();
 
-    const email  = document.getElementById('signupEmail').value.trim();
-    const age    = parseInt(document.getElementById('signupAge').value);
-    const gender = document.getElementById('signupGender').value;
+    const email    = document.getElementById('signupEmail').value.trim();
+    const age      = parseInt(document.getElementById('signupAge').value);
+    const gender   = document.getElementById('signupGender').value;
+    const password = document.getElementById('signupPassword').value;
+    const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
 
     let valid = true;
     if (!email || !email.includes('@')) { showError('signupEmailError', 'Enter a valid email'); valid = false; }
     if (!gender) { showError('signupGenderError', 'Select your gender'); valid = false; }
     if (!age || age < 18 || age > 120) { showError('signupAgeError', 'Age must be 18–120'); valid = false; }
+    if (!password || password.length < 6) { showError('signupPasswordError', 'Password must be at least 6 characters'); valid = false; }
+    if (password !== passwordConfirm) { showError('signupPasswordConfirmError', 'Passwords do not match'); valid = false; }
     if (!valid) return;
 
     const btn = e.target.querySelector('button[type=submit]');
@@ -205,7 +230,7 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
         const res = await fetch(`${API_URL}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, age, gender })
+            body: JSON.stringify({ email, age, gender, password })
         });
         const data = await res.json();
 
@@ -231,8 +256,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     clearErrors();
 
-    const email = document.getElementById('loginEmail').value.trim();
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
     if (!email || !email.includes('@')) { showError('loginEmailError', 'Enter a valid email'); return; }
+    if (!password) { showError('loginPasswordError', 'Enter your password'); return; }
 
     const btn = e.target.querySelector('button[type=submit]');
     setBtnLoading(btn, 'Signing in…');
@@ -241,13 +268,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const res = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email, password })
         });
         const data = await res.json();
 
         if (res.ok) {
             authToken   = data.token;
-            currentUser = data;
+            currentUser = { ...data, email };
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             showToast('Welcome back!', 'success');
@@ -1796,4 +1823,180 @@ function resetBtn(btn, label) {
     if (!btn) return;
     btn.disabled = false;
     btn.innerHTML = label;
+}
+
+/* ============================================================
+   FORGOT / RESET PASSWORD
+   ============================================================ */
+async function submitForgotPassword() {
+    const email = document.getElementById('forgotEmail').value.trim();
+    if (!email) return;
+    const msgEl = document.getElementById('forgotMessage');
+    msgEl.innerHTML = '<span style="color:var(--slate-muted)">Sending…</span>';
+    try {
+        const res = await fetch(`${API_URL}/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        msgEl.innerHTML = `<div class="msg-success">${escapeHtml(data.message || 'Check your email for a reset link.')}</div>`;
+    } catch {
+        msgEl.innerHTML = '<div class="msg-error">Connection error. Please try again.</div>';
+    }
+}
+
+async function submitResetPassword() {
+    const token    = document.getElementById('resetToken').value;
+    const password = document.getElementById('resetPassword').value;
+    const confirm  = document.getElementById('resetPasswordConfirm').value;
+    const msgEl    = document.getElementById('resetMessage');
+
+    if (!password || password.length < 6) {
+        msgEl.innerHTML = '<div class="msg-error">Password must be at least 6 characters.</div>';
+        return;
+    }
+    if (password !== confirm) {
+        msgEl.innerHTML = '<div class="msg-error">Passwords do not match.</div>';
+        return;
+    }
+    msgEl.innerHTML = '<span style="color:var(--slate-muted)">Updating…</span>';
+    try {
+        const res = await fetch(`${API_URL}/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            msgEl.innerHTML = `<div class="msg-success">${escapeHtml(data.message)}</div>`;
+            setTimeout(() => { showView('landing'); switchTab('login'); }, 2000);
+        } else {
+            msgEl.innerHTML = `<div class="msg-error">${escapeHtml(data.error)}</div>`;
+        }
+    } catch {
+        msgEl.innerHTML = '<div class="msg-error">Connection error. Please try again.</div>';
+    }
+}
+
+async function changePassword() {
+    const current  = document.getElementById('currentPassword').value;
+    const newPw    = document.getElementById('newPassword').value;
+    const confirm  = document.getElementById('newPasswordConfirm').value;
+    const msgEl    = document.getElementById('changePasswordMsg');
+
+    if (!current || !newPw) { msgEl.innerHTML = '<div class="msg-error">All fields are required.</div>'; return; }
+    if (newPw.length < 6)   { msgEl.innerHTML = '<div class="msg-error">New password must be at least 6 characters.</div>'; return; }
+    if (newPw !== confirm)  { msgEl.innerHTML = '<div class="msg-error">New passwords do not match.</div>'; return; }
+
+    try {
+        const res = await apiFetch(`${API_URL}/change-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_password: current, new_password: newPw })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            msgEl.innerHTML = `<div class="msg-success">${escapeHtml(data.message)}</div>`;
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newPasswordConfirm').value = '';
+        } else {
+            msgEl.innerHTML = `<div class="msg-error">${escapeHtml(data.error)}</div>`;
+        }
+    } catch {
+        msgEl.innerHTML = '<div class="msg-error">Connection error. Please try again.</div>';
+    }
+}
+
+/* ============================================================
+   ADMIN DASHBOARD
+   ============================================================ */
+async function loadAdminStats() {
+    const tbody = document.getElementById('adminUserTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:24px; text-align:center; color:var(--slate-muted);">Loading…</td></tr>';
+
+    try {
+        const res  = await apiFetch(`${API_URL}/admin/stats`);
+        if (!res.ok) { tbody.innerHTML = '<tr><td colspan="9" style="padding:24px; color:red;">Unauthorized</td></tr>'; return; }
+        const data = await res.json();
+
+        setIfExists('adminTotalUsers',         data.total_users);
+        setIfExists('adminActiveUsers',        data.active_users);
+        setIfExists('adminMatchedUsers',       data.matched_users);
+        setIfExists('adminTotalConversations', data.total_conversations);
+
+        if (!data.users || data.users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="padding:24px; text-align:center; color:var(--slate-muted);">No users yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.users.map(u => {
+            const joined = u.created_at ? u.created_at.slice(0, 10) : '—';
+            const matchStatus = u.matching_active
+                ? (u.current_match_id ? '<span style="color:#2ecc71;">Matched</span>' : '<span style="color:#3498db;">Active</span>')
+                : '<span style="color:var(--slate-muted);">Off</span>';
+            return `<tr style="border-bottom:1px solid var(--cream-dark);">
+                <td style="padding:10px 16px;">${u.member_number || '—'}</td>
+                <td style="padding:10px 16px;">
+                    <div style="font-weight:500;">${escapeHtml(u.email)}</div>
+                    ${u.name ? `<div style="font-size:0.8rem;color:var(--slate-muted);">${escapeHtml(u.name)}</div>` : ''}
+                </td>
+                <td style="padding:10px 16px;">${u.age || '—'} / ${u.gender || '—'}</td>
+                <td style="padding:10px 16px;">${escapeHtml(u.location || '—')}</td>
+                <td style="padding:10px 16px;">${matchStatus}</td>
+                <td style="padding:10px 16px;">${u.completion_percentage}%
+                    <div style="width:60px;height:4px;background:var(--cream-dark);border-radius:2px;margin-top:3px;">
+                        <div style="width:${u.completion_percentage}%;height:100%;background:var(--primary);border-radius:2px;"></div>
+                    </div>
+                </td>
+                <td style="padding:10px 16px;">${u.conversation_count}</td>
+                <td style="padding:10px 16px; font-size:0.8rem; color:var(--slate-muted);">${joined}</td>
+                <td style="padding:10px 16px;">
+                    <button class="btn btn-ghost btn-sm" onclick="loadAdminTranscript('${u.user_id}', '${escapeHtml(u.email)}')">View</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" style="padding:24px; color:red;">Error: ${e.message}</td></tr>`;
+    }
+}
+
+async function loadAdminTranscript(userId, email) {
+    const panel   = document.getElementById('adminTranscriptPanel');
+    const title   = document.getElementById('adminTranscriptTitle');
+    const content = document.getElementById('adminTranscriptContent');
+    panel.style.display = 'block';
+    title.textContent = `Conversations — ${email}`;
+    content.innerHTML = '<p style="color:var(--slate-muted);">Loading…</p>';
+    panel.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+        const res  = await apiFetch(`${API_URL}/admin/transcript/${userId}`);
+        const data = await res.json();
+        if (!data.topics || data.topics.length === 0) {
+            content.innerHTML = '<p style="color:var(--slate-muted);">No conversations yet.</p>';
+            return;
+        }
+        content.innerHTML = data.topics.map(topic => `
+            <div class="card card-padded" style="margin-bottom:16px;">
+                <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(topic.title)} <span style="font-weight:400; font-size:0.8rem; color:var(--slate-muted);">[${topic.status}]</span></div>
+                <div style="font-size:0.85rem;">
+                    ${(topic.messages || []).filter(m => m.user).map(m => `
+                        <div style="margin-bottom:8px; padding:8px; background:var(--cream-dark); border-radius:6px;">
+                            <div style="font-size:0.75rem; color:var(--slate-muted); margin-bottom:2px;">${escapeHtml(m.user)}</div>
+                            <div>${escapeHtml(m.content || '')}</div>
+                        </div>
+                        ${m.assistant ? `<div style="margin-bottom:8px; padding:8px; background:#fff; border-radius:6px; border:1px solid var(--cream-dark);">
+                            <div style="font-size:0.75rem; color:var(--primary); margin-bottom:2px;">AI</div>
+                            <div>${escapeHtml(m.assistant || '')}</div>
+                        </div>` : ''}
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        content.innerHTML = `<p style="color:red;">Error loading transcript: ${e.message}</p>`;
+    }
 }
