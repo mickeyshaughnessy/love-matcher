@@ -15,7 +15,7 @@ from werkzeug.utils import secure_filename
 import config
 import prompts
 
-ADMIN_USER_ID = 'mickeyshaughnessy_gmail_com'
+ADMIN_USER_ID = 'lovedashmatcher_love-matcher_com'
 
 # Global variables to be set by api_server
 s3_client = None

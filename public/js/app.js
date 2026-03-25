@@ -108,7 +108,7 @@ async function checkAutoLogin() {
     showView('dashboard');
 }
 
-const ADMIN_EMAIL = 'mickeyshaughnessy@gmail.com';
+const ADMIN_EMAIL = 'lovedashmatcher@love-matcher.com';
 
 function showLoggedInNav() {
     document.getElementById('mainNav').classList.add('active');
