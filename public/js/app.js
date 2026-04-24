@@ -1418,42 +1418,32 @@ function renderProfileMatchingToggle(profile, dims) {
 
     const MIN_DIMS = 5;
     const isActive = profile.matching_active === true;
-
-    if (dims < MIN_DIMS) {
-        container.innerHTML = `
-            <p style="font-size:0.875rem; color:var(--slate-muted); margin-bottom:12px;">
-                Complete at least ${MIN_DIMS} conversation topics to enable matching (${dims}/${MIN_DIMS} so far).
-            </p>
-            <button class="btn btn-primary btn-sm" onclick="showView('chat')">Continue Conversation</button>`;
-        return;
-    }
+    const eligible  = dims >= MIN_DIMS;
 
     container.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:space-between;">
             <div>
                 <div style="font-size:0.9rem; font-weight:500; color:var(--slate); margin-bottom:2px;">
-                    ${isActive ? 'You are in the matching pool' : 'Matching is off'}
+                    ${isActive ? 'Matching on' : 'Matching off'}
                 </div>
                 <div style="font-size:0.825rem; color:var(--slate-muted);">
-                    ${isActive ? 'Turn off to pause while you take a break.' : 'Turn on to be considered for matches.'}
+                    ${isActive ? 'You are in the matching pool.' : 'Turn on to be considered for matches.'}
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0; margin-left:16px;">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="profileMatchingToggle" onchange="toggleMatchingFromProfile()"
-                           ${isActive ? 'checked' : ''}>
-                    <span class="toggle-slider"></span>
-                </label>
-                <span class="status-pill ${isActive ? 'active' : 'inactive'}" id="profileMatchingStatus">
-                    ${isActive ? 'Active' : 'Off'}
-                </span>
-            </div>
-        </div>`;
+            <label class="toggle-switch" style="flex-shrink:0; margin-left:16px;">
+                <input type="checkbox" id="profileMatchingToggle" onchange="toggleMatchingFromProfile()"
+                       ${isActive ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        ${!eligible ? `<p style="font-size:0.8rem; color:var(--slate-muted); margin-top:10px; margin-bottom:0;">
+            Cover at least ${MIN_DIMS} conversation topics to enter the matching pool (${dims}/${MIN_DIMS} so far).
+            <a href="#" onclick="showView('chat'); return false;" style="color:var(--rose);">Continue conversation →</a>
+        </p>` : ''}`;
 }
 
 async function toggleMatchingFromProfile() {
     const toggle = document.getElementById('profileMatchingToggle');
-    const pill   = document.getElementById('profileMatchingStatus');
     const active = toggle.checked;
 
     toggle.disabled = true;
@@ -1468,12 +1458,8 @@ async function toggleMatchingFromProfile() {
         if (res.ok) {
             const label = document.querySelector('#profileMatchingContent [style*="font-weight:500"]');
             const sub   = document.querySelector('#profileMatchingContent [style*="slate-muted"]');
-            if (label) label.textContent = active ? 'You are in the matching pool' : 'Matching is off';
-            if (sub)   sub.textContent   = active ? 'Turn off to pause while you take a break.' : 'Turn on to be considered for matches.';
-            if (pill) {
-                pill.textContent = active ? 'Active' : 'Off';
-                pill.className   = `status-pill ${active ? 'active' : 'inactive'}`;
-            }
+            if (label) label.textContent = active ? 'Matching on'  : 'Matching off';
+            if (sub)   sub.textContent   = active ? 'You are in the matching pool.' : 'Turn on to be considered for matches.';
             showToast(`Matching ${active ? 'activated' : 'paused'}`, 'success');
         } else {
             toggle.checked = !active;
