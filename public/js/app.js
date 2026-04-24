@@ -1958,6 +1958,9 @@ async function connectWalletForToken() {
         return;
     }
     try {
+        // Request account access first — this triggers the MetaMask popup
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+
         walletProvider = new ethers.BrowserProvider(window.ethereum);
 
         // Switch to BASE mainnet if needed
