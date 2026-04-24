@@ -38,16 +38,6 @@ pip install web3 py-solc-x
 
 ## Deploy
 
-**Testnet first** (BASE Sepolia — free, use a faucet):
-
-```bash
-python3 blockchain/deploy.py --network sepolia
-```
-
-Get Sepolia ETH: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
-
-**Mainnet** (after testnet looks good):
-
 ```bash
 python3 blockchain/deploy.py --network mainnet
 ```
