@@ -113,8 +113,8 @@ const ADMIN_EMAIL = 'lovedashmatcher@love-matcher.com';
 function showLoggedInNav() {
     document.getElementById('mainNav').classList.add('active');
     const adminNav = document.getElementById('navAdmin');
-    if (adminNav && currentUser && (currentUser.email === ADMIN_EMAIL || currentUser.is_admin)) {
-        adminNav.style.display = '';
+    if (adminNav) {
+        adminNav.style.display = (currentUser && currentUser.email === ADMIN_EMAIL) ? '' : 'none';
     }
 }
 
