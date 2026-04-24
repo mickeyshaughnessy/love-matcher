@@ -32,4 +32,12 @@ ENDSSH
 echo "Restarting $SERVICE_NAME..."
 ssh -i "$SSH_KEY" "$SERVER" "systemctl restart $SERVICE_NAME && sleep 2 && systemctl is-active $SERVICE_NAME"
 
+# 4. Ensure admin account exists in S3
+if [ -f "create_admin_account.py" ]; then
+    echo "Syncing create_admin_account.py..."
+    scp -i "$SSH_KEY" create_admin_account.py "$SERVER:$DEPLOY_PATH/create_admin_account.py"
+    echo "Creating/updating admin account..."
+    ssh -i "$SSH_KEY" "$SERVER" "cd $DEPLOY_PATH && python3 create_admin_account.py"
+fi
+
 echo "Deployment complete."
