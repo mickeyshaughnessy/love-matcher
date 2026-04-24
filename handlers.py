@@ -829,6 +829,9 @@ def chat():
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
 
+    if not profile.get('token_verified') and request.user_id != ADMIN_USER_ID:
+        return jsonify({'error': 'Access token required', 'token_required': True}), 402
+
     # Only count real messages toward conversation count
     if not is_start:
         profile['conversation_count'] = profile.get('conversation_count', 0) + 1
@@ -1135,6 +1138,9 @@ def delete_topic_handler(topic_id):
 def create_topic_handler():
     """Create a new topic explicitly"""
     data = request.json
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if profile and not profile.get('token_verified') and request.user_id != ADMIN_USER_ID:
+        return jsonify({'error': 'Access token required', 'token_required': True}), 402
     title = data.get('title', 'New Conversation')
     topic_key = data.get('topic_key')
     # Check for existing topic with this key to avoid duplicates
@@ -1470,7 +1476,10 @@ def accept_match():
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
-    
+
+    if not profile.get('token_verified') and request.user_id != ADMIN_USER_ID:
+        return jsonify({'error': 'Access token required', 'token_required': True}), 402
+
     match_id = profile.get('current_match_id')
     if not match_id:
         return jsonify({'error': 'No current match to accept'}), 400
@@ -1903,6 +1912,47 @@ def change_password():
     return jsonify({'message': 'Password changed successfully'})
 
 # ============================================================================
+# TOKEN GATE
+# ============================================================================
+
+SBT_ABI = [
+    {"inputs":[{"internalType":"address","name":"addr","type":"address"}],
+     "name":"hasToken","outputs":[{"internalType":"bool","name":"","type":"bool"}],
+     "stateMutability":"view","type":"function"}
+]
+
+@token_required
+def verify_token():
+    """Check on-chain that caller's wallet holds a LoveMatcherToken, then mark profile."""
+    data = request.json or {}
+    wallet_address = data.get('wallet_address', '').strip()
+    if not wallet_address:
+        return jsonify({'error': 'wallet_address required'}), 400
+
+    try:
+        from web3 import Web3
+        w3 = Web3(Web3.HTTPProvider(config.BASE_RPC_URL))
+        checksum = Web3.to_checksum_address(wallet_address)
+        contract = w3.eth.contract(
+            address=Web3.to_checksum_address(config.SBT_CONTRACT_ADDRESS),
+            abi=SBT_ABI
+        )
+        has_token = contract.functions.hasToken(checksum).call()
+    except Exception as e:
+        return jsonify({'error': f'Chain check failed: {e}'}), 500
+
+    if not has_token:
+        return jsonify({'error': 'No LoveMatcherToken found for this wallet', 'token_required': True}), 402
+
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    profile['token_verified'] = True
+    profile['wallet_address'] = wallet_address
+    s3_put(f"profiles/{request.user_id}.json", profile)
+    return jsonify({'verified': True, 'wallet_address': wallet_address})
+
+# ============================================================================
 # ADMIN
 # ============================================================================
 
@@ -1990,6 +2040,7 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/forgot-password', 'forgot_password', forgot_password, methods=['POST'])
     app.add_url_rule('/reset-password', 'reset_password_with_token', reset_password_with_token, methods=['POST'])
     app.add_url_rule('/change-password', 'change_password', change_password, methods=['POST'])
+    app.add_url_rule('/verify-token', 'verify_token', verify_token, methods=['POST'])
     app.add_url_rule('/admin/stats', 'admin_stats', admin_stats, methods=['GET'])
     app.add_url_rule('/admin/transcript/<target_user_id>', 'admin_user_transcript', admin_user_transcript, methods=['GET'])
     app.add_url_rule('/profile', 'get_profile', get_profile, methods=['GET'])

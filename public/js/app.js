@@ -123,7 +123,7 @@ function showLoggedInNav() {
    ============================================================ */
 const VIEWS = ['landingPage', 'dashboardView', 'chatView', 'matchView',
                'profileView', 'settingsView', 'privacyView', 'termsView',
-               'forgotView', 'resetView', 'adminView'];
+               'forgotView', 'resetView', 'adminView', 'tokenGateView'];
 
 function showView(name) {
     // Clear any polling
@@ -153,6 +153,7 @@ function showView(name) {
         forgot:    { el: 'forgotView',    nav: null },
         reset:     { el: 'resetView',     nav: null },
         admin:     { el: 'adminView',     nav: 'navAdmin' },
+        'token-gate': { el: 'tokenGateView', nav: null },
     };
 
     const entry = map[name];
@@ -319,6 +320,12 @@ async function loadDashboard() {
 
         currentUser = { ...currentUser, ...profile };
         showLoggedInNav();
+
+        // Token gate: redirect if user hasn't bought access token yet
+        if (!profile.token_verified && profile.email !== ADMIN_EMAIL) {
+            showView('token-gate');
+            return;
+        }
 
         // Update header greeting
         const name = profile.name || '';
@@ -1909,6 +1916,128 @@ async function changePassword() {
         }
     } catch {
         msgEl.innerHTML = '<div class="msg-error">Connection error. Please try again.</div>';
+    }
+}
+
+/* ============================================================
+   TOKEN GATE
+   ============================================================ */
+
+const SBT_ADDRESS   = '0xFD6F31C4109d4d2f7A425dE0f0D8047bd97D68A6';
+const BASE_CHAIN_ID = 8453n;
+const MINT_PRICE    = ethers.parseEther('0.01');
+
+const SBT_ABI = [
+    'function mint() payable',
+    'function hasToken(address addr) view returns (bool)',
+    'function mintPrice() view returns (uint256)',
+];
+
+let walletProvider = null;
+let walletSigner   = null;
+let walletAddress  = null;
+
+function tgShow(stepId) {
+    ['tgStepConnect','tgStepMint','tgStepConfirming','tgStepSuccess'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === stepId ? '' : 'none';
+    });
+}
+
+function tgError(msg) {
+    const el = document.getElementById('tgError');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = msg ? '' : 'none';
+}
+
+async function connectWalletForToken() {
+    tgError('');
+    if (!window.ethereum) {
+        tgError('No wallet detected. Install MetaMask and try again.');
+        return;
+    }
+    try {
+        walletProvider = new ethers.BrowserProvider(window.ethereum);
+
+        // Switch to BASE mainnet if needed
+        const network = await walletProvider.getNetwork();
+        if (network.chainId !== BASE_CHAIN_ID) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }],
+                });
+            } catch (switchErr) {
+                if (switchErr.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0x2105',
+                            chainName: 'Base',
+                            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                            rpcUrls: ['https://mainnet.base.org'],
+                            blockExplorerUrls: ['https://basescan.org'],
+                        }],
+                    });
+                } else {
+                    throw switchErr;
+                }
+            }
+            walletProvider = new ethers.BrowserProvider(window.ethereum);
+        }
+
+        walletSigner  = await walletProvider.getSigner();
+        walletAddress = await walletSigner.getAddress();
+
+        // Check if already owns token
+        const contract = new ethers.Contract(SBT_ADDRESS, SBT_ABI, walletProvider);
+        const alreadyHas = await contract.hasToken(walletAddress);
+        if (alreadyHas) {
+            await verifyTokenOnBackend(walletAddress);
+            return;
+        }
+
+        document.getElementById('tgWalletAddress').textContent = walletAddress;
+        tgShow('tgStepMint');
+    } catch (e) {
+        tgError(e.message || 'Wallet connection failed');
+    }
+}
+
+async function mintAccessToken() {
+    tgError('');
+    const btn = document.getElementById('tgMintBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Waiting for wallet…'; }
+
+    try {
+        const contract = new ethers.Contract(SBT_ADDRESS, SBT_ABI, walletSigner);
+        tgShow('tgStepConfirming');
+        const tx = await contract.mint({ value: MINT_PRICE });
+        await tx.wait();
+        await verifyTokenOnBackend(walletAddress);
+    } catch (e) {
+        tgShow('tgStepMint');
+        if (btn) { btn.disabled = false; btn.textContent = 'Mint Access Token — 0.01 ETH'; }
+        tgError(e.reason || e.message || 'Transaction failed');
+    }
+}
+
+async function verifyTokenOnBackend(addr) {
+    tgShow('tgStepConfirming');
+    try {
+        const res  = await apiFetch(`${API_URL}/verify-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet_address: addr }),
+        });
+        const data = await res.json();
+        if (!res.ok) { tgShow('tgStepMint'); tgError(data.error || 'Verification failed'); return; }
+        currentUser = { ...currentUser, token_verified: true, wallet_address: addr };
+        tgShow('tgStepSuccess');
+    } catch (e) {
+        tgShow('tgStepMint');
+        tgError(e.message || 'Verification failed');
     }
 }
 
