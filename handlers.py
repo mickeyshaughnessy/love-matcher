@@ -1158,39 +1158,32 @@ def create_topic_handler():
 
 @token_required
 def get_match_topics_handler():
-    """Get all match topics for the current match"""
+    """Get all match topics for the mutually paired match."""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
 
-    match_id = profile.get('current_match_id')
+    match_id = get_mutual_pair_id(profile)
     if not match_id:
-        return jsonify({'error': 'No current match'}), 400
-
-    match_profile = s3_get(f"profiles/{match_id}.json")
-    user_accepted = profile.get('match_accepted', False)
-    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
-
-    if not (user_accepted and match_accepted):
-        return jsonify({'topics': [], 'message': 'Topics available after both accept the match'})
+        return jsonify({'topics': [], 'message': 'Topics unlock when both of you choose to pair.'})
 
     pair_key = get_match_pair_key(request.user_id, match_id)
     index = load_match_topic_index(pair_key)
     return jsonify({
         'topics': index.get('topics', []),
-        'pair_key': pair_key
+        'pair_key': pair_key,
     })
 
 @token_required
 def get_match_topic_messages_handler(topic_id):
-    """Get messages for a specific match topic"""
+    """Get messages for a specific match topic."""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
 
-    match_id = profile.get('current_match_id')
+    match_id = get_mutual_pair_id(profile)
     if not match_id:
-        return jsonify({'error': 'No current match'}), 400
+        return jsonify({'error': 'No mutual pair'}), 400
 
     pair_key = get_match_pair_key(request.user_id, match_id)
     topic = load_match_topic(pair_key, topic_id)
@@ -1202,26 +1195,21 @@ def get_match_topic_messages_handler(topic_id):
         'title': topic.get('title', ''),
         'status': topic.get('status', 'active'),
         'messages': topic.get('messages', []),
-        'my_user_id': request.user_id
+        'my_user_id': request.user_id,
     })
 
 @token_required
 def send_match_topic_message_handler(topic_id):
-    """Send message in a match topic - AI facilitates the conversation"""
+    """Send message in a match topic — AI facilitates the conversation."""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
 
-    match_id = profile.get('current_match_id')
+    match_id = get_mutual_pair_id(profile)
     if not match_id:
-        return jsonify({'error': 'No current match'}), 400
+        return jsonify({'error': 'Conversation only available when both of you have paired'}), 403
 
     match_profile = s3_get(f"profiles/{match_id}.json")
-    user_accepted = profile.get('match_accepted', False)
-    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
-
-    if not (user_accepted and match_accepted):
-        return jsonify({'error': 'Chat only available after mutual acceptance'}), 403
 
     message = request.json.get('message')
     if not message:
@@ -1312,85 +1300,100 @@ Only respond if you have something genuinely useful to add. If the conversation 
     })
 
 
+def get_mutual_pair_id(profile):
+    """Return the user_id this user is mutually paired with, or None."""
+    my_choice = profile.get('pair_choice')
+    if not my_choice:
+        return None
+    other = s3_get(f"profiles/{my_choice}.json")
+    if other and other.get('pair_choice') == profile.get('user_id'):
+        return my_choice
+    return None
+
+
 @token_required
-def get_current_match():
-    """Get user's current match (at most one)"""
+def get_matches():
+    """Get user's match pool — up to 3 potential matches."""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
-    
-    # Check if user is eligible for matching
+
     if not profile.get('matching_eligible', False):
         return jsonify({
-            'match': None,
-            'message': 'Matching will be available when you turn 18. Keep building your profile!'
+            'matches': [],
+            'message': 'Matching will be available when you turn 18.',
         })
-    
-    # Get current match
-    match_id = profile.get('current_match_id')
-    if not match_id:
-        profile_complete = profile.get('profile_complete', False)
-        dimensions_count = len(profile.get('dimensions', {}))
-        
-        if profile_complete:
-            message = 'No match yet. Check back soon - we\'re working on finding your perfect match!'
+
+    match_pool = profile.get('match_pool', [])
+    my_pair_choice = profile.get('pair_choice')
+    dims_count = len(profile.get('dimensions', {}))
+
+    matches_out = []
+    paired_with_id = None
+
+    for entry in match_pool:
+        other_id = entry.get('user_id')
+        if not other_id:
+            continue
+        other = s3_get(f"profiles/{other_id}.json")
+        if not other:
+            continue
+
+        they_chose_me = other.get('pair_choice') == request.user_id
+        i_chose_them = my_pair_choice == other_id
+        mutual = they_chose_me and i_chose_them
+        if mutual:
+            paired_with_id = other_id
+
+        full_name = (other.get('name') or '').strip()
+        first_name = full_name.split()[0] if full_name else 'Someone'
+
+        photos = other.get('photos', [])
+        location = other.get('location') or other.get('dimensions', {}).get('location', '')
+
+        matches_out.append({
+            'user_id': other_id,
+            'name': first_name,
+            'age': other.get('age'),
+            'location': location,
+            'summary': other.get('profile_summary', ''),
+            'photo': photos[0] if photos else None,
+            'score': entry.get('score', 0),
+            'analysis': entry.get('analysis', {}),
+            'matched_at': entry.get('matched_at'),
+            'they_chose_me': they_chose_me,
+            'i_chose_them': i_chose_them,
+            'mutual': mutual,
+        })
+
+    # Info for the conversation section when paired
+    paired_info = None
+    if paired_with_id:
+        other = s3_get(f"profiles/{paired_with_id}.json")
+        if other:
+            full_name = (other.get('name') or '').strip()
+            paired_info = {
+                'user_id': paired_with_id,
+                'name': full_name.split()[0] if full_name else 'Your Match',
+            }
+
+    if not match_pool:
+        if dims_count < 5:
+            message = f'Complete at least 5 conversation topics to be matched. ({dims_count}/29 done)'
+        elif profile.get('matching_active', False):
+            message = "You're in the matching pool — we'll find your matches in the next matching run."
         else:
-            message = f'No match yet. Complete your profile to improve matching! ({dimensions_count}/29 dimensions filled)'
-        
-        return jsonify({
-            'match': None,
-            'matching_active': profile.get('matching_active', True),
-            'profile_complete': profile_complete,
-            'dimensions_count': dimensions_count,
-            'message': message
-        })
-    
-    # Load match profile
-    match_profile = s3_get(f"profiles/{match_id}.json")
-    if not match_profile:
-        # Match profile deleted, clear the match
-        profile['current_match_id'] = None
-        s3_put(f"profiles/{request.user_id}.json", profile)
-        return jsonify({'match': None})
-    
-    # Check acceptance status
-    user_accepted = profile.get('match_accepted', False)
-    match_accepted = match_profile.get('match_accepted', False)
-    mutual_acceptance = user_accepted and match_accepted
-    
-    # Build match info - show limited data until accepted, full profile after mutual acceptance
-    match_info = {
-        'match_id': match_id,
-        'age': match_profile.get('age'),
-        'match_score': profile.get('match_score', 0),
-        'matched_at': profile.get('matched_at'),
-        'user_accepted': user_accepted,
-        'match_accepted': match_accepted,
-        'mutual_acceptance': mutual_acceptance,
-        'matching_active': profile.get('matching_active', True),
-        'match_analysis': profile.get('match_analysis', {})
-    }
-    
-    # Show full match profile JSON only after mutual acceptance
-    if mutual_acceptance:
-        match_info['full_profile'] = match_profile.get('dimensions', {})
-        match_info['member_number'] = match_profile.get('member_number')
-        # Add basic info fields
-        match_info['name'] = match_profile.get('name', '')
-        match_info['location'] = match_profile.get('location', '')
-        match_info['about'] = match_profile.get('about', '')
-        match_info['photos'] = match_profile.get('photos', [])
+            message = 'Turn on matching in Settings to enter the pool.'
     else:
-        # Before acceptance, show limited preview
-        match_info['preview'] = {
-            'age': match_profile.get('age'),
-            'location': match_profile.get('dimensions', {}).get('location', 'Not specified'),
-            'completion_percentage': match_profile.get('completion_percentage', 0)
-        }
-    
+        message = None
+
     return jsonify({
-        'match': match_info,
-        'matching_active': profile.get('matching_active', True)
+        'matches': matches_out,
+        'my_pair_choice': my_pair_choice,
+        'paired_with': paired_with_id,
+        'paired_info': paired_info,
+        'matching_active': profile.get('matching_active', False),
+        'message': message,
     })
 
 @token_required
@@ -1471,173 +1474,95 @@ def toggle_matching_active():
     })
 
 @token_required
-def accept_match():
-    """Accept current match - enables chat when both sides accept"""
+def pair_match():
+    """Choose to pair with one of your matches. Replaces any previous pair choice."""
+    data = request.json or {}
+    target_id = data.get('user_id', '').strip()
+    if not target_id:
+        return jsonify({'error': 'user_id required'}), 400
+
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
 
-    if not profile.get('token_verified') and request.user_id != ADMIN_USER_ID:
-        return jsonify({'error': 'Access token required', 'token_required': True}), 402
+    pool = profile.get('match_pool', [])
+    if not any(e.get('user_id') == target_id for e in pool):
+        return jsonify({'error': 'That user is not in your match pool'}), 400
 
-    match_id = profile.get('current_match_id')
-    if not match_id:
-        return jsonify({'error': 'No current match to accept'}), 400
-    
-    # Mark match as accepted
-    profile['match_accepted'] = True
-    profile['match_accepted_at'] = datetime.utcnow().isoformat()
+    profile['pair_choice'] = target_id
+    profile['pair_choice_at'] = datetime.utcnow().isoformat()
     s3_put(f"profiles/{request.user_id}.json", profile)
-    
-    # Check if other user has also accepted
-    match_profile = s3_get(f"profiles/{match_id}.json")
-    mutual_acceptance = match_profile and match_profile.get('match_accepted', False)
 
-    # Create match topics when mutual acceptance occurs
-    if mutual_acceptance:
+    other = s3_get(f"profiles/{target_id}.json")
+    mutual = bool(other and other.get('pair_choice') == request.user_id)
+
+    if mutual:
         try:
-            create_match_topics_for_pair(request.user_id, match_id, profile, match_profile)
+            create_match_topics_for_pair(request.user_id, target_id, profile, other)
         except Exception as e:
             print(f"Warning: Error creating match topics: {e}")
 
+    other_name = (other.get('name') or '').split()[0] if other else 'them'
+
     return jsonify({
         'success': True,
-        'match_accepted': True,
-        'mutual_acceptance': mutual_acceptance,
-        'message': 'Match accepted! Chat will be enabled when both users accept.' if not mutual_acceptance else 'Match accepted! You can now chat with your match.'
+        'pair_choice': target_id,
+        'mutual': mutual,
+        'message': (
+            f"It's a match! You and {other_name} have both chosen each other. "
+            f"Your conversation is now unlocked!"
+            if mutual else
+            f"You've paired with {other_name}. If they choose you back, your conversation unlocks."
+        ),
     })
 
+
 @token_required
-def reject_match():
-    """Reject current match and return to matching pool"""
+def unpair_match():
+    """Clear your pairing choice, locking the conversation."""
     profile = s3_get(f"profiles/{request.user_id}.json")
     if not profile:
         return jsonify({'error': 'Profile not found'}), 404
-    
-    match_id = profile.get('current_match_id')
-    if not match_id:
-        return jsonify({'error': 'No current match to reject'}), 400
-    
-    # Add to rejected list
+
+    profile['pair_choice'] = None
+    profile['pair_choice_at'] = None
+    s3_put(f"profiles/{request.user_id}.json", profile)
+
+    return jsonify({'success': True, 'message': 'Pairing removed. Choose another match anytime.'})
+
+
+@token_required
+def dismiss_match():
+    """Permanently remove a match from your pool."""
+    data = request.json or {}
+    target_id = data.get('user_id', '').strip()
+    if not target_id:
+        return jsonify({'error': 'user_id required'}), 400
+
+    profile = s3_get(f"profiles/{request.user_id}.json")
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+
+    profile['match_pool'] = [e for e in profile.get('match_pool', []) if e.get('user_id') != target_id]
     if 'rejected_matches' not in profile:
         profile['rejected_matches'] = []
-    profile['rejected_matches'].append(match_id)
-    
-    # Clear current match
-    profile['current_match_id'] = None
-    profile['match_score'] = None
-    profile['matched_at'] = None
-    profile['match_accepted'] = False
-    profile['match_analysis'] = None
-    profile['match_rejected_at'] = datetime.utcnow().isoformat()
-    
+    if target_id not in profile['rejected_matches']:
+        profile['rejected_matches'].append(target_id)
+    if profile.get('pair_choice') == target_id:
+        profile['pair_choice'] = None
+        profile['pair_choice_at'] = None
     s3_put(f"profiles/{request.user_id}.json", profile)
-    
-    # Update other user's profile - clear their match too
-    match_profile = s3_get(f"profiles/{match_id}.json")
-    if match_profile:
-        match_profile['current_match_id'] = None
-        match_profile['match_score'] = None
-        match_profile['matched_at'] = None
-        match_profile['match_accepted'] = False
-        match_profile['match_analysis'] = None
-        s3_put(f"profiles/{match_id}.json", match_profile)
-    
-    return jsonify({
-        'message': 'Match declined. You will be matched with someone new in the next matching cycle.',
-        'matching_active': profile.get('matching_active', True)
-    })
 
-@token_required
-def send_match_message():
-    """Send message to current match - only allowed after mutual acceptance"""
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    
-    match_id = profile.get('current_match_id')
-    if not match_id:
-        return jsonify({'error': 'No current match'}), 400
-    
-    # Check mutual acceptance
-    match_profile = s3_get(f"profiles/{match_id}.json")
-    user_accepted = profile.get('match_accepted', False)
-    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
-    
-    if not (user_accepted and match_accepted):
-        return jsonify({
-            'error': 'Chat is only available after both users accept the match',
-            'user_accepted': user_accepted,
-            'match_accepted': match_accepted
-        }), 403
-    
-    message = request.json.get('message')
-    if not message:
-        return jsonify({'error': 'Message required'}), 400
-    
-    # Determine chat key (consistent ordering)
-    user_ids = sorted([request.user_id, match_id])
-    chat_key = f"match_chats/{user_ids[0]}_{user_ids[1]}.json"
-    
-    # Load or create chat
-    chat = s3_get(chat_key) or {
-        'user1_id': user_ids[0],
-        'user2_id': user_ids[1],
-        'created_at': datetime.utcnow().isoformat(),
-        'messages': []
-    }
-    
-    # Add message
-    chat['messages'].append({
-        'from': request.user_id,
-        'message': message,
-        'timestamp': datetime.utcnow().isoformat()
-    })
-    chat['updated_at'] = datetime.utcnow().isoformat()
-    
-    s3_put(chat_key, chat)
-    
-    return jsonify({
-        'success': True,
-        'timestamp': chat['messages'][-1]['timestamp']
-    })
+    # Remove this user from the other person's pool too
+    other = s3_get(f"profiles/{target_id}.json")
+    if other:
+        other['match_pool'] = [e for e in other.get('match_pool', []) if e.get('user_id') != request.user_id]
+        if other.get('pair_choice') == request.user_id:
+            other['pair_choice'] = None
+            other['pair_choice_at'] = None
+        s3_put(f"profiles/{target_id}.json", other)
 
-@token_required
-def get_match_messages():
-    """Get messages with current match - only allowed after mutual acceptance"""
-    profile = s3_get(f"profiles/{request.user_id}.json")
-    if not profile:
-        return jsonify({'error': 'Profile not found'}), 404
-    
-    match_id = profile.get('current_match_id')
-    if not match_id:
-        return jsonify({'error': 'No current match'}), 400
-    
-    # Check mutual acceptance
-    match_profile = s3_get(f"profiles/{match_id}.json")
-    user_accepted = profile.get('match_accepted', False)
-    match_accepted = match_profile.get('match_accepted', False) if match_profile else False
-    mutual_acceptance = user_accepted and match_accepted
-    
-    if not mutual_acceptance:
-        return jsonify({
-            'messages': [],
-            'match_id': match_id,
-            'mutual_acceptance': False,
-            'message': 'Chat will be available after both users accept the match'
-        })
-    
-    # Determine chat key
-    user_ids = sorted([request.user_id, match_id])
-    chat_key = f"match_chats/{user_ids[0]}_{user_ids[1]}.json"
-    
-    chat = s3_get(chat_key) or {'messages': []}
-    
-    return jsonify({
-        'messages': chat.get('messages', []),
-        'match_id': match_id,
-        'mutual_acceptance': True
-    })
+    return jsonify({'success': True, 'message': 'Match removed from your pool.'})
 
 @token_required
 def initiate_payment():
@@ -1745,17 +1670,20 @@ def delete_account():
         if not profile:
             return jsonify({'error': 'Profile not found'}), 404
 
-        # Notify match partner that this user's match is cleared
-        match_id = profile.get('current_match_id')
-        if match_id:
-            match_profile = s3_get(f"profiles/{match_id}.json")
-            if match_profile:
-                match_profile['current_match_id'] = None
-                match_profile['match_score'] = None
-                match_profile['matched_at'] = None
-                match_profile['match_accepted'] = False
-                match_profile['match_analysis'] = None
-                s3_put(f"profiles/{match_id}.json", match_profile)
+        # Remove this user from all match pools they appear in
+        for entry in profile.get('match_pool', []):
+            other_id = entry.get('user_id')
+            if not other_id:
+                continue
+            other_profile = s3_get(f"profiles/{other_id}.json")
+            if other_profile:
+                other_profile['match_pool'] = [
+                    e for e in other_profile.get('match_pool', []) if e.get('user_id') != user_id
+                ]
+                if other_profile.get('pair_choice') == user_id:
+                    other_profile['pair_choice'] = None
+                    other_profile['pair_choice_at'] = None
+                s3_put(f"profiles/{other_id}.json", other_profile)
 
         # Delete photos from S3
         for photo_url in profile.get('photos', []):
@@ -1974,8 +1902,8 @@ def admin_stats():
         matching_active = profile.get('matching_active', False)
         if matching_active:
             active_count += 1
-        current_match = profile.get('current_match_id')
-        if current_match:
+        pool = profile.get('match_pool', [])
+        if pool:
             matched_count += 1
         conv_count = profile.get('conversation_count', 0)
         total_conversations += conv_count
@@ -1989,8 +1917,8 @@ def admin_stats():
             'member_number': profile.get('member_number'),
             'created_at': profile.get('created_at', ''),
             'matching_active': matching_active,
-            'match_accepted': profile.get('match_accepted', False),
-            'current_match_id': current_match,
+            'match_pool_size': len(pool),
+            'pair_choice': profile.get('pair_choice'),
             'completion_percentage': profile.get('completion_percentage', 0),
             'conversation_count': conv_count,
             'dimensions_count': len(profile.get('dimensions', {})),
@@ -2055,15 +1983,14 @@ def register_routes(app, s3_client_instance, s3_bucket, s3_prefix, openrouter_cf
     app.add_url_rule('/topics/<topic_id>', 'get_topic_messages_handler', get_topic_messages_handler, methods=['GET'])
     app.add_url_rule('/topics/<topic_id>', 'delete_topic_handler', delete_topic_handler, methods=['DELETE'])
     app.add_url_rule('/topics/<topic_id>/close', 'close_topic_handler', close_topic_handler, methods=['POST'])
+    app.add_url_rule('/matches', 'get_matches', get_matches, methods=['GET'])
+    app.add_url_rule('/match/pair', 'pair_match', pair_match, methods=['POST'])
+    app.add_url_rule('/match/unpair', 'unpair_match', unpair_match, methods=['POST'])
+    app.add_url_rule('/match/dismiss', 'dismiss_match', dismiss_match, methods=['POST'])
+    app.add_url_rule('/match/toggle', 'toggle_matching_active', toggle_matching_active, methods=['POST'])
     app.add_url_rule('/match/topics', 'get_match_topics_handler', get_match_topics_handler, methods=['GET'])
     app.add_url_rule('/match/topics/<topic_id>', 'get_match_topic_messages_handler', get_match_topic_messages_handler, methods=['GET'])
     app.add_url_rule('/match/topics/<topic_id>/messages', 'send_match_topic_message_handler', send_match_topic_message_handler, methods=['POST'])
-    app.add_url_rule('/match', 'get_current_match', get_current_match, methods=['GET'])
-    app.add_url_rule('/match/toggle', 'toggle_matching_active', toggle_matching_active, methods=['POST'])
-    app.add_url_rule('/match/accept', 'accept_match', accept_match, methods=['POST'])
-    app.add_url_rule('/match/reject', 'reject_match', reject_match, methods=['POST'])
-    app.add_url_rule('/match/messages', 'get_match_messages', get_match_messages, methods=['GET'])
-    app.add_url_rule('/match/messages', 'send_match_message', send_match_message, methods=['POST'])
     app.add_url_rule('/payment/initiate', 'initiate_payment', initiate_payment, methods=['POST'])
     app.add_url_rule('/stats', 'get_member_stats', get_member_stats, methods=['GET'])
     

@@ -284,35 +284,81 @@ class LoveMatcherAPITester:
         print("✅ /api/chat (no auth) passed")
     
     def test_matches(self):
-        """Test getting matches"""
-        print("💕 Testing /api/matches...")
-        
+        """Test GET /matches — returns pool with expected fields."""
+        print("💕 Testing /matches...")
+
         self.set_auth_header(self.token)
-        response = self.make_request("GET", "/api/matches")
+        response = self.make_request("GET", "/matches")
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        
+
         data = response.json()
         assert "matches" in data, "Response missing 'matches' field"
-        assert isinstance(data["matches"], list), "Matches should be a list"
-        
-        print("✅ /api/matches passed")
-    
+        assert isinstance(data["matches"], list), "'matches' should be a list"
+        assert len(data["matches"]) <= 3, "Pool should have at most 3 entries"
+        assert "my_pair_choice" in data, "Response missing 'my_pair_choice'"
+        assert "paired_with" in data, "Response missing 'paired_with'"
+        assert "matching_active" in data, "Response missing 'matching_active'"
+
+        for m in data["matches"]:
+            assert "user_id"      in m, "Match entry missing 'user_id'"
+            assert "name"         in m, "Match entry missing 'name'"
+            assert "score"        in m, "Match entry missing 'score'"
+            assert "they_chose_me" in m, "Match entry missing 'they_chose_me'"
+            assert "i_chose_them"  in m, "Match entry missing 'i_chose_them'"
+            assert "mutual"        in m, "Match entry missing 'mutual'"
+
+        print("✅ /matches passed")
+
     def test_matches_without_auth(self):
-        """Test getting matches without authentication"""
-        print("🚫 Testing /api/matches (no auth)...")
-        
-        # Remove auth header
+        """Test /matches requires authentication."""
+        print("🚫 Testing /matches (no auth)...")
+
         old_headers = self.headers.copy()
         if "Authorization" in self.headers:
             del self.headers["Authorization"]
-        
-        response = self.make_request("GET", "/api/matches")
+
+        response = self.make_request("GET", "/matches")
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-        
-        # Restore headers
+
         self.headers = old_headers
-        
-        print("✅ /api/matches (no auth) passed")
+        print("✅ /matches (no auth) passed")
+
+    def test_pair_match(self):
+        """Test POST /match/pair — returns error when pool is empty (no match to pair with)."""
+        print("💑 Testing /match/pair...")
+
+        self.set_auth_header(self.token)
+        response = self.make_request("POST", "/match/pair", {"user_id": "nonexistent_user"})
+        # 400 expected — user not in pool
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        data = response.json()
+        assert "error" in data, "Expected error field"
+
+        print("✅ /match/pair passed")
+
+    def test_unpair_match(self):
+        """Test POST /match/unpair — always succeeds (idempotent)."""
+        print("💔 Testing /match/unpair...")
+
+        self.set_auth_header(self.token)
+        response = self.make_request("POST", "/match/unpair", {})
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        data = response.json()
+        assert data.get("success") is True, "Expected success:true"
+
+        print("✅ /match/unpair passed")
+
+    def test_dismiss_match(self):
+        """Test POST /match/dismiss — returns error when user_id missing."""
+        print("🚫 Testing /match/dismiss...")
+
+        self.set_auth_header(self.token)
+        response = self.make_request("POST", "/match/dismiss", {})
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}"
+        data = response.json()
+        assert "error" in data, "Expected error field"
+
+        print("✅ /match/dismiss passed")
     
     def test_payment_initiate(self):
         """Test payment initiation"""
@@ -378,6 +424,9 @@ class LoveMatcherAPITester:
             # Test matches endpoints
             self.test_matches_without_auth()
             self.test_matches()
+            self.test_pair_match()
+            self.test_unpair_match()
+            self.test_dismiss_match()
             
             # Test payment endpoints
             self.test_payment_without_auth()

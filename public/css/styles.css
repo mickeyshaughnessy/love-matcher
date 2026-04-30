@@ -1243,6 +1243,148 @@ input, textarea, select {
 }
 
 /* ============================================================
+   MATCH POOL (multi-match + pair flow)
+   ============================================================ */
+.match-pool-header { margin-bottom: 20px; }
+.match-pool-header h2 { font-size: 1.4rem; margin: 0 0 4px; }
+.match-pool-subtitle { color: var(--slate-muted); font-size: 0.875rem; margin: 0; }
+
+.match-pool-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.match-pool-card {
+    display: flex;
+    gap: 16px;
+    background: var(--white);
+    border: 1.5px solid var(--cream-dark);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: border-color 0.2s;
+}
+.match-pool-card.is-paired {
+    border-color: var(--gold);
+    background: #fffdf7;
+}
+
+.match-pool-card-photo-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.match-pool-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid var(--cream-dark);
+}
+.match-pool-photo-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--cream-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--slate-muted);
+    font-size: 1.8rem;
+}
+.match-pool-score {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.match-pool-card-info { flex: 1; min-width: 0; }
+
+.match-pool-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+.match-pool-name { font-size: 1.05rem; font-weight: 600; }
+
+.match-pool-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.match-pool-badge.paired    { background: var(--gold); color: white; }
+.match-pool-badge.wants-you { background: #d4f0e0; color: #2a6b45; }
+.match-pool-badge.you-chose { background: #e8edf8; color: #3a5080; }
+
+.match-pool-location {
+    font-size: 0.8rem;
+    color: var(--slate-muted);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.match-pool-summary {
+    font-size: 0.85rem;
+    color: var(--slate);
+    line-height: 1.55;
+    margin: 0 0 6px;
+}
+.match-pool-reasoning {
+    font-size: 0.8rem;
+    color: var(--slate-muted);
+    font-style: italic;
+    margin: 0 0 10px;
+    line-height: 1.5;
+}
+.match-pool-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.paired-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #fffbef;
+    border: 1.5px solid var(--gold);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+.paired-banner-icon { font-size: 1.8rem; color: var(--gold); line-height: 1; }
+.paired-banner strong { display: block; font-size: 1rem; margin-bottom: 2px; }
+.paired-banner p { margin: 0; font-size: 0.85rem; color: var(--slate-muted); }
+
+.btn-ghost {
+    background: none;
+    border: 1px solid var(--cream-dark);
+    color: var(--slate-muted);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.btn-ghost:hover { border-color: var(--slate-muted); color: var(--slate); }
+
+@media (max-width: 480px) {
+    .match-pool-card { flex-direction: column; }
+    .match-pool-card-photo-col { flex-direction: row; align-items: center; }
+    .match-pool-photo, .match-pool-photo-placeholder { width: 60px; height: 60px; }
+}
+
+/* ============================================================
    PROFILE VIEW
    ============================================================ */
 #profileView {

@@ -958,7 +958,7 @@ function setupChatInputKeydown() {
 }
 
 /* ============================================================
-   MATCH VIEW
+   MATCH VIEW  (multi-match pool + mutual-pair unlock)
    ============================================================ */
 async function loadMatch() {
     if (!authToken) return;
@@ -968,8 +968,8 @@ async function loadMatch() {
 
     try {
         const [matchRes, profileRes] = await Promise.all([
-            fetch(`${API_URL}/match`,   { headers: { Authorization: `Bearer ${authToken}` } }),
-            fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } }),
+            apiFetch(`${API_URL}/matches`),
+            apiFetch(`${API_URL}/profile`),
         ]);
 
         const matchData   = await matchRes.json();
@@ -980,28 +980,30 @@ async function loadMatch() {
             return;
         }
 
-        // Check profile eligibility
         const dims = Object.keys(profileData.dimensions || {}).length;
         if (dims < 5) {
             container.innerHTML = renderNoMatch(
-                'You need to complete at least 5 conversation topics before you can be matched.',
+                'Complete at least 5 conversation topics before entering the matching pool.',
                 true
             );
             return;
         }
 
-        if (matchData.match) {
-            container.innerHTML = renderMatchCard(matchData.match);
+        const matches = matchData.matches || [];
 
-            // Load match topics if mutual acceptance
-            if (matchData.match.mutual_acceptance) {
-                loadMatchTopics();
-                matchPollInterval = setInterval(() => {
-                    if (matchTopicId) loadMatchTopicMessages(matchTopicId);
-                }, 5000);
-            }
-        } else {
-            container.innerHTML = renderNoMatch(matchData.message || "We're finding your match — check back soon.");
+        if (matches.length === 0) {
+            container.innerHTML = renderNoMatch(matchData.message || "We're finding your matches — check back soon.");
+            return;
+        }
+
+        container.innerHTML = renderMatchPool(matches, matchData);
+
+        // If mutually paired, load conversation topics and start polling
+        if (matchData.paired_with) {
+            loadMatchTopics();
+            matchPollInterval = setInterval(() => {
+                if (matchTopicId) loadMatchTopicMessages(matchTopicId);
+            }, 5000);
         }
 
     } catch (err) {
@@ -1014,112 +1016,111 @@ function renderNoMatch(message, needsMoreProfile) {
     return `
         <div class="no-match-state">
             <div class="icon"><i class="ph ph-hourglass"></i></div>
-            <h2>No match yet</h2>
+            <h2>No matches yet</h2>
             <p>${message}</p>
             ${needsMoreProfile
                 ? `<button class="btn btn-primary" onclick="showView('chat')">Continue Conversation</button>`
-                : `<p class="text-muted" style="font-size:0.825rem;">Matching runs daily. Make sure your matching is set to Active in Settings.</p>`}
+                : `<p class="text-muted" style="font-size:0.825rem;">Matching runs daily. Make sure matching is set to Active in Settings.</p>`}
         </div>`;
 }
 
-function renderMatchCard(match) {
-    const score         = match.match_score || 0;
-    const userAccepted  = match.user_accepted;
-    const matchAccepted = match.match_accepted;
-    const mutual        = match.mutual_acceptance;
-    const analysis      = match.match_analysis || {};
+function renderMatchPool(matches, data) {
+    const myChoice  = data.my_pair_choice;
+    const pairedId  = data.paired_with;
+    const pairedInfo = data.paired_info;
 
-    const scoreColor = score >= 80 ? '#4A7C59' : score >= 60 ? '#B89A6A' : '#A07878';
+    let html = `<div class="match-pool-header"><h2>Your Matches</h2><p class="match-pool-subtitle">${matches.length} potential match${matches.length !== 1 ? 'es' : ''} · Choose one to pair with</p></div>`;
+    html += `<div class="match-pool-grid">`;
 
-    let bodyContent = '';
-
-    // Analysis block
-    if (analysis.reasoning) {
-        bodyContent += `
-            <div class="match-analysis-block">
-                <h4>Why you might work</h4>
-                <p>${escapeHtml(analysis.reasoning)}</p>
-                ${analysis.strengths ? `<div class="match-tags">${analysis.strengths.split(',').map(s => `<span class="match-tag">${escapeHtml(s.trim())}</span>`).join('')}</div>` : ''}
-            </div>`;
+    for (const m of matches) {
+        html += renderMatchPoolCard(m, myChoice, pairedId);
     }
 
-    // Preview info
-    const preview = match.preview || {};
-    bodyContent += `
-        <div class="match-preview-row">
-            <div class="match-preview-item">
-                <div class="val">${match.age || '?'}</div>
-                <div class="key">Age</div>
-            </div>
-            <div class="match-preview-item">
-                <div class="val">${preview.location || (match.location || '—')}</div>
-                <div class="key">Location</div>
-            </div>
-            <div class="match-preview-item">
-                <div class="val">${preview.completion_percentage || match.completion_percentage || '?'}%</div>
-                <div class="key">Profile</div>
-            </div>
-        </div>`;
+    html += `</div>`;
 
-    // Photos (after mutual acceptance)
-    if (mutual && match.photos && match.photos.length > 0) {
-        const photoHtml = match.photos.map(url => `
-            <img src="${url}" style="width:100%; height:120px; object-fit:cover; border-radius:var(--radius-sm); cursor:pointer;"
-                 onclick="window.open('${url}','_blank')">`).join('');
-        bodyContent += `
-            <div style="margin-bottom:24px;">
-                <p class="profile-section-title">Photos</p>
-                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px;">${photoHtml}</div>
-            </div>`;
-    }
-
-    // Actions
-    if (!userAccepted) {
-        bodyContent += `
-            <div class="match-actions">
-                <button class="btn btn-primary" onclick="acceptMatch()"><i class="ph ph-check"></i> Accept Introduction</button>
-                <button class="btn btn-secondary" onclick="rejectMatch()">Decline</button>
-            </div>`;
-    } else if (!mutual) {
-        bodyContent += `
-            <div style="background:var(--cream-dark); border-radius:var(--radius); padding:20px; text-align:center;">
-                <p style="font-size:0.875rem; color:var(--slate-muted);">You've accepted — waiting for the other person to respond.</p>
-            </div>`;
-    } else {
-        // Mutual — show chat
-        bodyContent += renderMatchChat(match);
-    }
-
-    return `
-        <div class="match-card">
-            <div class="match-card-header">
-                <div class="compatibility-ring">
-                    <div class="compatibility-number" style="color:${scoreColor}">${score}%</div>
-                    <div class="compatibility-label">Match</div>
-                </div>
-                <h2>Your Match</h2>
-                <div class="match-meta">
-                    Matched ${match.matched_at ? new Date(match.matched_at).toLocaleDateString() : 'recently'}
-                    ${userAccepted ? ' · <span style="color:#a0d4b0;">✓ You accepted</span>' : ''}
-                    ${matchAccepted ? ' · <span style="color:#a0d4b0;">✓ They accepted</span>' : ''}
-                </div>
+    // Conversation section — only visible when mutually paired
+    if (pairedId && pairedInfo) {
+        html += `
+        <div class="paired-banner">
+            <div class="paired-banner-icon">♥</div>
+            <div>
+                <strong>You and ${escapeHtml(pairedInfo.name)} are paired!</strong>
+                <p>Your guided conversation is now unlocked.</p>
             </div>
-            <div class="match-card-body">
-                ${bodyContent}
-            </div>
-        </div>`;
-}
-
-function renderMatchChat(matchInfo) {
-    return `
+        </div>
         <div class="chaperone-intro">
-            <p>You're connected! Our AI has started 3 conversation topics to help you get to know each other. Click any topic to begin.</p>
+            <p>Love-Matcher has prepared 3 conversation topics to help you get to know each other. Select a topic below to begin.</p>
         </div>
         <div id="matchTopicsContainer">
-            <div style="text-align:center; padding:24px; color:var(--slate-muted); font-size:0.875rem;">
-                <span class="spinner"></span> Loading conversation topics…
-            </div>
+            <div style="text-align:center;padding:24px;color:var(--slate-muted);font-size:0.875rem;"><span class="spinner"></span> Loading topics…</div>
         </div>`;
+    }
+
+    return html;
+}
+
+function renderMatchPoolCard(m, myChoice, pairedId) {
+    const score      = m.score || 0;
+    const scoreColor = score >= 80 ? '#4A7C59' : score >= 60 ? '#B89A6A' : '#A07878';
+    const mutual     = m.mutual;
+    const iChose     = m.i_chose_them;
+    const theyCho    = m.they_chose_me;
+    const uid        = m.user_id;
+
+    let badge = '';
+    if (mutual) {
+        badge = `<span class="match-pool-badge paired">♥ Paired</span>`;
+    } else if (theyCho) {
+        badge = `<span class="match-pool-badge wants-you">They want to pair!</span>`;
+    } else if (iChose) {
+        badge = `<span class="match-pool-badge you-chose">You chose them</span>`;
+    }
+
+    const photoHtml = m.photo
+        ? `<img src="${escapeHtml(m.photo)}" class="match-pool-photo" onclick="window.open('${escapeHtml(m.photo)}','_blank')">`
+        : `<div class="match-pool-photo-placeholder"><i class="ph ph-user"></i></div>`;
+
+    const summary = m.summary
+        ? `<p class="match-pool-summary">${escapeHtml(m.summary.slice(0, 220))}${m.summary.length > 220 ? '…' : ''}</p>`
+        : '';
+
+    const analysis = m.analysis || {};
+    const reasoning = analysis.reasoning
+        ? `<p class="match-pool-reasoning">${escapeHtml(analysis.reasoning.slice(0, 160))}${analysis.reasoning.length > 160 ? '…' : ''}</p>`
+        : '';
+
+    let actions = '';
+    if (mutual) {
+        actions = `<button class="btn btn-secondary btn-sm" onclick="unpairMatch()">Unpair</button>`;
+    } else if (iChose) {
+        actions = `
+            <span style="color:var(--slate-muted);font-size:0.8rem;">Waiting for them…</span>
+            <button class="btn btn-secondary btn-sm" onclick="unpairMatch()">Undo</button>
+            <button class="btn btn-ghost btn-sm" onclick="dismissMatch('${uid}','${escapeHtml(m.name)}')">Dismiss</button>`;
+    } else {
+        const pairLabel = myChoice && myChoice !== uid ? 'Switch Pair' : 'Pair';
+        actions = `
+            <button class="btn btn-primary btn-sm" onclick="pairMatch('${uid}','${escapeHtml(m.name)}')">${pairLabel}</button>
+            <button class="btn btn-ghost btn-sm" onclick="dismissMatch('${uid}','${escapeHtml(m.name)}')">Dismiss</button>`;
+    }
+
+    return `
+    <div class="match-pool-card ${mutual ? 'is-paired' : ''}">
+        <div class="match-pool-card-photo-col">
+            ${photoHtml}
+            <div class="match-pool-score" style="color:${scoreColor}">${score}%</div>
+        </div>
+        <div class="match-pool-card-info">
+            <div class="match-pool-card-top">
+                <span class="match-pool-name">${escapeHtml(m.name)}, ${m.age || '?'}</span>
+                ${badge}
+            </div>
+            ${m.location ? `<p class="match-pool-location"><i class="ph ph-map-pin"></i> ${escapeHtml(m.location)}</p>` : ''}
+            ${summary}
+            ${reasoning}
+            <div class="match-pool-actions">${actions}</div>
+        </div>
+    </div>`;
 }
 
 async function loadMatchTopics() {
@@ -1264,17 +1265,16 @@ async function sendMatchTopicMessage() {
     }
 }
 
-async function acceptMatch() {
-    if (!confirm('Accept this introduction? Once both of you accept, you\'ll be able to chat.')) return;
-
+async function pairMatch(userId, name) {
     try {
-        const res  = await fetch(`${API_URL}/match/accept`, {
+        const res  = await apiFetch(`${API_URL}/match/pair`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId }),
         });
         const data = await res.json();
         if (res.ok) {
-            showToast(data.message || 'Introduction accepted!', 'success');
+            showToast(data.message || `Paired with ${name}!`, data.mutual ? 'success' : 'info');
             loadMatch();
         } else {
             showToast(data.error || 'Failed', 'error');
@@ -1284,17 +1284,12 @@ async function acceptMatch() {
     }
 }
 
-async function rejectMatch() {
-    if (!confirm('Decline this match? You\'ll be returned to the matching pool.')) return;
-
+async function unpairMatch() {
     try {
-        const res  = await fetch(`${API_URL}/match/reject`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
-        });
+        const res  = await apiFetch(`${API_URL}/match/unpair`, { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
-            showToast('Match declined', 'info');
+            showToast('Pairing removed.', 'info');
             loadMatch();
         } else {
             showToast(data.error || 'Failed', 'error');
@@ -1304,48 +1299,24 @@ async function rejectMatch() {
     }
 }
 
-async function sendMatchMessage() {
-    const input = document.getElementById('matchChatInput');
-    if (!input) return;
-    const msg = input.value.trim();
-    if (!msg) return;
-
+async function dismissMatch(userId, name) {
+    if (!confirm(`Remove ${name} from your matches?`)) return;
     try {
-        const res  = await fetch(`${API_URL}/match/messages`, {
+        const res  = await apiFetch(`${API_URL}/match/dismiss`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-            body: JSON.stringify({ message: msg })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId }),
         });
         const data = await res.json();
         if (res.ok) {
-            input.value = '';
-            addMatchMessageToUI(msg, 'sent', data.timestamp);
+            showToast(`${name} removed.`, 'info');
+            loadMatch();
         } else {
-            showToast(data.error || 'Send failed', 'error');
+            showToast(data.error || 'Failed', 'error');
         }
     } catch {
         showToast('Connection error', 'error');
     }
-}
-
-async function loadMatchMessages() {
-    try {
-        const profileRes = await fetch(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${authToken}` } });
-        const profile    = await profileRes.json();
-        const myId       = profile.user_id;
-
-        const res  = await fetch(`${API_URL}/match/messages`, { headers: { Authorization: `Bearer ${authToken}` } });
-        const data = await res.json();
-
-        if (res.ok && data.messages.length > 0) {
-            const container = document.getElementById('matchChatMessages');
-            if (!container) return;
-            container.innerHTML = '';
-            data.messages.forEach(m => {
-                addMatchMessageToUI(m.message, m.from === myId ? 'sent' : 'received', m.timestamp);
-            });
-        }
-    } catch {}
 }
 
 function addMatchMessageToUI(text, type, timestamp) {

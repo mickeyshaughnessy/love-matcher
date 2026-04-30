@@ -221,178 +221,83 @@ def calculate_compatibility_score_fallback(profile1, profile2):
     final_score = int((score / max_score) * 100)
     return final_score, {'reasoning': 'Rule-based fallback scoring', 'strengths': 'Basic compatibility', 'concerns': 'Limited analysis'}
 
-def find_match_for_user(user_profile, all_profiles, verbose=False):
+def normalize_gender(g):
+    if not g:
+        return None
+    g = g.lower()
+    if g in ('m', 'male'):
+        return 'male'
+    if g in ('f', 'female'):
+        return 'female'
+    return g
+
+
+def find_top_matches_for_user(user_profile, all_profiles, n=3, verbose=False):
     """
-    Find best available match for a user
-    Returns (matched_profile, score, analysis) or (None, 0, None)
+    Find up to n compatible matches for a user, sorted by score descending.
+    Returns list of (profile, score, analysis).
     """
     user_id = user_profile['user_id']
-    user_gender = user_profile.get('gender')
-    user_seeking = user_profile.get('seeking_gender')
-    user_age = user_profile.get('age', 'N/A')
-    user_location = user_profile.get('dimensions', {}).get('location', 'N/A')
-    
-    if verbose:
-        print(f"\n  🔎 Finding match for: {user_id}")
-        print(f"     Gender: {user_gender} | Seeking: {user_seeking} | Age: {user_age} | Location: {user_location}")
-        print(f"     Dimensions filled: {len(user_profile.get('dimensions', {}))}/29")
-    
-    # Get user's current match and rejected users
-    current_match = user_profile.get('current_match_id')
-    rejected_users = set(user_profile.get('rejected_matches', []))
-    
-    if verbose and rejected_users:
-        print(f"     Previously rejected: {len(rejected_users)} users")
-    
-    # If user already has a match, skip
-    if current_match:
-        if verbose:
-            print(f"     ⚠️  Already has match: {current_match}")
-        return None, 0, None
-    
-    best_match = None
-    best_score = 0
-    best_analysis = None
-    
-    candidates_considered = 0
-    skip_reasons = {
-        'self': 0,
-        'inactive': 0,
-        'not_eligible': 0,
-        'already_matched': 0,
-        'rejected_by_user': 0,
-        'rejected_user': 0,
-        'invalid_gender': 0,
-        'no_gender': 0,
-        'no_seeking_gender': 0,
-        'seeking_mismatch': 0,
-        'low_score': 0
-    }
-    
-    for candidate in all_profiles:
-        candidate_id = candidate['user_id']
-        candidate_gender = candidate.get('gender')
-        candidate_seeking = candidate.get('seeking_gender')
-        
-        # Skip self
-        if candidate_id == user_id:
-            skip_reasons['self'] += 1
-            continue
-        
-        # Skip if not active
-        if not candidate.get('matching_active', False):
-            skip_reasons['inactive'] += 1
-            continue
-        
-        # Skip if already matched
-        if candidate.get('current_match_id'):
-            skip_reasons['already_matched'] += 1
-            continue
-        
-        # Skip if previously rejected
-        if candidate_id in rejected_users:
-            skip_reasons['rejected_by_user'] += 1
-            continue
-        
-        # Skip if candidate rejected this user
-        if user_id in candidate.get('rejected_matches', []):
-            skip_reasons['rejected_user'] += 1
-            continue
-        
-        # Gender validation - both homosexual and heterosexual matches permitted for adults 18+
-        # Gender must be specified for matching
-        if not user_gender or not candidate_gender:
-            skip_reasons['no_gender'] += 1
-            continue
-        
-        # Seeking gender must be specified for matching
-        if not user_seeking or not candidate_seeking:
-            skip_reasons['no_seeking_gender'] += 1
-            continue
-        
-        # Ensure both have valid gender values
-        valid_genders = {'male', 'female', 'm', 'f'}
-        if user_gender.lower() not in valid_genders or candidate_gender.lower() not in valid_genders:
-            skip_reasons['invalid_gender'] += 1
-            continue
-        
-        # Check mutual seeking compatibility:
-        # User must be seeking candidate's gender AND candidate must be seeking user's gender
-        def normalize_gender(g):
-            g = g.lower()
-            if g in ('m', 'male'):
-                return 'male'
-            elif g in ('f', 'female'):
-                return 'female'
-            return g
-        
-        user_gender_norm = normalize_gender(user_gender)
-        user_seeking_norm = normalize_gender(user_seeking)
-        candidate_gender_norm = normalize_gender(candidate_gender)
-        candidate_seeking_norm = normalize_gender(candidate_seeking)
-        
-        # User wants candidate's gender AND candidate wants user's gender
-        if user_seeking_norm != candidate_gender_norm or candidate_seeking_norm != user_gender_norm:
-            skip_reasons['seeking_mismatch'] += 1
-            continue
-        
-        candidates_considered += 1
-        
-        candidate_age = candidate.get('age', 'N/A')
-        candidate_location = candidate.get('dimensions', {}).get('location', 'N/A')
+    user_gender_n = normalize_gender(user_profile.get('gender'))
+    user_seeking_n = normalize_gender(user_profile.get('seeking_gender'))
 
-        # Calculate compatibility using LLM
-        if verbose:
-            print(f"     → Evaluating {candidate_id}")
-            print(f"       Gender: {candidate_gender} | Age: {candidate_age} | Location: {candidate_location}")
-            print(f"       Dims: {len(candidate.get('dimensions', {}))}")
-        
-        score_result = calculate_compatibility_score(user_profile, candidate)
-        if isinstance(score_result, tuple):
-            score, analysis = score_result
-        else:
-            score = score_result
-            analysis = None
-        
-        if score > best_score:
-            best_score = score
-            best_match = candidate
-            best_analysis = analysis
-            if verbose:
-                print(f"       ✨ New best match! Score: {score}%")
-        elif verbose:
-            print(f"       Score: {score}% (not better than {best_score}%)")
-    
+    pool_ids = {e['user_id'] for e in user_profile.get('match_pool', [])}
+    rejected_ids = set(user_profile.get('rejected_matches', []))
+
     if verbose:
-        print(f"\n     📊 Matching summary for {user_id}:")
-        print(f"        Candidates considered: {candidates_considered}")
-        if skip_reasons['self'] > 0:
-            print(f"        Skipped - self: {skip_reasons['self']}")
-        if skip_reasons['inactive'] > 0:
-            print(f"        Skipped - inactive: {skip_reasons['inactive']}")
-        if skip_reasons['not_eligible'] > 0:
-            print(f"        Skipped - not eligible: {skip_reasons['not_eligible']}")
-        if skip_reasons['already_matched'] > 0:
-            print(f"        Skipped - already matched: {skip_reasons['already_matched']}")
-        if skip_reasons['rejected_by_user'] > 0:
-            print(f"        Skipped - rejected by user: {skip_reasons['rejected_by_user']}")
-        if skip_reasons['rejected_user'] > 0:
-            print(f"        Skipped - rejected user: {skip_reasons['rejected_user']}")
-        if skip_reasons['invalid_gender'] > 0:
-            print(f"        Skipped - invalid gender: {skip_reasons['invalid_gender']}")
-        if skip_reasons['no_gender'] > 0:
-            print(f"        Skipped - no gender: {skip_reasons['no_gender']}")
-        if skip_reasons['no_seeking_gender'] > 0:
-            print(f"        Skipped - no seeking_gender: {skip_reasons['no_seeking_gender']}")
-        if skip_reasons['seeking_mismatch'] > 0:
-            print(f"        Skipped - seeking mismatch: {skip_reasons['seeking_mismatch']}")
-        
-        if best_match:
-            print(f"        ✅ Best match: {best_match['user_id']} with score {best_score}%")
+        print(f"\n  🔎 Finding matches for: {user_id}")
+        print(f"     Pool slots available: {n}  |  Rejected: {len(rejected_ids)}")
+
+    if not user_gender_n or not user_seeking_n:
+        if verbose:
+            print(f"     ⚠️  Missing gender/seeking — skipping")
+        return []
+
+    scored = []
+
+    for candidate in all_profiles:
+        cid = candidate['user_id']
+        if cid == user_id:
+            continue
+        if not candidate.get('matching_active', False):
+            continue
+        if cid in pool_ids:
+            continue
+        if cid in rejected_ids:
+            continue
+        if user_id in candidate.get('rejected_matches', []):
+            continue
+
+        cg = normalize_gender(candidate.get('gender'))
+        cs = normalize_gender(candidate.get('seeking_gender'))
+        if not cg or not cs:
+            continue
+        if user_seeking_n != cg or cs != user_gender_n:
+            continue
+
+        if verbose:
+            print(f"     → Scoring {cid}")
+
+        score_result = calculate_compatibility_score(user_profile, candidate)
+        score, analysis = score_result if isinstance(score_result, tuple) else (score_result, {})
+
+        if score >= 15:
+            scored.append((candidate, score, analysis))
+            if verbose:
+                print(f"       Score: {score}%  ✓")
+        elif verbose:
+            print(f"       Score: {score}%  (below threshold)")
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    result = scored[:n]
+
+    if verbose:
+        if result:
+            print(f"     ✅ Top {len(result)} matches: {[r[0]['user_id'] for r in result]}")
         else:
-            print(f"        ❌ No suitable match found")
-    
-    return best_match, best_score, best_analysis
+            print(f"     ❌ No suitable matches found")
+
+    return result
 
 def run_matching(dry_run=False, verbose=False):
     """Main matching algorithm - runs daily
@@ -432,191 +337,132 @@ def run_matching(dry_run=False, verbose=False):
     # Data checking - profile status breakdown
     print("\n📈 Profile Status Breakdown:")
     total_users = len(all_profiles)
-    already_matched = sum(1 for p in all_profiles if p.get('current_match_id'))
     active_matching = sum(1 for p in all_profiles if p.get('matching_active', False))
-    inactive_matching = total_users - active_matching
-    eligible = sum(1 for p in all_profiles if p.get('matching_eligible', False))
-    under_18 = sum(1 for p in all_profiles if p.get('age', 0) < 18)
+    pools_full = sum(1 for p in all_profiles if len(p.get('match_pool', [])) >= 3)
     free_members = sum(1 for p in all_profiles if p.get('is_free_member', False))
-    paid_members = total_users - free_members
-    
+
     print(f"  Total profiles: {total_users}")
-    print(f"  Already matched: {already_matched}")
     print(f"  Active in matching pool: {active_matching}")
-    print(f"  Inactive/paused: {inactive_matching}")
-    print(f"  Eligible (18+): {eligible}")
-    print(f"  Under 18: {under_18}")
+    print(f"  Pools already full (3 matches): {pools_full}")
     print(f"  Free members: {free_members}")
-    print(f"  Paid members: {paid_members}")
-    
-    # Filter for active users without matches (removed eligibility and payment requirements)
-    # Note: matching_active defaults to True if not set
-    # Now includes ALL profiles, even incomplete ones
-    print("\n🔍 Filtering users for matching...")
-    active_users = [
-        p for p in all_profiles 
-        if p.get('matching_active', False) 
-        and not p.get('current_match_id')
+    print(f"  Paid members: {total_users - free_members}")
+
+    # Users who are active and whose pool has fewer than 3 entries
+    print("\n🔍 Filtering users needing matches...")
+    users_needing_matches = [
+        p for p in all_profiles
+        if p.get('matching_active', False)
+        and len(p.get('match_pool', [])) < 3
     ]
-    
-    print(f"  Active users seeking matches: {len(active_users)}")
-    
-    # Use all active users - no eligibility, payment, or completion filtering
-    # This allows incomplete profiles to be matched
-    eligible_active_users = active_users
-    
-    print(f"  Users available for matching: {len(eligible_active_users)}")
-    
-    if len(eligible_active_users) < 2:
-        print("\n⚠️  Not enough eligible active users for matching")
-        print(f"   Need at least 2 users, have {len(eligible_active_users)}")
+    users_needing_matches.sort(key=lambda p: len(p.get('dimensions', {})), reverse=True)
+
+    print(f"  Users with room for more matches: {len(users_needing_matches)}")
+
+    if len(users_needing_matches) < 2:
+        print("\n⚠️  Not enough users needing matches")
         return {
             'success': True,
-            'matches_created': 0,
-            'reason': 'Not enough eligible users',
-            'eligible_users': len(eligible_active_users),
+            'pool_additions': 0,
+            'reason': 'Not enough users needing matches',
             'total_profiles': len(all_profiles),
-            'already_matched': already_matched
         }
-    
-    # Track matches created
-    matches_created = []
-    
-    # Sort by profile completeness (prioritize complete profiles)
-    print("\n🔄 Sorting users by profile completeness...")
-    eligible_active_users.sort(key=lambda p: len(p.get('dimensions', {})), reverse=True)
-    
-    # Show profile completion stats
-    if eligible_active_users:
-        completions = [len(p.get('dimensions', {})) for p in eligible_active_users]
-        avg_completion = sum(completions) / len(completions)
-        print(f"  Average profile completion: {avg_completion:.1f}/29 dimensions")
-        print(f"  Most complete: {max(completions)}/29, Least complete: {min(completions)}/29")
-    
-    # Match users
-    print("\n💑 Starting matching process...")
+
+    # Track all pool additions made this run
+    pool_additions = []
+    profiles_to_save = set()
+
+    # Build quick lookup map (we modify profiles in-place so candidates see updates)
+    profile_map = {p['user_id']: p for p in all_profiles}
+
+    print("\n💑 Starting match-pool filling...")
     if verbose:
-        print(f"   Verbose mode enabled - showing detailed matching logic\n")
-    matched_user_ids = set()
-    
-    for idx, user in enumerate(eligible_active_users, 1):
+        print(f"   Verbose mode enabled\n")
+
+    for idx, user in enumerate(users_needing_matches, 1):
         user_id = user['user_id']
-        
+        slots = 3 - len(user.get('match_pool', []))
+        if slots <= 0:
+            continue
+
         if verbose:
             print(f"\n{'='*60}")
-            print(f"Processing user {idx}/{len(eligible_active_users)}: {user_id}")
+            print(f"User {idx}/{len(users_needing_matches)}: {user_id} (needs {slots} more)")
             print(f"{'='*60}")
-        
-        # Skip if already matched in this run
-        if user_id in matched_user_ids:
-            if verbose:
-                print(f"   ⏭️  Skipping - already matched in this run")
-            continue
-        
-        # Find best match
-        match, score, analysis = find_match_for_user(user, all_profiles, verbose=verbose)
-        
-        if match and score >= 15:  # Minimum 15% compatibility (relaxed from 30%)
-            match_id = match['user_id']
-            
-            # Skip if match already matched in this run
-            if match_id in matched_user_ids:
-                if verbose:
-                    print(f"   ⏭️  Match candidate {match_id} already matched in this run")
-                continue
-            
-            # Create mutual match with pending acceptance status
-            user['current_match_id'] = match_id
-            user['match_score'] = score
-            user['matched_at'] = datetime.utcnow().isoformat()
-            user['match_accepted'] = False  # Pending acceptance
-            if analysis:
-                user['match_analysis'] = analysis
-            
-            match['current_match_id'] = user_id
-            match['match_score'] = score
-            match['matched_at'] = datetime.utcnow().isoformat()
-            match['match_accepted'] = False  # Pending acceptance
-            if analysis:
-                match['match_analysis'] = analysis
-            
-            # Save updated profiles (unless dry run)
-            if not dry_run:
-                if verbose:
-                    print(f"\n   💾 Saving match to S3...")
-                s3_put(f"profiles/{user_id}.json", user)
-                s3_put(f"profiles/{match_id}.json", match)
-                
-                # Initialize match chat (use sorted IDs for consistent key)
-                chat_ids = sorted([user_id, match_id])
-                match_chat = {
-                    'user1_id': chat_ids[0],
-                    'user2_id': chat_ids[1],
-                    'created_at': datetime.utcnow().isoformat(),
-                    'messages': [],
-                    'match_score': score,
-                    'match_analysis': analysis if analysis else {}
-                }
-                s3_put(f"match_chats/{chat_ids[0]}_{chat_ids[1]}.json", match_chat)
-                if verbose:
-                    print(f"   ✅ Saved profiles and initialized chat")
-            elif verbose:
-                print(f"\n   🔸 DRY RUN - Not saving to S3")
-            
-            matched_user_ids.add(user_id)
-            matched_user_ids.add(match_id)
-            
-            match_entry = {
-                'user1': user_id,
-                'user2': match_id,
-                'score': score
-            }
-            if analysis:
-                match_entry['reasoning'] = analysis.get('reasoning', '')
-            
-            matches_created.append(match_entry)
-            
-            reasoning_preview = analysis.get('reasoning', 'N/A')[:50] + "..." if analysis else "N/A"
-            print(f"  ✅ Matched {user_id} with {match_id} (score: {score}%) - {reasoning_preview}")
-        elif verbose:
-            if match:
-                print(f"\n   ❌ Match score too low: {score}% (minimum: 15%)")
-            else:
-                print(f"\n   ❌ No suitable match found for {user_id}")
-    
-    # Report unmatched users
-    unmatched_count = len(eligible_active_users) - (len(matches_created) * 2)
-    if unmatched_count > 0:
-        print(f"\n  ⚠️  {unmatched_count} eligible users remain unmatched this round")
+
+        top = find_top_matches_for_user(user, all_profiles, n=slots, verbose=verbose)
+
+        now = datetime.utcnow().isoformat()
+
+        for candidate, score, analysis in top:
+            cid = candidate['user_id']
+
+            # Add to user's pool
+            if 'match_pool' not in user:
+                user['match_pool'] = []
+            user['match_pool'].append({
+                'user_id': cid,
+                'score': score,
+                'analysis': analysis or {},
+                'matched_at': now,
+            })
+            profiles_to_save.add(user_id)
+
+            # Add user to candidate's pool (if they still have room and not already there)
+            cand = profile_map[cid]
+            cand_pool = cand.get('match_pool', [])
+            if len(cand_pool) < 3 and not any(e['user_id'] == user_id for e in cand_pool):
+                if 'match_pool' not in cand:
+                    cand['match_pool'] = []
+                cand['match_pool'].append({
+                    'user_id': user_id,
+                    'score': score,
+                    'analysis': analysis or {},
+                    'matched_at': now,
+                })
+                profiles_to_save.add(cid)
+
+            pool_additions.append({'user1': user_id, 'user2': cid, 'score': score})
+            reasoning = (analysis or {}).get('reasoning', '')
+            print(f"  ✅ Added {cid} → {user_id}'s pool (score: {score}%){' — ' + reasoning[:50] if reasoning else ''}")
+
+    # Save all modified profiles
+    if not dry_run:
+        print(f"\n💾 Saving {len(profiles_to_save)} updated profiles...")
+        for uid in profiles_to_save:
+            s3_put(f"profiles/{uid}.json", profile_map[uid])
+    else:
+        print(f"\n🔸 DRY RUN — would save {len(profiles_to_save)} profiles")
+
+    unfilled = sum(1 for p in users_needing_matches if len(p.get('match_pool', [])) < 3)
+    if unfilled:
+        print(f"\n  ⚠️  {unfilled} users still have fewer than 3 matches (pool exhausted)")
     
     print("\n" + "=" * 60)
-    print(f"✓ Matching complete: {len(matches_created)} new matches created")
+    print(f"✓ Matching complete: {len(pool_additions)} pool additions")
     print("=" * 60 + "\n")
-    
-    # Save matching run log (unless dry run)
+
     log_entry = {
         'timestamp': datetime.utcnow().isoformat(),
         'total_profiles': len(all_profiles),
-        'active_users': len(eligible_active_users),
-        'matches_created': len(matches_created),
-        'matches': matches_created,
-        'dry_run': dry_run
+        'users_needing_matches': len(users_needing_matches),
+        'pool_additions': len(pool_additions),
+        'additions': pool_additions,
+        'dry_run': dry_run,
     }
-    
+
     if not dry_run:
-        # Append to log file
         logs = s3_get('matching_logs.json') or {'runs': [], 'created_at': datetime.utcnow().isoformat()}
         logs['runs'].append(log_entry)
         logs['last_run'] = datetime.utcnow().isoformat()
         s3_put('matching_logs.json', logs)
-    
+
     return {
         'success': True,
-        'matches_created': len(matches_created),
+        'pool_additions': len(pool_additions),
         'total_profiles': len(all_profiles),
-        'eligible_users': len(eligible_active_users),
-        'matches': matches_created,
-        'dry_run': dry_run
+        'users_needing_matches': len(users_needing_matches),
+        'additions': pool_additions,
+        'dry_run': dry_run,
     }
 
 if __name__ == '__main__':
